@@ -18,12 +18,60 @@
       text-decoration: none; padding: 8px 14px;
       border-radius: 8px; font-size: 14px; z-index: 10;
     }
+    #nickOverlay {
+      position: fixed; inset: 0;
+      display: none; align-items: center; justify-content: center;
+      background: rgba(0,0,0,0.85); z-index: 100;
+      color: #fff; font-family: system-ui, sans-serif;
+    }
+    #nickOverlay.show { display: flex; }
+    #nickBox {
+      background: #1f2538; padding: 30px 26px; border-radius: 14px;
+      max-width: 340px; width: 90%;
+      border: 3px solid #4fdb9b; text-align: center;
+    }
+    #nickBox h2 { margin: 0 0 8px; font-size: 24px; color: #fff04f; }
+    #nickBox p { margin: 6px 0; font-size: 14px; }
+    #nickInput {
+      width: 100%; box-sizing: border-box;
+      padding: 12px 14px; font-size: 18px;
+      border-radius: 8px; border: 2px solid #4fdb9b;
+      background: #0d1322; color: #fff; outline: none;
+      margin: 12px 0 4px;
+    }
+    #nickInput:focus { border-color: #fff04f; }
+    #nickErro { color: #ff4f6f; min-height: 18px; font-size: 13px; }
+    #nickBtn {
+      background: #4fdb9b; color: #000; font-weight: bold;
+      border: none; padding: 12px 28px; border-radius: 8px;
+      font-size: 18px; cursor: pointer; margin-top: 6px;
+    }
+    #nickBtn:hover { background: #6ff5b3; }
+    #trocarUser {
+      position: fixed; top: 12px; right: 12px;
+      background: rgba(0,0,0,0.5); color: #fff;
+      border: none; padding: 8px 14px;
+      border-radius: 8px; font-size: 14px; z-index: 10;
+      cursor: pointer; display: none;
+    }
+    #trocarUser.show { display: block; }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
 </head>
 <body>
   <a id="voltar" href="../">← voltar</a>
+  <button id="trocarUser" title="Trocar usuário">👤 trocar</button>
   <div id="game"></div>
+
+  <div id="nickOverlay">
+    <div id="nickBox">
+      <h2>👋 Bem-vindo!</h2>
+      <p>Escolhe seu nickname (3 a 20 letras, números ou _).</p>
+      <input id="nickInput" type="text" maxlength="20" autocomplete="off" placeholder="ex: Pedro" />
+      <p id="nickErro"></p>
+      <button id="nickBtn">Entrar</button>
+    </div>
+  </div>
 
   <script>
     // ====== Tamanhos ======
@@ -67,19 +115,84 @@
       },
     ];
 
-    // ====== Estado salvo ======
-    function carregarPontosTotal() { return parseInt(localStorage.getItem("flappy_pontos_total")) || 0; }
-    function salvarPontosTotal(v) { localStorage.setItem("flappy_pontos_total", v); }
-    function carregarMelhor() { return parseInt(localStorage.getItem("flappy_melhor")) || 0; }
-    function salvarMelhor(v) { localStorage.setItem("flappy_melhor", v); }
-    function carregarSkinAtual() { return localStorage.getItem("flappy_skin") || "blue"; }
-    function salvarSkinAtual(s) { localStorage.setItem("flappy_skin", s); }
-    function carregarSkinsCompradas() {
-      const s = localStorage.getItem("flappy_skins_compradas");
-      return s ? JSON.parse(s) : ["blue"];
+    // ====== Sistema de usuários ======
+    function carregarUsuarios() {
+      try { return JSON.parse(localStorage.getItem("flappy_usuarios") || "{}"); }
+      catch { return {}; }
     }
-    function salvarSkinsCompradas(arr) {
-      localStorage.setItem("flappy_skins_compradas", JSON.stringify(arr));
+    function salvarUsuarios(u) { localStorage.setItem("flappy_usuarios", JSON.stringify(u)); }
+    function getUsuarioAtual() { return localStorage.getItem("flappy_usuario_atual"); }
+    function setUsuarioAtual(nick) { localStorage.setItem("flappy_usuario_atual", nick); }
+    function existeUsuario(nick) {
+      const u = carregarUsuarios();
+      // Comparação case-insensitive: "Pedro" e "pedro" são duplicados
+      const lower = nick.toLowerCase();
+      return Object.keys(u).some(k => k.toLowerCase() === lower);
+    }
+    function criarUsuario(nick) {
+      const u = carregarUsuarios();
+      u[nick] = { recorde: 0, pontosTotal: 0, skinAtual: "blue", skinsCompradas: ["blue"] };
+      salvarUsuarios(u);
+      setUsuarioAtual(nick);
+    }
+    function dadosUsuario() {
+      const nick = getUsuarioAtual();
+      const u = carregarUsuarios();
+      return u[nick] || null;
+    }
+    function atualizarUsuario(mod) {
+      const nick = getUsuarioAtual();
+      const u = carregarUsuarios();
+      if (!u[nick]) return;
+      Object.assign(u[nick], mod);
+      salvarUsuarios(u);
+    }
+    function recordeGlobal() {
+      const u = carregarUsuarios();
+      let melhorN = 0, melhorNick = null;
+      for (const [nick, d] of Object.entries(u)) {
+        if ((d.recorde || 0) > melhorN) { melhorN = d.recorde; melhorNick = nick; }
+      }
+      return { pontos: melhorN, nick: melhorNick };
+    }
+    // Wrappers que falam com o usuário atual
+    function carregarPontosTotal() { return (dadosUsuario() || {}).pontosTotal || 0; }
+    function salvarPontosTotal(v) { atualizarUsuario({ pontosTotal: v }); }
+    function carregarMelhor() { return (dadosUsuario() || {}).recorde || 0; }
+    function salvarMelhor(v) { atualizarUsuario({ recorde: v }); }
+    function carregarSkinAtual() { return (dadosUsuario() || {}).skinAtual || "blue"; }
+    function salvarSkinAtual(s) { atualizarUsuario({ skinAtual: s }); }
+    function carregarSkinsCompradas() { return (dadosUsuario() || {}).skinsCompradas || ["blue"]; }
+    function salvarSkinsCompradas(arr) { atualizarUsuario({ skinsCompradas: arr }); }
+
+    function validarNick(nick) {
+      nick = nick.trim();
+      if (nick.length < 3) return "Mínimo 3 letras.";
+      if (nick.length > 20) return "Máximo 20 letras.";
+      if (!/^[A-Za-z0-9_]+$/.test(nick)) return "Só letras, números e _ (sem espaços).";
+      if (existeUsuario(nick)) return "Esse nickname já existe. Escolhe outro.";
+      return null;
+    }
+
+    // Migração: se já tinha pontos antigos (versão sem usuários), pergunta o nick e migra
+    function tentarMigrarDadosAntigos() {
+      const total = parseInt(localStorage.getItem("flappy_pontos_total"));
+      const melhorAntigo = parseInt(localStorage.getItem("flappy_melhor"));
+      if (!isNaN(total) || !isNaN(melhorAntigo)) {
+        return {
+          pontosTotal: isNaN(total) ? 0 : total,
+          recorde: isNaN(melhorAntigo) ? 0 : melhorAntigo,
+          skinAtual: localStorage.getItem("flappy_skin") || "blue",
+          skinsCompradas: JSON.parse(localStorage.getItem("flappy_skins_compradas") || '["blue"]'),
+        };
+      }
+      return null;
+    }
+    function limparDadosAntigos() {
+      localStorage.removeItem("flappy_pontos_total");
+      localStorage.removeItem("flappy_melhor");
+      localStorage.removeItem("flappy_skin");
+      localStorage.removeItem("flappy_skins_compradas");
     }
 
     // ====== Estado ======
@@ -89,13 +202,14 @@
     let fundoCeu;
     let nuvens = [];
     let pontos = 0;
-    let pontosTotal = carregarPontosTotal();
-    let melhor = carregarMelhor();
-    let skinAtual = carregarSkinAtual();
-    let skinsCompradas = carregarSkinsCompradas();
-    let estado = "menu"; // "menu" | "loja" | "jogando" | "fim"
+    let pontosTotal = 0;
+    let melhor = 0;
+    let skinAtual = "blue";
+    let skinsCompradas = ["blue"];
+    let estado = "login"; // "login" | "menu" | "loja" | "jogando" | "fim"
     let textoPontos, telaMenu, telaLoja, textoFim;
-    let textoMoedasMenu;
+    let textoMoedasMenu, textoNickBird;
+    let cenaRef = null;
 
     const config = {
       type: Phaser.AUTO,
@@ -173,6 +287,12 @@
         stroke: "#000000", strokeThickness: 6,
       }).setOrigin(0.5).setDepth(20).setVisible(false);
 
+      // ===== Texto do nickname acima do pássaro =====
+      textoNickBird = this.add.text(0, 0, "", {
+        fontSize: "12px", color: "#ffffff", fontStyle: "bold",
+        stroke: "#000000", strokeThickness: 3,
+      }).setOrigin(0.5, 1).setDepth(6).setVisible(false);
+
       // ===== Input =====
       const acao = () => {
         if (estado === "menu" || estado === "fim") return;
@@ -189,9 +309,93 @@
         if (estado === "jogando") acao();
       });
 
-      // ===== Mostra menu inicial =====
-      mostrarMenu(this);
+      // ===== Login =====
+      cenaRef = this;
+      iniciarFluxoLogin(this);
     }
+
+    function iniciarFluxoLogin(scene) {
+      const nick = getUsuarioAtual();
+      const usuarios = carregarUsuarios();
+      // Se tem usuário atual válido → carrega e mostra menu
+      if (nick && usuarios[nick]) {
+        carregarDadosDoUsuarioAtual();
+        aplicarSkinNoBird(scene);
+        document.getElementById("trocarUser").classList.add("show");
+        document.getElementById("trocarUser").textContent = `👤 ${nick}`;
+        mostrarMenu(scene);
+        return;
+      }
+      // Senão, mostra overlay
+      mostrarOverlayLogin(scene);
+    }
+
+    function carregarDadosDoUsuarioAtual() {
+      pontosTotal = carregarPontosTotal();
+      melhor = carregarMelhor();
+      skinAtual = carregarSkinAtual();
+      skinsCompradas = carregarSkinsCompradas();
+    }
+
+    function mostrarOverlayLogin(scene) {
+      estado = "login";
+      const overlay = document.getElementById("nickOverlay");
+      const input = document.getElementById("nickInput");
+      const erro = document.getElementById("nickErro");
+      const btn = document.getElementById("nickBtn");
+      const migrado = tentarMigrarDadosAntigos();
+      if (migrado) {
+        erro.textContent = "(seus pontos antigos vão pra esse nickname)";
+        erro.style.color = "#fff04f";
+      } else {
+        erro.textContent = "";
+        erro.style.color = "#ff4f6f";
+      }
+      input.value = "";
+      overlay.classList.add("show");
+      setTimeout(() => input.focus(), 50);
+
+      const submit = () => {
+        const nick = input.value.trim();
+        const msg = validarNick(nick);
+        if (msg) {
+          erro.textContent = msg;
+          erro.style.color = "#ff4f6f";
+          return;
+        }
+        // Cria usuário (com dados antigos migrados se houver)
+        criarUsuario(nick);
+        if (migrado) {
+          atualizarUsuario(migrado);
+          limparDadosAntigos();
+        }
+        carregarDadosDoUsuarioAtual();
+        aplicarSkinNoBird(scene);
+        overlay.classList.remove("show");
+        document.getElementById("trocarUser").classList.add("show");
+        document.getElementById("trocarUser").textContent = `👤 ${nick}`;
+        btn.removeEventListener("click", submit);
+        input.removeEventListener("keydown", onEnter);
+        mostrarMenu(scene);
+      };
+      const onEnter = (e) => { if (e.key === "Enter") submit(); };
+      btn.addEventListener("click", submit);
+      input.addEventListener("keydown", onEnter);
+    }
+
+    // Botão "trocar usuário" — fecha sessão e abre login
+    document.getElementById("trocarUser").addEventListener("click", () => {
+      if (estado === "jogando") return; // não troca no meio da partida
+      localStorage.removeItem("flappy_usuario_atual");
+      // Reseta estado em memória
+      pontosTotal = 0; melhor = 0; skinAtual = "blue"; skinsCompradas = ["blue"];
+      // Limpa menu/loja
+      if (telaMenu) { telaMenu.destroy(); telaMenu = null; }
+      if (telaLoja) { telaLoja.destroy(); telaLoja = null; }
+      if (textoFim) { textoFim.destroy(); textoFim = null; }
+      document.getElementById("trocarUser").classList.remove("show");
+      mostrarOverlayLogin(cenaRef);
+    });
 
     function aplicarSkinNoBird(scene) {
       const skin = SKINS.find(s => s.slug === skinAtual) || SKINS[0];
@@ -274,14 +478,25 @@
       telaMenu.add(btnLoja);
       telaMenu.add(txtLoja);
 
-      // Recorde
-      const txtRec = scene.add.text(TELA_W / 2, 510, `🏆 Recorde: ${melhor}`, {
+      // Recorde pessoal
+      const txtRec = scene.add.text(TELA_W / 2, 495, `🏆 Seu recorde: ${melhor}`, {
         fontSize: "16px", color: "#ffffff",
         stroke: "#000000", strokeThickness: 3,
       }).setOrigin(0.5);
       telaMenu.add(txtRec);
 
-      const txtControles = scene.add.text(TELA_W / 2, 550,
+      // Recorde global (deste navegador)
+      const rg = recordeGlobal();
+      if (rg.nick) {
+        const txtRG = scene.add.text(TELA_W / 2, 525,
+          `👑 Maior recorde: ${rg.pontos}\n— ${rg.nick}`, {
+          fontSize: "14px", color: "#fff04f", fontStyle: "bold",
+          align: "center", stroke: "#000000", strokeThickness: 3,
+        }).setOrigin(0.5);
+        telaMenu.add(txtRG);
+      }
+
+      const txtControles = scene.add.text(TELA_W / 2, 575,
         "ESPAÇO ou clique pra pular", {
         fontSize: "12px", color: "#ffffff",
       }).setOrigin(0.5);
@@ -410,7 +625,7 @@
       textoPontos.setText("0").setVisible(true);
       // Limpa paredes antigas
       canos.clear(true, true);
-      // Atualiza skin (caso tenha mudado) e reposiciona pássaro existente
+      // Atualiza skin e reposiciona pássaro
       aplicarSkinNoBird(scene);
       bird.setPosition(120, TELA_H / 2);
       bird.angle = 0;
@@ -420,6 +635,12 @@
       scene.physics.world.gravity.y = GRAVIDADE;
       bird.body.velocity.y = PULO;
       scene.sound.play("pular", { volume: 0.4 });
+      // Nickname acima do bird, escala proporcional à skin
+      const skin = SKINS.find(s => s.slug === skinAtual) || SKINS[0];
+      textoNickBird.setText(getUsuarioAtual() || "");
+      const tam = Math.round(10 + skin.escala * 4); // 14..18 dependendo da skin
+      textoNickBird.setStyle({ fontSize: `${tam}px`, color: "#ffffff", fontStyle: "bold", stroke: "#000000", strokeThickness: 3 });
+      textoNickBird.setVisible(true);
       estado = "jogando";
     }
 
@@ -441,6 +662,13 @@
       const v = bird.body.velocity.y;
       const ang = Phaser.Math.Clamp(v / 8, -25, 90);
       bird.angle += (ang - bird.angle) * 0.08;
+
+      // Nickname acompanha o bird (proporcional ao tamanho da skin)
+      if (textoNickBird.visible) {
+        const skin = SKINS.find(s => s.slug === skinAtual) || SKINS[0];
+        const alturaSkin = skin.h * skin.escala;
+        textoNickBird.setPosition(bird.x, bird.y - alturaSkin / 2 - 4);
+      }
 
       canos.children.iterate(c => {
         if (!c) return;
@@ -541,6 +769,7 @@
         scene.sound.play("ponto", { volume: 0.4 });
         textoFim.destroy(); textoFim = null;
         textoPontos.setVisible(false);
+        textoNickBird.setVisible(false);
         canos.children.iterate(c => { if (c) c.destroy(); });
         canos.clear(true, true);
         bird.setVisible(false);
