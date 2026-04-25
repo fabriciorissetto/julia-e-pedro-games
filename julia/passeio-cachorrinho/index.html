@@ -207,19 +207,25 @@
       boneca.y = 600 + Math.sin(tempo / 110) * 4;
       cachorro.y = 600 + Math.sin(tempo / 110 + 1) * 4;
 
-      // coleira (linha rosa entre eles)
+      // coleira (linha rosa entre eles, curvinha caída)
       coleira.clear();
       coleira.lineStyle(4, 0xff66cc, 1);
       const x1 = boneca.x + 18;
       const y1 = boneca.y - 4;
       const x2 = cachorro.x - 18;
       const y2 = cachorro.y - 8;
-      // curva suave da coleira
       const meioX = (x1 + x2) / 2;
-      const meioY = (y1 + y2) / 2 + 8;
+      const meioY = (y1 + y2) / 2 + 10;
       coleira.beginPath();
       coleira.moveTo(x1, y1);
-      coleira.quadraticCurveTo(meioX, meioY, x2, y2);
+      const passos = 10;
+      for (let i = 1; i <= passos; i++) {
+        const t = i / passos;
+        const u = 1 - t;
+        const cx = u * u * x1 + 2 * u * t * meioX + t * t * x2;
+        const cy = u * u * y1 + 2 * u * t * meioY + t * t * y2;
+        coleira.lineTo(cx, cy);
+      }
       coleira.strokePath();
 
       // nascer obstáculos
