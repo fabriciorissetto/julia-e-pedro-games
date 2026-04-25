@@ -522,13 +522,17 @@
     // ============================================
     function iniciarKonami(scene) {
       const SEQ = ["ArrowUp","ArrowUp","ArrowDown","ArrowDown","ArrowRight","ArrowLeft","ArrowRight","ArrowLeft"];
-      let buffer = [];
+      window.__konamiBuffer = [];
+      window.__konamiAtivo = true;
       window.addEventListener("keydown", (e) => {
-        if (estado === "jogando") return; // não dispara durante partida
-        buffer.push(e.key);
-        if (buffer.length > SEQ.length) buffer = buffer.slice(-SEQ.length);
-        if (buffer.length === SEQ.length && buffer.every((k, i) => k === SEQ[i])) {
-          buffer = [];
+        if (estado === "jogando") return;
+        window.__konamiBuffer.push(e.key);
+        if (window.__konamiBuffer.length > SEQ.length) {
+          window.__konamiBuffer = window.__konamiBuffer.slice(-SEQ.length);
+        }
+        if (window.__konamiBuffer.length === SEQ.length
+            && window.__konamiBuffer.every((k, i) => k === SEQ[i])) {
+          window.__konamiBuffer = [];
           if (!konamiJaUsado()) mostrarCuboKonami(scene);
         }
       });
