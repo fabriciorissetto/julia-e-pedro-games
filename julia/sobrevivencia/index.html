@@ -64,37 +64,56 @@
 
     /* ===== Bag (mochila lateral) ===== */
     .bag {
-      position: fixed; top: 60px; right: 8px;
-      display: flex; flex-direction: column; gap: 6px;
+      position: fixed; top: 60px; right: 10px;
+      display: flex; flex-direction: column; gap: 8px;
       z-index: 46;
-      max-height: calc(100vh - 200px);
-      overflow-y: auto; overflow-x: hidden;
-      padding: 6px;
-      background: rgba(0,0,0,0.35);
-      border-radius: 16px;
+      padding: 10px;
+      background: rgba(0,0,0,0.45);
+      border-radius: 18px;
       backdrop-filter: blur(4px);
-      width: 78px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+      width: 130px;
+      max-height: calc(100vh - 80px);
+      overflow-y: auto; overflow-x: hidden;
     }
     .bag .titulo {
-      font-size: 11px; font-weight: bold; color: #fff;
-      text-align: center; opacity: 0.85; margin-bottom: 2px;
+      font-size: 14px; font-weight: bold; color: #fff;
+      text-align: center; opacity: 0.95; margin-bottom: 2px;
       pointer-events: none;
+      letter-spacing: 0.5px;
+    }
+    .bag #bagSlots {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 6px;
     }
     .bag .slot {
-      background: rgba(255,255,255,0.95);
-      border-radius: 12px;
-      padding: 4px 4px 2px;
+      background: rgba(255,255,255,0.96);
+      border-radius: 14px;
+      padding: 6px 4px 4px;
       text-align: center;
       cursor: pointer;
-      box-shadow: 0 3px 8px rgba(0,0,0,0.25);
+      box-shadow: 0 3px 10px rgba(0,0,0,0.25);
       border: 3px solid transparent;
       transition: transform 0.1s;
       position: relative;
+      min-height: 60px;
     }
-    .bag .slot:hover, .bag .slot:active { transform: scale(1.06); }
+    .bag .slot.placeholder {
+      background: rgba(255,255,255,0.18);
+      border: 2px dashed rgba(255,255,255,0.3);
+      cursor: default; box-shadow: none;
+      min-height: 60px;
+    }
+    .bag .slot.placeholder::before {
+      content: '·'; color: rgba(255,255,255,0.4);
+      font-size: 28px; line-height: 0.5;
+    }
+    .bag .slot:not(.placeholder):hover,
+    .bag .slot:not(.placeholder):active { transform: scale(1.06); }
     .bag .slot.equipado {
       border-color: #ffd84d;
-      box-shadow: 0 0 14px #ffd84d, 0 3px 8px rgba(0,0,0,0.3);
+      box-shadow: 0 0 16px #ffd84d, 0 3px 8px rgba(0,0,0,0.3);
     }
     .bag .slot.raro {
       background: linear-gradient(135deg, #fff7d6 0%, #ffd84d 100%);
@@ -104,38 +123,40 @@
       animation: brilhoMagia 1.5s infinite;
     }
     @keyframes brilhoMagia {
-      0%,100% { box-shadow: 0 0 6px #ff8030, 0 3px 8px rgba(0,0,0,0.3); }
-      50% { box-shadow: 0 0 18px #ff5050, 0 3px 8px rgba(0,0,0,0.3); }
+      0%,100% { box-shadow: 0 0 8px #ff8030, 0 3px 8px rgba(0,0,0,0.3); }
+      50% { box-shadow: 0 0 22px #ff5050, 0 3px 8px rgba(0,0,0,0.3); }
     }
-    .bag .slot .emoji { font-size: 26px; line-height: 1.1; display: block; }
+    .bag .slot .emoji { font-size: 30px; line-height: 1.1; display: block; }
     .bag .slot .nome {
-      font-size: 9px; font-weight: bold; color: #2d6e1a;
-      line-height: 1; margin-top: 2px;
+      font-size: 11px; font-weight: bold; color: #2d6e1a;
+      line-height: 1.05; margin-top: 3px;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .bag .slot.cooldown::after {
       content: ''; position: absolute; inset: 0;
-      background: rgba(0,0,0,0.55); border-radius: 12px;
+      background: rgba(0,0,0,0.55); border-radius: 14px;
     }
     .bag .slot .cdtxt {
       position: absolute; inset: 0;
       display: flex; align-items: center; justify-content: center;
-      font-size: 18px; font-weight: bold; color: #fff;
+      font-size: 22px; font-weight: bold; color: #fff;
       z-index: 2; pointer-events: none;
-    }
-    .bag .vazia {
-      color: rgba(255,255,255,0.7);
-      font-size: 10px; text-align: center; padding: 12px 4px;
     }
     @media (max-width: 700px) {
       .bag {
         top: auto; bottom: 110px; right: 6px; left: auto;
         flex-direction: row; flex-wrap: nowrap;
-        max-height: 88px; max-width: calc(100vw - 12px);
+        max-height: 100px; max-width: calc(100vw - 12px);
         width: auto; overflow-x: auto; overflow-y: hidden;
+        padding: 6px; gap: 6px;
       }
       .bag .titulo { display: none; }
-      .bag .slot { flex: 0 0 60px; }
+      .bag #bagSlots {
+        display: flex; flex-direction: row; gap: 6px;
+      }
+      .bag .slot, .bag .slot.placeholder {
+        flex: 0 0 72px; min-height: 78px;
+      }
     }
 
     /* botoes touch pra mobile */
@@ -274,8 +295,8 @@
     const TILE = 16;
     const SCALE = 2;
     const SIZE = TILE * SCALE; // 32 px
-    const WORLD_W = 60 * SIZE; // 1920
-    const WORLD_H = 60 * SIZE;
+    const WORLD_W = 100 * SIZE; // 3200 — mapa bem maior
+    const WORLD_H = 100 * SIZE;
     const PLAYER_SPEED = 180;
     const META_DIAS = 10;
     const DIA_MS = 28000;
@@ -294,8 +315,9 @@
     };
 
     // ===== catálogo de itens =====
-    // tipo: arma, magia, chapeu, escudo, capa
+    // tipo: arma, magia, chapeu, rosto, escudo, capa, veiculo, pet
     const CATALOGO = {
+      // === armas ===
       espadinha:   { tipo: 'arma',   nome: 'Espadinha',     emoji: '🗡️', forca: 2, raridade: 'comum' },
       espada:      { tipo: 'arma',   nome: 'Espada',        emoji: '⚔️', forca: 4, raridade: 'comum' },
       machado:     { tipo: 'arma',   nome: 'Machado',       emoji: '🪓', forca: 5, raridade: 'raro' },
@@ -305,17 +327,42 @@
       varinha:     { tipo: 'arma',   nome: 'Varinha',       emoji: '🪄', forca: 3, raridade: 'comum' },
       magiaFogo:   { tipo: 'magia',  nome: 'Magia de Fogo', emoji: '🔥', forca: 8, raridade: 'lendario' },
 
-      coroa:       { tipo: 'chapeu', nome: 'Coroa',         emoji: '👑' },
-      tiara:       { tipo: 'chapeu', nome: 'Tiara',         emoji: '💎' },
-      chapeuBruxa: { tipo: 'chapeu', nome: 'Chapéu de Bruxa', emoji: '🎩' },
-      bone:        { tipo: 'chapeu', nome: 'Boné',          emoji: '🧢' },
-      laco:        { tipo: 'chapeu', nome: 'Laço Rosa',     emoji: '🎀' },
+      // === chapéus ===
+      coroa:        { tipo: 'chapeu', nome: 'Coroa',           emoji: '👑', raridade: 'raro' },
+      tiara:        { tipo: 'chapeu', nome: 'Tiara',           emoji: '💎', raridade: 'raro' },
+      chapeuBruxa:  { tipo: 'chapeu', nome: 'Chapéu de Bruxa', emoji: '🎩' },
+      bone:         { tipo: 'chapeu', nome: 'Boné',            emoji: '🧢' },
+      laco:         { tipo: 'chapeu', nome: 'Laço Rosa',       emoji: '🎀' },
+      chapeuPirata: { tipo: 'chapeu', nome: 'Chapéu Pirata',   emoji: '👒' },
+      chapeuChef:   { tipo: 'chapeu', nome: 'Chapéu Chef',     emoji: '🍳' },
 
-      escudoAzul:  { tipo: 'escudo', nome: 'Escudo Azul',   emoji: '🛡️' },
-      escudoOuro:  { tipo: 'escudo', nome: 'Escudo de Ouro', emoji: '🏵️' },
+      // === rosto/óculos ===
+      oculos:        { tipo: 'rosto', nome: 'Óculos',         emoji: '🕶️' },
+      oculosArco:    { tipo: 'rosto', nome: 'Óculos Arco',    emoji: '👓' },
+      oculosCoracao: { tipo: 'rosto', nome: 'Óculos Coração', emoji: '😍', raridade: 'raro' },
 
+      // === escudo ===
+      escudoAzul:  { tipo: 'escudo', nome: 'Escudo Azul',    emoji: '🛡️' },
+      escudoOuro:  { tipo: 'escudo', nome: 'Escudo de Ouro', emoji: '🏵️', raridade: 'raro' },
+
+      // === capa ===
       capaVerm:    { tipo: 'capa',   nome: 'Capa Vermelha', emoji: '🧥' },
       capaAzul:    { tipo: 'capa',   nome: 'Capa Azul',     emoji: '🧣' },
+      asas:        { tipo: 'capa',   nome: 'Asinhas',       emoji: '🦋', raridade: 'raro' },
+
+      // === veículos (aparecem embaixo do player) ===
+      bicicleta:   { tipo: 'veiculo', nome: 'Bicicleta',  emoji: '🚲', raridade: 'raro' },
+      skate:       { tipo: 'veiculo', nome: 'Skate',      emoji: '🛹' },
+      patins:      { tipo: 'veiculo', nome: 'Patins',     emoji: '🛼' },
+      carrinho:    { tipo: 'veiculo', nome: 'Carrinho',   emoji: '🛒' },
+      patinete:    { tipo: 'veiculo', nome: 'Patinete',   emoji: '🛴' },
+      unicornio:   { tipo: 'veiculo', nome: 'Unicórnio',  emoji: '🦄', raridade: 'raro' },
+
+      // === pets (seguem o player) ===
+      gatinho:     { tipo: 'pet', nome: 'Gatinho',     emoji: '🐱', raridade: 'raro' },
+      coelho:      { tipo: 'pet', nome: 'Coelho',      emoji: '🐰', raridade: 'raro' },
+      passarinho:  { tipo: 'pet', nome: 'Passarinho',  emoji: '🐤' },
+      cachorrinho: { tipo: 'pet', nome: 'Cachorrinho', emoji: '🐶' },
     };
 
     // ===== estado =====
@@ -325,7 +372,7 @@
     let inv = {
       madeira: 5, comida: 3, vida: 10,
       itens: [],          // [{id, key}] — coletados
-      equipado: { arma: null, chapeu: null, escudo: null, capa: null }
+      equipado: { arma: null, chapeu: null, rosto: null, escudo: null, capa: null, veiculo: null, pet: null }
     };
     const VIDA_MAX = 10;
     let proxItemId = 1;
@@ -339,7 +386,8 @@
     let scene;
     let nightOverlay;
     let interactHint;
-    let armaSprite, chapeuSprite, escudoSprite, capaSprite;
+    let armaSprite, chapeuSprite, rostoSprite, escudoSprite, capaSprite, veiculoSprite, petSprite;
+    let petPos = { x: 0, y: 0 };
     let magiaProntoEm = 0; // timestamp em que a magia volta a poder ser usada
     let atacando = false;
 
@@ -436,9 +484,9 @@
       paredes = this.physics.add.staticGroup();
       monstros = this.physics.add.group();
 
-      // árvores
+      // árvores (proporcional ao tamanho do mapa)
       const FRAMES_ARVORE = [T.arvorePinheiro, T.arvoreRedonda, T.arvoreLaranja, T.arvoreLaranja2];
-      for (let i=0;i<140;i++){
+      for (let i=0;i<380;i++){
         const x = Phaser.Math.Between(40, WORLD_W-40);
         const y = Phaser.Math.Between(40, WORLD_H-40);
         if (Math.hypot(x - WORLD_W/2, y - WORLD_H/2) < 90) continue;
@@ -450,25 +498,25 @@
         a.tipo = 'arvore';
       }
       // arbustos decorativos
-      for (let i=0;i<60;i++){
+      for (let i=0;i<160;i++){
         const x = Phaser.Math.Between(20, WORLD_W-20);
         const y = Phaser.Math.Between(20, WORLD_H-20);
         this.add.image(x, y, 'town', T.arbustinho).setScale(SCALE).setDepth(1);
       }
 
-      // baús
-      for (let i=0;i<8;i++){
+      // baús: mais e mais espalhados
+      for (let i=0;i<22;i++){
         const ang = Math.random()*Math.PI*2;
-        const dist = Phaser.Math.Between(180, 520);
-        const x = WORLD_W/2 + Math.cos(ang)*dist;
-        const y = WORLD_H/2 + Math.sin(ang)*dist;
+        const dist = Phaser.Math.Between(180, 1100);
+        const x = Phaser.Math.Clamp(WORLD_W/2 + Math.cos(ang)*dist, 60, WORLD_W-60);
+        const y = Phaser.Math.Clamp(WORLD_H/2 + Math.sin(ang)*dist, 60, WORLD_H-60);
         const b = baus.create(x, y, 'town', T.bauMarrom).setScale(SCALE).refreshBody();
         b.tipo = 'bau-facil';
         b.aberto = false;
       }
-      for (let i=0;i<3;i++){
+      for (let i=0;i<8;i++){
         const ang = Math.random()*Math.PI*2;
-        const dist = Phaser.Math.Between(720, 900);
+        const dist = Phaser.Math.Between(1100, 1500);
         const x = Phaser.Math.Clamp(WORLD_W/2 + Math.cos(ang)*dist, 60, WORLD_W-60);
         const y = Phaser.Math.Clamp(WORLD_H/2 + Math.sin(ang)*dist, 60, WORLD_H-60);
         const b = baus.create(x, y, 'town', T.bauMarrom).setScale(SCALE).refreshBody();
@@ -484,10 +532,14 @@
       player.setDepth(10);
 
       // sprites de equipamento (escondidos até equipar)
+      veiculoSprite = this.add.text(0, 0, '', { fontSize: '24px' }).setOrigin(0.5).setDepth(8).setVisible(false);
       capaSprite = this.add.text(0, 0, '', { fontSize: '20px' }).setOrigin(0.5).setDepth(9).setVisible(false);
       chapeuSprite = this.add.text(0, 0, '', { fontSize: '18px' }).setOrigin(0.5).setDepth(11).setVisible(false);
+      rostoSprite = this.add.text(0, 0, '', { fontSize: '14px' }).setOrigin(0.5).setDepth(11).setVisible(false);
       armaSprite = this.add.text(0, 0, '', { fontSize: '20px' }).setOrigin(0.5, 0.5).setDepth(11).setVisible(false);
       escudoSprite = this.add.text(0, 0, '', { fontSize: '18px' }).setOrigin(0.5).setDepth(11).setVisible(false);
+      petSprite = this.add.text(0, 0, '', { fontSize: '20px' }).setOrigin(0.5).setDepth(9).setVisible(false);
+      petPos.x = WORLD_W/2; petPos.y = WORLD_H/2;
 
       // câmera
       this.cameras.main.setBounds(0, 0, WORLD_W, WORLD_H);
@@ -652,6 +704,17 @@
 
     function atualizarEquipamentosVisuais(time) {
       const flip = player.flipX ? -1 : 1;
+
+      // veículo (embaixo do player)
+      if (inv.equipado.veiculo) {
+        const v = CATALOGO[inv.equipado.veiculo];
+        veiculoSprite.setText(v.emoji);
+        veiculoSprite.setVisible(true);
+        veiculoSprite.x = player.x;
+        veiculoSprite.y = player.y + 12;
+        veiculoSprite.setScale(player.flipX ? -1 : 1, 1);
+      } else veiculoSprite.setVisible(false);
+
       // capa atrás
       if (inv.equipado.capa) {
         const c = CATALOGO[inv.equipado.capa];
@@ -669,6 +732,15 @@
         chapeuSprite.x = player.x;
         chapeuSprite.y = player.y - 14;
       } else chapeuSprite.setVisible(false);
+
+      // óculos no rosto
+      if (inv.equipado.rosto) {
+        const c = CATALOGO[inv.equipado.rosto];
+        rostoSprite.setText(c.emoji);
+        rostoSprite.setVisible(true);
+        rostoSprite.x = player.x;
+        rostoSprite.y = player.y - 4;
+      } else rostoSprite.setVisible(false);
 
       // arma na mão
       if (inv.equipado.arma) {
@@ -691,6 +763,20 @@
         escudoSprite.x = player.x - 11 * flip;
         escudoSprite.y = player.y + 4;
       } else escudoSprite.setVisible(false);
+
+      // pet seguindo
+      if (inv.equipado.pet) {
+        const p = CATALOGO[inv.equipado.pet];
+        petSprite.setText(p.emoji);
+        petSprite.setVisible(true);
+        // segue suave atrás do player
+        const alvoX = player.x - 22 * flip;
+        const alvoY = player.y + 8;
+        petPos.x += (alvoX - petPos.x) * 0.08;
+        petPos.y += (alvoY - petPos.y) * 0.08;
+        petSprite.x = petPos.x;
+        petSprite.y = petPos.y + Math.sin(time/200)*2;
+      } else petSprite.setVisible(false);
     }
 
     // ===== ações =====
@@ -727,37 +813,45 @@
       const dropsTexto = [];
 
       if (dourado) {
-        // baú dourado: sempre item legal + bônus
-        // 18% magia de fogo!
-        if (r < 0.18) {
+        // baú dourado: sempre item legal + bônus + recursos
+        if (r < 0.22) {
           adicionarItem('magiaFogo'); dropsTexto.push('🔥 MAGIA DE FOGO!');
-        } else if (r < 0.45) {
-          const arma = Phaser.Math.RND.pick(['martelo','machado','espadaMag','lanca']);
+        } else if (r < 0.55) {
+          const arma = Phaser.Math.RND.pick(['martelo','machado','espadaMag','lanca','varinha']);
           adicionarItem(arma); dropsTexto.push('⚔️ ' + CATALOGO[arma].nome);
-        } else if (r < 0.75) {
-          const visu = Phaser.Math.RND.pick(['coroa','tiara','escudoOuro','capaVerm']);
-          adicionarItem(visu); dropsTexto.push('✨ ' + CATALOGO[visu].nome);
         } else {
-          const arma = Phaser.Math.RND.pick(['espada','machado','lanca']);
-          adicionarItem(arma); dropsTexto.push('⚔️ ' + CATALOGO[arma].nome);
+          // 2 visuais raros de uma vez!
+          const pool = ['coroa','tiara','escudoOuro','capaVerm','bicicleta','unicornio','asas','oculosCoracao','gatinho','coelho'];
+          const visu1 = Phaser.Math.RND.pick(pool);
+          const visu2 = Phaser.Math.RND.pick(pool.filter(x=>x!==visu1));
+          adicionarItem(visu1); adicionarItem(visu2);
+          dropsTexto.push('✨ ' + CATALOGO[visu1].nome + ' + ' + CATALOGO[visu2].nome);
         }
-        // bônus
-        inv.comida += 3; inv.madeira += 4;
-        dropsTexto.push('+3 🍎 +4 🪵');
+        inv.comida += 4; inv.madeira += 5;
+        inv.vida = Math.min(VIDA_MAX, inv.vida + 2);
+        dropsTexto.push('+4 🍎 +5 🪵 +2 ❤️');
       } else {
-        // baú marrom: comum
-        if (r < 0.30) { inv.comida += 2; dropsTexto.push('+2 🍎 comida'); }
-        else if (r < 0.55) { inv.madeira += 3; dropsTexto.push('+3 🪵 madeira'); }
-        else if (r < 0.70) {
-          inv.vida = Math.min(VIDA_MAX, inv.vida + 3);
-          dropsTexto.push('+3 ❤️ vida');
+        // baú marrom: SEMPRE dá um item legal + às vezes recursos
+        const poolVisuais = ['chapeuBruxa','bone','laco','chapeuPirata','chapeuChef','escudoAzul','capaAzul','oculos','oculosArco','skate','patins','carrinho','passarinho'];
+        const poolArmas = ['espadinha','espada','varinha'];
+
+        if (r < 0.55) {
+          const visu = Phaser.Math.RND.pick(poolVisuais);
+          adicionarItem(visu); dropsTexto.push('✨ ' + CATALOGO[visu].nome);
         } else if (r < 0.85) {
-          const arma = Phaser.Math.RND.pick(['espadinha','espada','varinha']);
+          const arma = Phaser.Math.RND.pick(poolArmas);
           adicionarItem(arma); dropsTexto.push('🗡️ ' + CATALOGO[arma].nome);
         } else {
-          const visu = Phaser.Math.RND.pick(['chapeuBruxa','bone','laco','escudoAzul','capaAzul']);
-          adicionarItem(visu); dropsTexto.push('✨ ' + CATALOGO[visu].nome);
+          // raríssimo: até item raro num baú simples
+          const raros = ['coroa','asas','bicicleta','gatinho'];
+          const raro = Phaser.Math.RND.pick(raros);
+          adicionarItem(raro); dropsTexto.push('🌟 ' + CATALOGO[raro].nome);
         }
+        // recursos extras
+        const r2 = Math.random();
+        if (r2 < 0.6) { inv.comida += 2; dropsTexto.push('+2 🍎'); }
+        else if (r2 < 0.85) { inv.madeira += 2; dropsTexto.push('+2 🪵'); }
+        else { inv.vida = Math.min(VIDA_MAX, inv.vida + 2); dropsTexto.push('+2 ❤️'); }
       }
       somPickup();
       const sparkle = scene.add.text(bau.x, bau.y, '✨', { fontSize: '24px' }).setOrigin(0.5).setDepth(30);
@@ -772,10 +866,9 @@
       inv.itens.push(item);
       // auto-equipa se o slot estiver vazio
       const tipo = CATALOGO[key].tipo;
-      if (tipo === 'arma' || tipo === 'magia') {
-        if (!inv.equipado.arma) inv.equipado.arma = key;
-      } else if (!inv.equipado[tipo]) {
-        inv.equipado[tipo] = key;
+      const slot = (tipo === 'magia') ? 'arma' : tipo;
+      if (slot in inv.equipado && !inv.equipado[slot]) {
+        inv.equipado[slot] = key;
       }
     }
 
@@ -1031,15 +1124,12 @@
       document.getElementById('hudComida').textContent = inv.comida;
     }
 
+    const SLOTS_MIN = 9;
     function renderBag() {
       const cont = document.getElementById('bagSlots');
       cont.innerHTML = '';
-      if (inv.itens.length === 0) {
-        cont.innerHTML = '<div class="vazia">Vazia<br>abre os baús!</div>';
-        return;
-      }
-      // ordena: arma/magia primeiro, depois chapéu, escudo, capa
-      const ordem = { magia:0, arma:1, chapeu:2, escudo:3, capa:4 };
+      // ordena: arma/magia primeiro, depois chapéu, rosto, escudo, capa, veículo, pet
+      const ordem = { magia:0, arma:1, chapeu:2, rosto:3, escudo:4, capa:5, veiculo:6, pet:7 };
       const ordenados = inv.itens.slice().sort((a,b) =>
         (ordem[CATALOGO[a.key].tipo] ?? 9) - (ordem[CATALOGO[b.key].tipo] ?? 9)
       );
@@ -1050,11 +1140,9 @@
         if (def.raridade === 'lendario') slot.classList.add('magia');
         else if (def.raridade === 'raro') slot.classList.add('raro');
 
-        // está equipado?
         const slotTipo = (def.tipo === 'magia') ? 'arma' : def.tipo;
         if (inv.equipado[slotTipo] === item.key) slot.classList.add('equipado');
 
-        // cooldown da magia
         let cdHtml = '';
         if (def.tipo === 'magia' && magiaProntoEm > 0 && scene && scene.time.now < magiaProntoEm) {
           slot.classList.add('cooldown');
@@ -1066,6 +1154,13 @@
         slot.onclick = () => clicarItem(item);
         cont.appendChild(slot);
       });
+      // completa com placeholders pra mochila ter sempre altura mínima
+      const faltam = Math.max(0, SLOTS_MIN - ordenados.length);
+      for (let i=0;i<faltam;i++){
+        const ph = document.createElement('div');
+        ph.className = 'slot placeholder';
+        cont.appendChild(ph);
+      }
     }
 
     function clicarItem(item) {
