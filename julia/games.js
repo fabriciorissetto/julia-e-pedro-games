@@ -13,4 +13,11 @@ window.GAMES = [
     color: "#ff6fb5",
     description: "Desvia das pedras e da lama"
   },
+  {
+    slug: "forca",
+    title: "Jogo da Forca",
+    emoji: "👸",
+    color: "#b56fff",
+    description: "Adivinha a palavra com dicas e moedinhas"
+  },
 ];
