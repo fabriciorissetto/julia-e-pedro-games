@@ -7,3 +7,5 @@ node_modules
 .idea
 .vscode
 Thumbs.db
+.claude/settings.local.json
+.claude/scripts/
