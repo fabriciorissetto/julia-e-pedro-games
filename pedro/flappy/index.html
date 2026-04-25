@@ -113,6 +113,40 @@
         url: "/shared/assets/sprites/pixelfrog/pixel-adventure-1/Enemies/Duck/Jump (36x36).png",
         w: 36, h: 36, frames: 1, escala: 1.4, fps: 1,
       },
+      {
+        slug: "ghost", nome: "Fantasma", custo: 75,
+        url: "/shared/assets/sprites/pixelfrog/pixel-adventure-1/Enemies/Ghost/Idle (44x30).png",
+        w: 44, h: 30, frames: 10, escala: 1.2, fps: 12,
+      },
+      {
+        slug: "mask", nome: "Mascarado", custo: 80,
+        url: "/shared/assets/sprites/pixelfrog/pixel-adventure-1/Main Characters/Mask Dude/Double Jump (32x32).png",
+        w: 32, h: 32, frames: 6, escala: 1.6, fps: 14,
+      },
+      {
+        slug: "skull", nome: "Caveira", custo: 100,
+        url: "/shared/assets/sprites/pixelfrog/pixel-adventure-1/Enemies/Skull/Idle 1 (52x54).png",
+        w: 52, h: 54, frames: 8, escala: 1.0, fps: 10,
+      },
+      // SKIN ESPECIAL: Goku Saiyajin (usada SÓ durante a habilidade Shield Breaker)
+      {
+        slug: "goku", nome: "Goku Saiyajin", custo: -1, // -1 = não comprável
+        url: "/shared/assets/sprites/pixelfrog/pixel-adventure-1/Main Characters/Mask Dude/Double Jump (32x32).png",
+        w: 32, h: 32, frames: 6, escala: 1.7, fps: 18,
+        tint: 0xffd700, // dourado de saiyajin
+      },
+    ];
+
+    // ====== Habilidades ======
+    const HABILIDADES = [
+      {
+        slug: "shield_breaker",
+        nome: "Shield Breaker",
+        custo: 150,
+        descricao: "Carrega em 15s. Aperte B pra quebrar 3 paredes!",
+        cooldown: 15000,
+        paredesQuebradas: 3,
+      },
     ];
 
     // ====== Sistema de usuários ======
@@ -131,14 +165,23 @@
     }
     function criarUsuario(nick) {
       const u = carregarUsuarios();
-      u[nick] = { recorde: 0, pontosTotal: 0, skinAtual: "blue", skinsCompradas: ["blue"] };
+      u[nick] = { recorde: 0, pontosTotal: 0, skinAtual: "blue", skinsCompradas: ["blue"], habilidades: [] };
       salvarUsuarios(u);
       setUsuarioAtual(nick);
     }
+    function carregarHabilidades() { return (dadosUsuario() || {}).habilidades || []; }
+    function salvarHabilidades(arr) { atualizarUsuario({ habilidades: arr }); }
+    function temHabilidade(slug) { return carregarHabilidades().includes(slug); }
     function dadosUsuario() {
       const nick = getUsuarioAtual();
       const u = carregarUsuarios();
-      return u[nick] || null;
+      const d = u[nick];
+      if (d && !d.habilidades) {
+        // migra usuário antigo (sem campo habilidades)
+        d.habilidades = [];
+        salvarUsuarios(u);
+      }
+      return d || null;
     }
     function atualizarUsuario(mod) {
       const nick = getUsuarioAtual();
@@ -210,6 +253,15 @@
     let textoPontos, telaMenu, telaLoja, textoFim;
     let textoMoedasMenu, textoNickBird;
     let cenaRef = null;
+    let habilidades_compradas = []; // cache local
+    // Estado da habilidade Shield Breaker
+    let habCarga = 0;          // 0..1
+    let habPronta = false;
+    let habAtiva = false;
+    let paredesParaQuebrar = 0;
+    let teclaB;
+    let barraHabBg, barraHabFill, textoHab;
+    let abaLojaAtual = "skins"; // "skins" | "habilidades"
 
     const config = {
       type: Phaser.AUTO,
@@ -279,7 +331,20 @@
 
       // ===== Colisões =====
       this.physics.add.collider(bird, chao, () => bater(scene));
-      this.physics.add.overlap(bird, canos, () => bater(scene));
+      this.physics.add.overlap(bird, canos, (_b, c) => {
+        if (habAtiva && paredesParaQuebrar > 0 && !c.dataJaQuebrada) {
+          // Quebra o par e desconta uma "parede" (par)
+          c.dataJaQuebrada = true;
+          if (c.dataPar) c.dataPar.dataJaQuebrada = true;
+          if (c.dataPar) c.dataPar.destroy();
+          c.destroy();
+          paredesParaQuebrar--;
+          scene.cameras.main.flash(150, 255, 220, 100); // flash dourado
+          if (paredesParaQuebrar <= 0) desativarShieldBreaker(scene);
+          return;
+        }
+        if (!c.dataJaQuebrada) bater(scene);
+      });
 
       // ===== UI =====
       textoPontos = this.add.text(TELA_W / 2, 60, "0", {
@@ -292,6 +357,17 @@
         fontSize: "12px", color: "#ffffff", fontStyle: "bold",
         stroke: "#000000", strokeThickness: 3,
       }).setOrigin(0.5, 1).setDepth(6).setVisible(false);
+
+      // ===== Barra da habilidade (parte inferior, acima do chão) =====
+      const barraY = TELA_H - CHAO_H - 14;
+      barraHabBg = this.add.rectangle(TELA_W / 2, barraY, 280, 14, 0x000000, 0.7)
+        .setStrokeStyle(2, 0xffffff).setScrollFactor(0).setDepth(20).setVisible(false);
+      barraHabFill = this.add.rectangle(TELA_W / 2 - 138, barraY, 0, 10, 0x4f9bff)
+        .setOrigin(0, 0.5).setScrollFactor(0).setDepth(21).setVisible(false);
+      textoHab = this.add.text(TELA_W / 2, barraY - 14, "", {
+        fontSize: "11px", color: "#ffffff", fontStyle: "bold",
+        stroke: "#000000", strokeThickness: 2,
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(21).setVisible(false);
 
       // ===== Input =====
       const acao = () => {
@@ -307,6 +383,10 @@
       this.input.keyboard.on("keydown-UP", acao);
       this.input.on("pointerdown", (p) => {
         if (estado === "jogando") acao();
+      });
+      // Tecla B = ativar Shield Breaker
+      this.input.keyboard.on("keydown-B", () => {
+        if (estado === "jogando" && habPronta && !habAtiva) ativarShieldBreaker(scene);
       });
 
       // ===== Login =====
@@ -398,7 +478,7 @@
     });
 
     function aplicarSkinNoBird(scene) {
-      const skin = SKINS.find(s => s.slug === skinAtual) || SKINS[0];
+      const skin = SKINS.find(s => s.slug === skinAtual && s.custo >= 0) || SKINS[0];
       bird.setTexture(`skin_${skin.slug}`);
       bird.setScale(skin.escala);
       const hbW = Math.floor(skin.w * 0.65);
@@ -406,6 +486,7 @@
       bird.setSize(hbW, hbH);
       if (skin.frames > 1) bird.play(`anim_${skin.slug}`);
       else if (bird.anims) bird.anims.stop();
+      bird.clearTint();
     }
 
     // ============================================
@@ -504,7 +585,7 @@
     }
 
     // ============================================
-    // LOJA
+    // LOJA (com abas)
     // ============================================
     function mostrarLoja(scene) {
       estado = "loja";
@@ -514,95 +595,47 @@
       const fundo = scene.add.rectangle(TELA_W / 2, TELA_H / 2, TELA_W, TELA_H, 0x000000, 0.7);
       telaLoja.add(fundo);
 
-      const titulo = scene.add.text(TELA_W / 2, 30, "🛒 LOJA", {
-        fontSize: "26px", color: "#fff04f", fontStyle: "bold",
+      const titulo = scene.add.text(TELA_W / 2, 25, "🛒 LOJA", {
+        fontSize: "22px", color: "#fff04f", fontStyle: "bold",
         stroke: "#000000", strokeThickness: 4,
       }).setOrigin(0.5);
       telaLoja.add(titulo);
 
-      const txtMoedas = scene.add.text(TELA_W / 2, 65, `💰 ${pontosTotal} pontos`, {
-        fontSize: "18px", color: "#ffffff", fontStyle: "bold",
+      const txtMoedas = scene.add.text(TELA_W / 2, 53, `💰 ${pontosTotal} pontos`, {
+        fontSize: "16px", color: "#ffffff", fontStyle: "bold",
         stroke: "#000000", strokeThickness: 3,
       }).setOrigin(0.5);
       telaLoja.add(txtMoedas);
 
-      // Lista de skins
-      const startY = 110;
-      const itemH = 78;
-      SKINS.forEach((s, i) => {
-        const y = startY + i * itemH;
-        const card = scene.add.rectangle(TELA_W / 2, y, 360, itemH - 8, 0x222244, 0.95)
-          .setStrokeStyle(2, 0xffffff);
-        telaLoja.add(card);
-
-        // Avatar
-        const ic = scene.add.sprite(TELA_W / 2 - 140, y, `skin_${s.slug}`);
-        ic.setScale(s.escala * 0.9);
-        if (s.frames > 1) ic.play(`anim_${s.slug}`);
-        telaLoja.add(ic);
-
-        // Nome + custo
-        const txtNome = scene.add.text(TELA_W / 2 - 80, y - 12, s.nome, {
-          fontSize: "16px", color: "#ffffff", fontStyle: "bold",
-        }).setOrigin(0, 0.5);
-        telaLoja.add(txtNome);
-
-        const possui = skinsCompradas.includes(s.slug);
-        const equipada = skinAtual === s.slug;
-
-        let textoStatus, corStatus;
-        if (equipada) { textoStatus = "✓ EQUIPADA"; corStatus = "#4fdb9b"; }
-        else if (possui) { textoStatus = "Equipar"; corStatus = "#4f9bff"; }
-        else { textoStatus = `💰 ${s.custo}`; corStatus = pontosTotal >= s.custo ? "#fff04f" : "#aaaaaa"; }
-
-        const txtStatus = scene.add.text(TELA_W / 2 + 100, y, textoStatus, {
-          fontSize: "16px", color: corStatus, fontStyle: "bold",
-        }).setOrigin(0.5);
-        telaLoja.add(txtStatus);
-
-        // Card clicável (compra/equipa)
-        card.setInteractive();
-        card.on("pointerdown", () => {
-          if (equipada) return;
-          if (possui) {
-            // Equipar
-            skinAtual = s.slug;
-            salvarSkinAtual(skinAtual);
-            scene.sound.play("comprar", { volume: 0.5 });
-            telaLoja.destroy();
-            telaLoja = null;
-            mostrarLoja(scene); // recarrega
-          } else {
-            // Comprar
-            if (pontosTotal >= s.custo) {
-              pontosTotal -= s.custo;
-              salvarPontosTotal(pontosTotal);
-              skinsCompradas.push(s.slug);
-              salvarSkinsCompradas(skinsCompradas);
-              skinAtual = s.slug;
-              salvarSkinAtual(skinAtual);
-              scene.sound.play("comprar", { volume: 0.6 });
-              telaLoja.destroy();
-              telaLoja = null;
-              mostrarLoja(scene);
-            } else {
-              scene.sound.play("erro", { volume: 0.5 });
-              // Pequeno shake no card
-              scene.tweens.add({
-                targets: card, x: TELA_W / 2 + 8, duration: 60,
-                yoyo: true, repeat: 3,
-                onComplete: () => card.x = TELA_W / 2,
-              });
-            }
-          }
+      // ===== Abas =====
+      const abaY = 90;
+      const criarAba = (nome, slug, x, ativa) => {
+        const cor = ativa ? 0xfff04f : 0x444466;
+        const corTxt = ativa ? "#000" : "#ffffff";
+        const r = scene.add.rectangle(x, abaY, 140, 36, cor, 1).setInteractive().setStrokeStyle(2, 0x000000);
+        const t = scene.add.text(x, abaY, nome, { fontSize: "14px", color: corTxt, fontStyle: "bold" }).setOrigin(0.5);
+        r.on("pointerdown", () => {
+          if (abaLojaAtual === slug) return;
+          abaLojaAtual = slug;
+          scene.sound.play("ponto", { volume: 0.3 });
+          telaLoja.destroy();
+          telaLoja = null;
+          mostrarLoja(scene);
         });
-      });
+        telaLoja.add(r); telaLoja.add(t);
+      };
+      criarAba("👕 SKINS", "skins", TELA_W / 2 - 75, abaLojaAtual === "skins");
+      criarAba("⚡ HABILIDADES", "habilidades", TELA_W / 2 + 75, abaLojaAtual === "habilidades");
+
+      // ===== Conteúdo conforme aba =====
+      if (abaLojaAtual === "skins") renderSkinsLoja(scene);
+      else renderHabilidadesLoja(scene);
 
       // Botão voltar
-      const btnVoltar = scene.add.rectangle(TELA_W / 2, TELA_H - 40, 160, 44, 0x4f9bff, 1)
+      const btnVoltar = scene.add.rectangle(TELA_W / 2, TELA_H - 30, 160, 38, 0x4f9bff, 1)
         .setInteractive().setStrokeStyle(3, 0x000000);
-      const txtVoltar = scene.add.text(TELA_W / 2, TELA_H - 40, "← Voltar", {
-        fontSize: "18px", color: "#ffffff", fontStyle: "bold",
+      const txtVoltar = scene.add.text(TELA_W / 2, TELA_H - 30, "← Voltar", {
+        fontSize: "16px", color: "#ffffff", fontStyle: "bold",
       }).setOrigin(0.5);
       btnVoltar.on("pointerdown", () => {
         scene.sound.play("ponto", { volume: 0.4 });
@@ -613,6 +646,121 @@
       });
       telaLoja.add(btnVoltar);
       telaLoja.add(txtVoltar);
+    }
+
+    function renderSkinsLoja(scene) {
+      const startY = 135;
+      const itemH = 60;
+      const compraveis = SKINS.filter(s => s.custo >= 0); // exclui Goku
+      compraveis.forEach((s, i) => {
+        const y = startY + i * itemH;
+        const card = scene.add.rectangle(TELA_W / 2, y, 370, itemH - 8, 0x222244, 0.95)
+          .setStrokeStyle(2, 0xffffff);
+        telaLoja.add(card);
+
+        const ic = scene.add.sprite(TELA_W / 2 - 150, y, `skin_${s.slug}`);
+        ic.setScale(s.escala * 0.7);
+        if (s.frames > 1) ic.play(`anim_${s.slug}`);
+        telaLoja.add(ic);
+
+        const txtNome = scene.add.text(TELA_W / 2 - 100, y - 8, s.nome, {
+          fontSize: "14px", color: "#ffffff", fontStyle: "bold",
+        }).setOrigin(0, 0.5);
+        telaLoja.add(txtNome);
+
+        const possui = skinsCompradas.includes(s.slug);
+        const equipada = skinAtual === s.slug;
+        let textoStatus, corStatus;
+        if (equipada) { textoStatus = "✓ EQUIPADA"; corStatus = "#4fdb9b"; }
+        else if (possui) { textoStatus = "Equipar"; corStatus = "#4f9bff"; }
+        else { textoStatus = `💰 ${s.custo}`; corStatus = pontosTotal >= s.custo ? "#fff04f" : "#aaaaaa"; }
+
+        const txtStatus = scene.add.text(TELA_W / 2 + 110, y, textoStatus, {
+          fontSize: "14px", color: corStatus, fontStyle: "bold",
+        }).setOrigin(0.5);
+        telaLoja.add(txtStatus);
+
+        card.setInteractive();
+        card.on("pointerdown", () => {
+          if (equipada) return;
+          if (possui) {
+            skinAtual = s.slug;
+            salvarSkinAtual(skinAtual);
+            scene.sound.play("comprar", { volume: 0.5 });
+            telaLoja.destroy(); telaLoja = null;
+            mostrarLoja(scene);
+          } else if (pontosTotal >= s.custo) {
+            pontosTotal -= s.custo;
+            salvarPontosTotal(pontosTotal);
+            skinsCompradas.push(s.slug);
+            salvarSkinsCompradas(skinsCompradas);
+            skinAtual = s.slug;
+            salvarSkinAtual(skinAtual);
+            scene.sound.play("comprar", { volume: 0.6 });
+            telaLoja.destroy(); telaLoja = null;
+            mostrarLoja(scene);
+          } else {
+            scene.sound.play("erro", { volume: 0.5 });
+            scene.tweens.add({ targets: card, x: TELA_W / 2 + 8, duration: 60, yoyo: true, repeat: 3, onComplete: () => card.x = TELA_W / 2 });
+          }
+        });
+      });
+    }
+
+    function renderHabilidadesLoja(scene) {
+      const startY = 145;
+      const itemH = 100;
+      HABILIDADES.forEach((h, i) => {
+        const y = startY + i * itemH;
+        const card = scene.add.rectangle(TELA_W / 2, y, 370, itemH - 12, 0x2a2a4f, 0.95)
+          .setStrokeStyle(2, 0xfff04f);
+        telaLoja.add(card);
+
+        const txtIcone = scene.add.text(TELA_W / 2 - 150, y, "💥", {
+          fontSize: "32px",
+        }).setOrigin(0.5);
+        telaLoja.add(txtIcone);
+
+        const txtNome = scene.add.text(TELA_W / 2 - 100, y - 22, h.nome, {
+          fontSize: "16px", color: "#fff04f", fontStyle: "bold",
+        }).setOrigin(0, 0.5);
+        telaLoja.add(txtNome);
+
+        const txtDesc = scene.add.text(TELA_W / 2 - 100, y + 8, h.descricao, {
+          fontSize: "11px", color: "#ffffff",
+          wordWrap: { width: 240 },
+        }).setOrigin(0, 0.5);
+        telaLoja.add(txtDesc);
+
+        const possui = temHabilidade(h.slug);
+        let textoStatus, corStatus;
+        if (possui) { textoStatus = "✓ ATIVA"; corStatus = "#4fdb9b"; }
+        else { textoStatus = `💰 ${h.custo}`; corStatus = pontosTotal >= h.custo ? "#fff04f" : "#aaaaaa"; }
+
+        const txtStatus = scene.add.text(TELA_W / 2 + 110, y - 25, textoStatus, {
+          fontSize: "14px", color: corStatus, fontStyle: "bold",
+        }).setOrigin(0.5);
+        telaLoja.add(txtStatus);
+
+        if (!possui) {
+          card.setInteractive();
+          card.on("pointerdown", () => {
+            if (pontosTotal >= h.custo) {
+              pontosTotal -= h.custo;
+              salvarPontosTotal(pontosTotal);
+              const habs = carregarHabilidades();
+              habs.push(h.slug);
+              salvarHabilidades(habs);
+              scene.sound.play("comprar", { volume: 0.6 });
+              telaLoja.destroy(); telaLoja = null;
+              mostrarLoja(scene);
+            } else {
+              scene.sound.play("erro", { volume: 0.5 });
+              scene.tweens.add({ targets: card, x: TELA_W / 2 + 8, duration: 60, yoyo: true, repeat: 3, onComplete: () => card.x = TELA_W / 2 });
+            }
+          });
+        }
+      });
     }
 
     // ============================================
@@ -638,9 +786,20 @@
       // Nickname acima do bird, escala proporcional à skin
       const skin = SKINS.find(s => s.slug === skinAtual) || SKINS[0];
       textoNickBird.setText(getUsuarioAtual() || "");
-      const tam = Math.round(10 + skin.escala * 4); // 14..18 dependendo da skin
+      const tam = Math.round(10 + skin.escala * 4);
       textoNickBird.setStyle({ fontSize: `${tam}px`, color: "#ffffff", fontStyle: "bold", stroke: "#000000", strokeThickness: 3 });
       textoNickBird.setVisible(true);
+
+      // Reset habilidade
+      habCarga = 0;
+      habPronta = false;
+      habAtiva = false;
+      paredesParaQuebrar = 0;
+      const temSB = temHabilidade("shield_breaker");
+      barraHabBg.setVisible(temSB);
+      barraHabFill.setVisible(temSB);
+      textoHab.setVisible(temSB);
+
       estado = "jogando";
     }
 
@@ -689,6 +848,26 @@
       }
 
       if (bird.y < -20) bird.body.velocity.y = 50;
+
+      // === Habilidade Shield Breaker ===
+      if (temHabilidade("shield_breaker") && !habAtiva) {
+        habCarga = Math.min(1, habCarga + dt / 15);
+        if (habCarga >= 1) habPronta = true;
+      }
+      // Atualiza barra
+      const habW = 276;
+      barraHabFill.width = habCarga * habW;
+      if (habAtiva) {
+        textoHab.setText(`💥 SHIELD BREAKER ATIVO — ${paredesParaQuebrar} restantes`);
+        barraHabFill.fillColor = 0xffd700;
+        barraHabFill.width = (paredesParaQuebrar / 3) * habW;
+      } else if (habPronta) {
+        textoHab.setText("🔥 PRESSIONE B");
+        barraHabFill.fillColor = 0x4fdb9b;
+      } else if (temHabilidade("shield_breaker")) {
+        textoHab.setText(`Shield Breaker: ${Math.round(habCarga * 100)}%`);
+        barraHabFill.fillColor = 0x4f9bff;
+      }
     }
 
     function spawnarCanos(scene) {
@@ -720,11 +899,56 @@
       canos.add(paredeBaixo);
       paredeBaixo.body.setAllowGravity(false);
       paredeBaixo.body.setVelocity(VEL_CANO, 0);
+
+      // Liga as duas paredes (pra Shield Breaker quebrar o par junto)
+      paredeCima.dataPar = paredeBaixo;
+      paredeBaixo.dataPar = paredeCima;
+    }
+
+    // ============================================
+    // HABILIDADE: SHIELD BREAKER
+    // ============================================
+    function ativarShieldBreaker(scene) {
+      habAtiva = true;
+      habPronta = false;
+      habCarga = 0;
+      paredesParaQuebrar = 3;
+      // Aplica skin Goku temporária
+      aplicarSkinNoBirdComOverride("goku");
+      scene.cameras.main.flash(200, 255, 215, 0);
+      scene.sound.play("comprar", { volume: 0.6 });
+    }
+
+    function desativarShieldBreaker(scene) {
+      habAtiva = false;
+      paredesParaQuebrar = 0;
+      // Volta pra skin original
+      aplicarSkinNoBird(scene);
+    }
+
+    function aplicarSkinNoBirdComOverride(slug) {
+      const skin = SKINS.find(s => s.slug === slug) || SKINS[0];
+      bird.setTexture(`skin_${skin.slug}`);
+      bird.setScale(skin.escala);
+      const hbW = Math.floor(skin.w * 0.65);
+      const hbH = Math.floor(skin.h * 0.55);
+      bird.setSize(hbW, hbH);
+      if (skin.frames > 1) bird.play(`anim_${skin.slug}`);
+      if (skin.tint) bird.setTint(skin.tint);
+      else bird.clearTint();
     }
 
     function bater(scene) {
       if (estado !== "jogando") return;
       estado = "fim";
+      // Garante reset da habilidade visual (volta pra skin normal)
+      if (habAtiva) {
+        habAtiva = false;
+        paredesParaQuebrar = 0;
+      }
+      barraHabBg.setVisible(false);
+      barraHabFill.setVisible(false);
+      textoHab.setVisible(false);
       scene.sound.play("bater", { volume: 0.6 });
       if (bird.anims) bird.anims.stop();
       bird.setTint(0xff8888);
