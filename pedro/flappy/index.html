@@ -213,6 +213,15 @@
         cooldown: 10000,
         paredesQuebradas: 3,
       },
+      {
+        slug: "extra_life",
+        nome: "Extra Life",
+        custo: 200,
+        descricao: "A cada 5s ganha uma vida. Bate sem morrer enquanto tiver vidas!",
+        cooldown: 5000,
+        oculta: true,
+        categoria: "secret ability",
+      },
     ];
 
     // ====== Sistema de usuários ======
@@ -232,13 +241,29 @@
     function criarUsuario(nick) {
       const u = carregarUsuarios();
       u[nick] = { recorde: 0, pontosTotal: 0, skinAtual: "blue", skinsCompradas: ["blue"],
-                  habilidades: [], skinsDesbloqueadas: [], konamiUsado: false };
+                  habilidades: [], skinsDesbloqueadas: [], habilidadesDesbloqueadas: [],
+                  vidasIniciais: 1, konamiUsado: false };
       salvarUsuarios(u);
       setUsuarioAtual(nick);
     }
     function carregarHabilidades() { return (dadosUsuario() || {}).habilidades || []; }
     function salvarHabilidades(arr) { atualizarUsuario({ habilidades: arr }); }
     function temHabilidade(slug) { return carregarHabilidades().includes(slug); }
+    function carregarHabilidadesDesbloqueadas() { return (dadosUsuario() || {}).habilidadesDesbloqueadas || []; }
+    function desbloquearHabilidade(slug) {
+      const lista = carregarHabilidadesDesbloqueadas();
+      if (!lista.includes(slug)) lista.push(slug);
+      atualizarUsuario({ habilidadesDesbloqueadas: lista });
+    }
+    function carregarVidasIniciais() { return (dadosUsuario() || {}).vidasIniciais || 1; }
+    function salvarVidasIniciais(v) { atualizarUsuario({ vidasIniciais: v }); }
+    // Próxima vida custa: 50 * vidasIniciais (vida2=50, vida3=100, vida4=150...)
+    function custoProximaVida() { return carregarVidasIniciais() * 50; }
+    // Cor do coração baseada na posição (a cada 5 muda de cor)
+    function corCoracao(idx) {
+      const cores = ["❤️", "💙", "💛", "💚", "💜", "🖤", "🧡"];
+      return cores[Math.floor((idx - 1) / 5) % cores.length];
+    }
     // Konami / biblioteca secreta (uso infinito)
     function carregarSkinsDesbloqueadas() { return (dadosUsuario() || {}).skinsDesbloqueadas || []; }
     function desbloquearSkin(slug) {
@@ -259,6 +284,8 @@
         let mudou = false;
         if (!d.habilidades) { d.habilidades = []; mudou = true; }
         if (!d.skinsDesbloqueadas) { d.skinsDesbloqueadas = []; mudou = true; }
+        if (!d.habilidadesDesbloqueadas) { d.habilidadesDesbloqueadas = []; mudou = true; }
+        if (d.vidasIniciais === undefined) { d.vidasIniciais = 1; mudou = true; }
         if (d.konamiUsado === undefined) { d.konamiUsado = false; mudou = true; }
         if (mudou) salvarUsuarios(u);
       }
@@ -389,6 +416,11 @@
     let paredesParaQuebrar = 0;
     let teclaB;
     let barraHabBg, barraHabFill, textoHab, botaoHabilidade;
+    // Extra Life
+    let vidasAtuais = 1;
+    let cargaVida = 0; // 0..1, regen em 5s
+    let textoVidas; // texto que mostra os corações
+    let invulnAte = 0; // tempo de invulnerabilidade pra não bater duas vezes
     let abaLojaAtual = "skins"; // "skins" | "habilidades"
     let salaGlobal = null;
     let cardRecordeRefs = null;
@@ -500,6 +532,12 @@
         .setOrigin(0, 0.5).setScrollFactor(0).setDepth(21).setVisible(false);
       textoHab = this.add.text(TELA_W / 2, barraY - 14, "", {
         fontSize: "11px", color: "#ffffff", fontStyle: "bold",
+        stroke: "#000000", strokeThickness: 2,
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(21).setVisible(false);
+
+      // ===== Texto de vidas (corações) — acima da barra =====
+      textoVidas = this.add.text(TELA_W / 2, TELA_H - CHAO_H - 38, "", {
+        fontSize: "16px", color: "#ffffff",
         stroke: "#000000", strokeThickness: 2,
       }).setOrigin(0.5).setScrollFactor(0).setDepth(21).setVisible(false);
 
@@ -675,14 +713,19 @@
         gridContainer.removeAll(true);
         scrollY = 0; gridContainer.y = 0;
         const desbloqueadas = carregarSkinsDesbloqueadas();
-        const candidatas = SKINS.filter(s => s.oculto && !desbloqueadas.includes(s.slug));
+        const habsDesb = carregarHabilidadesDesbloqueadas();
+        const candSkins = SKINS.filter(s => s.oculto && !desbloqueadas.includes(s.slug))
+          .map(s => ({ tipo: "skin", item: s }));
+        const candHabs = HABILIDADES.filter(h => h.oculta && !habsDesb.includes(h.slug))
+          .map(h => ({ tipo: "habilidade", item: h }));
+        const todas = [...candSkins, ...candHabs];
         const filtro = buscaSecreta.trim();
         const visiveis = filtro
-          ? candidatas.filter(s =>
-              s.nome.toLowerCase().includes(filtro) ||
-              (s.categoria && s.categoria.includes(filtro)) ||
-              s.slug.toLowerCase().includes(filtro))
-          : candidatas;
+          ? todas.filter(({ item }) =>
+              item.nome.toLowerCase().includes(filtro) ||
+              (item.categoria && item.categoria.toLowerCase().includes(filtro)) ||
+              item.slug.toLowerCase().includes(filtro))
+          : candSkins; // sem filtro: só skins (habilidades ocultas só aparecem com busca)
 
         if (visiveis.length === 0) {
           const t = scene.add.text(TELA_W / 2, viewportY + viewportH / 2, "Nenhuma skin encontrada", {
@@ -696,33 +739,41 @@
         const cellW = 120, cellH = 100;
         const gridX = TELA_W / 2 - (cols * cellW) / 2 + cellW / 2;
         const gridY = viewportY + 25;
-        visiveis.forEach((s, i) => {
+        visiveis.forEach((entry, i) => {
+          const item = entry.item;
           const col = i % cols;
           const row = Math.floor(i / cols);
           const x = gridX + col * cellW;
           const y = gridY + row * cellH;
-          const baseS = getSkinBase(s);
+          const ehHab = entry.tipo === "habilidade";
           const card = scene.add.rectangle(x, y, cellW - 8, cellH - 8, 0x222244, 0.95)
-            .setStrokeStyle(2, 0x4fdb9b).setInteractive();
+            .setStrokeStyle(2, ehHab ? 0xfff04f : 0x4fdb9b).setInteractive();
           gridContainer.add(card);
-          const sp = scene.add.sprite(x, y - 10, `skin_${baseS.slug}`);
-          const escMax = Math.min(40 / baseS.w, 40 / baseS.h, 1.4);
-          sp.setScale(escMax);
-          if (baseS.frames > 1) sp.play(`anim_${baseS.slug}`);
-          if (s.tint) sp.setTint(s.tint);
-          gridContainer.add(sp);
-          const nome = scene.add.text(x, y + 28, s.nome, {
+          if (ehHab) {
+            const ic = scene.add.text(x, y - 10, "❤️", { fontSize: "30px" }).setOrigin(0.5);
+            gridContainer.add(ic);
+          } else {
+            const baseS = getSkinBase(item);
+            const sp = scene.add.sprite(x, y - 10, `skin_${baseS.slug}`);
+            const escMax = Math.min(40 / baseS.w, 40 / baseS.h, 1.4);
+            sp.setScale(escMax);
+            if (baseS.frames > 1) sp.play(`anim_${baseS.slug}`);
+            if (item.tint) sp.setTint(item.tint);
+            gridContainer.add(sp);
+          }
+          const nome = scene.add.text(x, y + 28, item.nome, {
             fontSize: "11px", color: "#ffffff", fontStyle: "bold",
           }).setOrigin(0.5);
           gridContainer.add(nome);
-          const cat = scene.add.text(x, y + 42, s.categoria, {
-            fontSize: "9px", color: "#aaaaaa",
+          const cat = scene.add.text(x, y + 42, item.categoria || "", {
+            fontSize: "9px", color: ehHab ? "#fff04f" : "#aaaaaa",
           }).setOrigin(0.5);
           gridContainer.add(cat);
 
           card.on("pointerdown", () => {
             scene.sound.play("comprar", { volume: 0.6 });
-            desbloquearSkin(s.slug);
+            if (ehHab) desbloquearHabilidade(item.slug);
+            else desbloquearSkin(item.slug);
             scene.cameras.main.flash(300, 255, 215, 0);
             fecharBibliotecaSecreta();
           });
@@ -1147,8 +1198,15 @@
         });
         telaLoja.add(r); telaLoja.add(t);
       };
-      criarAba("👕 SKINS", "skins", TELA_W / 2 - 75, abaLojaAtual === "skins");
-      criarAba("⚡ HABILIDADES", "habilidades", TELA_W / 2 + 75, abaLojaAtual === "habilidades");
+      const temEL = temHabilidade("extra_life");
+      if (temEL) {
+        criarAba("👕 SKINS",       "skins",       TELA_W / 2 - 130, abaLojaAtual === "skins");
+        criarAba("⚡ HABS",         "habilidades", TELA_W / 2,       abaLojaAtual === "habilidades");
+        criarAba("❤️ VIDAS",       "vidas",       TELA_W / 2 + 130, abaLojaAtual === "vidas");
+      } else {
+        criarAba("👕 SKINS",       "skins",       TELA_W / 2 - 75,  abaLojaAtual === "skins");
+        criarAba("⚡ HABILIDADES", "habilidades", TELA_W / 2 + 75,  abaLojaAtual === "habilidades");
+      }
 
       // ===== Viewport scrollável =====
       const viewportY = 115;
@@ -1165,6 +1223,7 @@
 
       // ===== Conteúdo conforme aba =====
       if (abaLojaAtual === "skins") renderSkinsLoja(scene, scrollable);
+      else if (abaLojaAtual === "vidas") renderVidasLoja(scene, scrollable);
       else renderHabilidadesLoja(scene, scrollable);
 
       // === Scroll: mouse wheel + drag ===
@@ -1291,7 +1350,9 @@
     function renderHabilidadesLoja(scene, scrollable) {
       const startY = 145;
       const itemH = 100;
-      HABILIDADES.forEach((h, i) => {
+      const habsDesb = carregarHabilidadesDesbloqueadas();
+      const visiveis = HABILIDADES.filter(h => !h.oculta || habsDesb.includes(h.slug));
+      visiveis.forEach((h, i) => {
         const y = startY + i * itemH;
         const card = scene.add.rectangle(TELA_W / 2, y, 370, itemH - 12, 0x2a2a4f, 0.95)
           .setStrokeStyle(2, 0xfff04f);
@@ -1341,7 +1402,67 @@
           });
         }
       });
-      const totalH = startY + HABILIDADES.length * itemH + 20;
+      const totalH = startY + visiveis.length * itemH + 20;
+      const viewportH = TELA_H - 115 - 60;
+      telaLoja.dataScrollMax = Math.max(0, totalH - 115 - viewportH);
+    }
+
+    function renderVidasLoja(scene, scrollable) {
+      const startY = 145;
+      const itemH = 80;
+      // Mostra próximas 8 vidas pra comprar
+      const atual = carregarVidasIniciais();
+      for (let i = 1; i <= 8; i++) {
+        const numVida = atual + i;
+        const custo = (atual + i - 1) * 50;
+        const y = startY + (i - 1) * itemH;
+        const card = scene.add.rectangle(TELA_W / 2, y, 370, itemH - 10, 0x2a2a4f, 0.95)
+          .setStrokeStyle(2, 0xff4f6f);
+        scrollable.add(card);
+
+        const txtIcone = scene.add.text(TELA_W / 2 - 150, y, corCoracao(numVida), {
+          fontSize: "32px",
+        }).setOrigin(0.5);
+        scrollable.add(txtIcone);
+
+        const txtNome = scene.add.text(TELA_W / 2 - 100, y - 14, `Vida ${numVida}`, {
+          fontSize: "16px", color: "#ff8888", fontStyle: "bold",
+        }).setOrigin(0, 0.5);
+        scrollable.add(txtNome);
+
+        const txtDesc = scene.add.text(TELA_W / 2 - 100, y + 10,
+          `Começa cada partida com ${numVida} vidas.`, {
+          fontSize: "10px", color: "#ffffff",
+        }).setOrigin(0, 0.5);
+        scrollable.add(txtDesc);
+
+        const podeComprar = i === 1; // só pode comprar a próxima (vidasIniciais+1)
+        const corStatus = podeComprar
+          ? (pontosTotal >= custo ? "#fff04f" : "#aaaaaa")
+          : "#666666";
+        const textoStatus = podeComprar ? `💰 ${custo}` : "🔒";
+        const txtStatus = scene.add.text(TELA_W / 2 + 110, y, textoStatus, {
+          fontSize: "14px", color: corStatus, fontStyle: "bold",
+        }).setOrigin(0.5);
+        scrollable.add(txtStatus);
+
+        if (podeComprar) {
+          card.setInteractive();
+          card.on("pointerdown", () => {
+            if (pontosTotal >= custo) {
+              pontosTotal -= custo;
+              salvarPontosTotal(pontosTotal);
+              salvarVidasIniciais(numVida);
+              scene.sound.play("comprar", { volume: 0.6 });
+              mostrarLoja(scene);
+            } else {
+              scene.sound.play("erro", { volume: 0.5 });
+              scene.tweens.add({ targets: card, x: TELA_W / 2 + 8, duration: 60, yoyo: true, repeat: 3, onComplete: () => card.x = TELA_W / 2 });
+            }
+          });
+        }
+      }
+      const totalH = startY + 8 * itemH + 20;
       const viewportH = TELA_H - 115 - 60;
       telaLoja.dataScrollMax = Math.max(0, totalH - 115 - viewportH);
     }
@@ -1373,7 +1494,7 @@
       textoNickBird.setStyle({ fontSize: `${tam}px`, color: "#ffffff", fontStyle: "bold", stroke: "#000000", strokeThickness: 3 });
       textoNickBird.setVisible(true);
 
-      // Reset habilidade
+      // Reset habilidades
       habCarga = 0;
       habPronta = false;
       habAtiva = false;
@@ -1383,7 +1504,28 @@
       barraHabFill.setVisible(temSB);
       textoHab.setVisible(temSB);
 
+      // Extra Life
+      vidasAtuais = carregarVidasIniciais();
+      cargaVida = 0;
+      invulnAte = 0;
+      const temEL = temHabilidade("extra_life");
+      textoVidas.setVisible(temEL || vidasAtuais > 1);
+      atualizarTextoVidas();
+
       estado = "jogando";
+    }
+
+    function atualizarTextoVidas() {
+      // Renderiza N corações; até 10 em fila, depois "❤️ x N"
+      if (vidasAtuais <= 0) { textoVidas.setText(""); return; }
+      if (vidasAtuais > 10) {
+        const cor = corCoracao(vidasAtuais);
+        textoVidas.setText(`${cor} x ${vidasAtuais}`);
+      } else {
+        let s = "";
+        for (let i = 1; i <= vidasAtuais; i++) s += corCoracao(i);
+        textoVidas.setText(s);
+      }
     }
 
     function update(_, deltaMs) {
@@ -1436,6 +1578,18 @@
       if (temHabilidade("shield_breaker") && !habAtiva) {
         habCarga = Math.min(1, habCarga + dt / 10);
         if (habCarga >= 1) habPronta = true;
+      }
+
+      // === Habilidade Extra Life — carrega 5s, +1 vida ===
+      if (temHabilidade("extra_life")) {
+        cargaVida += dt / 5;
+        if (cargaVida >= 1) {
+          cargaVida = 0;
+          vidasAtuais++;
+          atualizarTextoVidas();
+          // Pequeno feedback visual
+          scene.tweens.add({ targets: textoVidas, scale: 1.4, duration: 120, yoyo: true });
+        }
       }
       // Atualiza barra
       const habW = 276;
@@ -1529,6 +1683,20 @@
 
     function bater(scene) {
       if (estado !== "jogando") return;
+      // Se tem vidas sobrando, perde uma e continua
+      if (vidasAtuais > 1 && scene.time.now > invulnAte) {
+        vidasAtuais--;
+        invulnAte = scene.time.now + 800; // 0.8s de invulnerabilidade pra não bater de novo
+        atualizarTextoVidas();
+        scene.sound.play("bater", { volume: 0.4 });
+        scene.cameras.main.flash(150, 255, 100, 100);
+        // Pequeno empurrão pra cima pra escapar do obstáculo
+        bird.body.velocity.y = PULO * 0.7;
+        // Piscando pra mostrar invulnerabilidade
+        scene.tweens.add({ targets: bird, alpha: 0.3, duration: 100, yoyo: true, repeat: 3, onComplete: () => bird.alpha = 1 });
+        return;
+      }
+      // Sem vidas → morre de verdade
       estado = "fim";
       // Garante reset da habilidade visual (volta pra skin normal)
       if (habAtiva) {
@@ -1538,6 +1706,7 @@
       barraHabBg.setVisible(false);
       barraHabFill.setVisible(false);
       textoHab.setVisible(false);
+      textoVidas.setVisible(false);
       botaoHabilidade.setVisible(false);
       if (botaoHabilidade.dataLabel) botaoHabilidade.dataLabel.setVisible(false);
       scene.sound.play("bater", { volume: 0.6 });
