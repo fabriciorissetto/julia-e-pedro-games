@@ -34,4 +34,11 @@ window.GAMES = [
     color: "#ff1493",
     description: "Monta as 25 peças das Guerreiras do K-pop"
   },
+  {
+    slug: "memoria",
+    title: "Jogo da Memória",
+    emoji: "💖",
+    color: "#b56fff",
+    description: "Vira as cartas e acha os pares"
+  },
 ];

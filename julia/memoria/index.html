@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jogo da Memória</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      background: linear-gradient(135deg, #ff6fb5, #b56fff, #6fb5ff);
+      background-attachment: fixed;
+      font-family: 'Comic Sans MS', cursive, sans-serif;
+      overflow-x: hidden;
+    }
+    #voltar {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      padding: 10px 18px;
+      background: #ff6fb5;
+      color: white;
+      border: none;
+      border-radius: 24px;
+      font-size: 18px;
+      cursor: pointer;
+      z-index: 100;
+      text-decoration: none;
+      font-weight: bold;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.4);
+    }
+    h1 {
+      text-align: center;
+      color: white;
+      font-size: clamp(1.6rem, 5vw, 2.8rem);
+      margin: 70px 0 12px;
+      text-shadow: 3px 3px 0 #ff1493, 6px 6px 12px rgba(0,0,0,0.3);
+    }
+    .placar {
+      text-align: center;
+      color: white;
+      font-size: clamp(1rem, 3vw, 1.4rem);
+      font-weight: bold;
+      margin-bottom: 20px;
+      text-shadow: 2px 2px 0 #b56fff;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 12px;
+      max-width: 700px;
+      margin: 0 auto;
+      padding: 0 20px;
+    }
+    @media (max-width: 600px) {
+      .grid {
+        gap: 8px;
+        padding: 0 10px;
+      }
+    }
+    .carta {
+      aspect-ratio: 3/4;
+      perspective: 1000px;
+      cursor: pointer;
+    }
+    .carta-inner {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      transform-style: preserve-3d;
+      transition: transform 0.5s;
+    }
+    .carta.virada .carta-inner,
+    .carta.par .carta-inner {
+      transform: rotateY(180deg);
+    }
+    .face {
+      position: absolute;
+      inset: 0;
+      backface-visibility: hidden;
+      border-radius: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    .frente {
+      background: linear-gradient(135deg, #ff6fb5, #b56fff);
+      border: 4px solid white;
+      font-size: clamp(2rem, 7vw, 3.5rem);
+      color: white;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.4);
+    }
+    .frente::after {
+      content: "✨";
+    }
+    .verso {
+      background: white;
+      border: 4px solid #ff6fb5;
+      transform: rotateY(180deg);
+      font-size: clamp(2.2rem, 9vw, 4.5rem);
+    }
+    .carta.par .verso {
+      background: linear-gradient(135deg, #ffe0f0, #fff0d0);
+      border-color: gold;
+      animation: brilho 1.5s ease-in-out infinite;
+    }
+    @keyframes brilho {
+      0%, 100% { box-shadow: 0 0 10px gold; }
+      50% { box-shadow: 0 0 25px gold, 0 0 40px #ff1493; }
+    }
+
+    .vitoria {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.65);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      z-index: 50;
+      padding: 20px;
+      text-align: center;
+    }
+    .vitoria.show { display: flex; }
+    .vitoria h2 {
+      font-size: clamp(2.5rem, 10vw, 5rem);
+      color: gold;
+      text-shadow: 0 0 20px white, 4px 4px 0 #ff1493;
+      animation: bounce 0.6s ease;
+      margin: 0;
+    }
+    .vitoria p {
+      color: white;
+      font-size: clamp(1.2rem, 4vw, 2rem);
+      margin: 20px 0;
+      font-weight: bold;
+    }
+    @keyframes bounce {
+      0% { transform: scale(0); }
+      60% { transform: scale(1.3); }
+      100% { transform: scale(1); }
+    }
+    .btn {
+      padding: 16px 32px;
+      font-size: clamp(1.1rem, 3vw, 1.5rem);
+      background: #ff6fb5;
+      color: white;
+      border: 4px solid white;
+      border-radius: 30px;
+      cursor: pointer;
+      font-family: inherit;
+      font-weight: bold;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    .btn:active { transform: scale(0.95); }
+
+    .floco {
+      position: fixed;
+      top: -50px;
+      pointer-events: none;
+      z-index: 40;
+      animation: cair linear forwards;
+    }
+    @keyframes cair {
+      to {
+        transform: translateY(110vh) rotate(720deg);
+      }
+    }
+  </style>
+</head>
+<body>
+  <a href="../index.html" id="voltar">← Voltar</a>
+  <h1>✨ Jogo da Memória ✨</h1>
+  <div class="placar">⭐ Pares: <span id="pares">0</span> de 5</div>
+  <div class="grid" id="grid"></div>
+
+  <div class="vitoria" id="vitoria">
+    <h2>🎉 UHUUUL! 🎉</h2>
+    <p>Você achou todos os pares!</p>
+    <button class="btn" onclick="reiniciar()">🌟 Jogar de novo</button>
+  </div>
+
+  <script>
+    const EMOJIS = ['🦄', '🌈', '🐱', '⭐', '💖'];
+    let viradaA = null, viradaB = null;
+    let bloqueado = false;
+    let pares = 0;
+    let audioCtx = null;
+
+    function initAudio() {
+      if (!audioCtx) {
+        try {
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        } catch(e) {}
+      }
+    }
+
+    function tom(freq, dur, type) {
+      if (!audioCtx) return;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = type || 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + dur);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + dur);
+    }
+
+    function somVirar() { tom(700, 0.1); }
+    function somPar() {
+      tom(800, 0.15);
+      setTimeout(() => tom(1000, 0.15), 100);
+      setTimeout(() => tom(1300, 0.25), 200);
+    }
+    function somErro() { tom(220, 0.3, 'sawtooth'); }
+    function somVitoria() {
+      const notas = [523, 659, 784, 1047, 1319];
+      notas.forEach((f, i) => setTimeout(() => tom(f, 0.4), i * 130));
+    }
+
+    function embaralhar(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    function criarBaralho() {
+      const grid = document.getElementById('grid');
+      grid.innerHTML = '';
+      const cartas = embaralhar([...EMOJIS, ...EMOJIS]);
+      cartas.forEach((emoji) => {
+        const carta = document.createElement('div');
+        carta.className = 'carta';
+        carta.dataset.emoji = emoji;
+        carta.innerHTML =
+          '<div class="carta-inner">' +
+            '<div class="face frente"></div>' +
+            '<div class="face verso">' + emoji + '</div>' +
+          '</div>';
+        carta.addEventListener('click', () => clicarCarta(carta));
+        grid.appendChild(carta);
+      });
+    }
+
+    function clicarCarta(carta) {
+      initAudio();
+      if (bloqueado) return;
+      if (carta.classList.contains('virada') || carta.classList.contains('par')) return;
+
+      somVirar();
+      carta.classList.add('virada');
+
+      if (!viradaA) {
+        viradaA = carta;
+        return;
+      }
+
+      viradaB = carta;
+      bloqueado = true;
+
+      if (viradaA.dataset.emoji === viradaB.dataset.emoji) {
+        setTimeout(() => {
+          viradaA.classList.add('par');
+          viradaB.classList.add('par');
+          viradaA.classList.remove('virada');
+          viradaB.classList.remove('virada');
+          somPar();
+          pares++;
+          document.getElementById('pares').textContent = pares;
+          if (pares === 5) {
+            setTimeout(vitoria, 700);
+          }
+          viradaA = null;
+          viradaB = null;
+          bloqueado = false;
+        }, 450);
+      } else {
+        setTimeout(() => {
+          somErro();
+        }, 400);
+        setTimeout(() => {
+          viradaA.classList.remove('virada');
+          viradaB.classList.remove('virada');
+          viradaA = null;
+          viradaB = null;
+          bloqueado = false;
+        }, 1100);
+      }
+    }
+
+    function vitoria() {
+      somVitoria();
+      document.getElementById('vitoria').classList.add('show');
+      const emojis = ['💖','⭐','✨','🌟','💜','💗','🎀','💫','🦄','🌈'];
+      for (let i = 0; i < 70; i++) {
+        setTimeout(() => {
+          const flake = document.createElement('div');
+          flake.className = 'floco';
+          flake.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+          flake.style.left = Math.random() * 100 + 'vw';
+          flake.style.animationDuration = (2.5 + Math.random() * 3) + 's';
+          flake.style.fontSize = (1.5 + Math.random() * 2) + 'rem';
+          document.body.appendChild(flake);
+          setTimeout(() => flake.remove(), 6000);
+        }, i * 90);
+      }
+    }
+
+    function reiniciar() {
+      pares = 0;
+      viradaA = viradaB = null;
+      bloqueado = false;
+      document.getElementById('pares').textContent = '0';
+      document.getElementById('vitoria').classList.remove('show');
+      criarBaralho();
+    }
+
+    criarBaralho();
+  </script>
+</body>
+</html>
