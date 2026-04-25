@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <title>Flappy Bird</title>
+  <style>
+    html, body {
+      margin: 0; padding: 0; background: #1a1a2e;
+      overflow: hidden; height: 100%;
+      font-family: system-ui, sans-serif;
+      touch-action: none;
+    }
+    #game { width: 100vw; height: 100vh; }
+    #voltar {
+      position: fixed; top: 12px; left: 12px;
+      background: rgba(0,0,0,0.5); color: #fff;
+      text-decoration: none; padding: 8px 14px;
+      border-radius: 8px; font-size: 14px; z-index: 10;
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+</head>
+<body>
+  <a id="voltar" href="../">← voltar</a>
+  <div id="game"></div>
+
+  <script>
+    // ====== Tamanhos ======
+    const TELA_W = 400, TELA_H = 600;
+
+    // ====== Física ======
+    const GRAVIDADE = 1100;
+    const PULO = -380;
+    const VEL_CANO = -180;
+    const ESPACO_CANOS = 180;     // espaçamento horizontal entre canos
+    const GAP_CANO = 150;          // tamanho do buraco entre canos cima/baixo
+    const LARGURA_CANO = 64;
+    const CHAO_H = 60;
+
+    // ====== Estado ======
+    let bird;
+    let canos;             // group
+    let chao;
+    let proximoSpawnX = TELA_W + 100;
+    let pontos = 0;
+    let melhor = parseInt(localStorage.getItem("flappy_melhor")) || 0;
+    let estado = "esperando"; // "esperando" | "jogando" | "fim"
+    let textoPontos, textoTituloEspera, textoMelhor, textoFim;
+
+    const config = {
+      type: Phaser.AUTO,
+      parent: "game",
+      width: TELA_W, height: TELA_H,
+      backgroundColor: "#4fa8db",
+      scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
+      physics: { default: "arcade", arcade: { gravity: { y: 0 }, debug: false } },
+      scene: { preload, create, update },
+    };
+
+    new Phaser.Game(config);
+
+    function preload() {
+      this.load.spritesheet(
+        "passaro",
+        "/shared/assets/sprites/pixelfrog/pixel-adventure-1/Enemies/BlueBird/Flying (32x32).png",
+        { frameWidth: 32, frameHeight: 32 }
+      );
+      this.load.image(
+        "fundoCeu",
+        "/shared/assets/sprites/pixelfrog/pixel-adventure-1/Background/Blue.png"
+      );
+      this.load.audio("pular", "/shared/assets/sounds/kenney/digital/Audio/pepSound1.ogg");
+      this.load.audio("ponto", "/shared/assets/sounds/kenney/interface/Audio/confirmation_001.ogg");
+      this.load.audio("bater", "/shared/assets/sounds/kenney/digital/Audio/lowDown.ogg");
+    }
+
+    function create() {
+      const scene = this;
+
+      // ===== Fundo céu (tile repetido) =====
+      this.add.tileSprite(TELA_W / 2, TELA_H / 2, TELA_W, TELA_H, "fundoCeu").setDepth(0);
+      // Nuvens decorativas
+      desenharNuvens(this);
+
+      // ===== Animação do pássaro =====
+      this.anims.create({
+        key: "voar",
+        frames: this.anims.generateFrameNumbers("passaro", { start: 0, end: 8 }),
+        frameRate: 14,
+        repeat: -1,
+      });
+
+      // ===== Pássaro =====
+      bird = this.physics.add.sprite(120, TELA_H / 2, "passaro");
+      bird.play("voar");
+      bird.setScale(1.6);
+      bird.setSize(20, 18);
+      bird.body.allowGravity = false;
+      bird.setDepth(5);
+
+      // ===== Canos =====
+      canos = this.physics.add.group();
+
+      // ===== Chão =====
+      chao = this.add.tileSprite(TELA_W / 2, TELA_H - CHAO_H / 2, TELA_W, CHAO_H, "fundoCeu");
+      chao.setTint(0x7d5a3a); // marrom-areia
+      chao.setDepth(8);
+      this.physics.add.existing(chao, true);
+
+      // Linha de grama em cima do chão
+      const grama = this.add.rectangle(TELA_W / 2, TELA_H - CHAO_H, TELA_W, 8, 0x4fdb9b);
+      grama.setDepth(8);
+
+      // ===== Colisões =====
+      this.physics.add.collider(bird, chao, () => bater(scene));
+      this.physics.add.overlap(bird, canos, () => bater(scene));
+
+      // ===== UI =====
+      textoPontos = this.add.text(TELA_W / 2, 60, "0", {
+        fontSize: "60px", color: "#ffffff",
+        fontStyle: "bold", stroke: "#000000", strokeThickness: 6,
+      }).setOrigin(0.5).setDepth(20);
+
+      textoTituloEspera = this.add.text(TELA_W / 2, TELA_H / 2 - 30,
+        "🐦 FLAPPY BIRD\n\nAperta ESPAÇO\nou clica pra começar", {
+        fontSize: "22px", color: "#ffffff", align: "center", fontStyle: "bold",
+        stroke: "#000000", strokeThickness: 4,
+        backgroundColor: "rgba(0,0,0,0.4)", padding: { x: 16, y: 12 },
+      }).setOrigin(0.5).setDepth(20);
+
+      textoMelhor = this.add.text(TELA_W / 2, TELA_H - 100, `Melhor: ${melhor}`, {
+        fontSize: "18px", color: "#ffffff",
+        stroke: "#000000", strokeThickness: 3,
+      }).setOrigin(0.5).setDepth(20);
+
+      // ===== Input =====
+      const pular = () => {
+        if (estado === "esperando") iniciar(scene);
+        else if (estado === "jogando") {
+          bird.body.velocity.y = PULO;
+          scene.sound.play("pular", { volume: 0.4 });
+          // Pequeno tilt pra cima
+          scene.tweens.add({ targets: bird, angle: -25, duration: 100 });
+        } else if (estado === "fim") {
+          location.reload();
+        }
+      };
+      this.input.keyboard.on("keydown-SPACE", pular);
+      this.input.keyboard.on("keydown-UP", pular);
+      this.input.on("pointerdown", pular);
+    }
+
+    function iniciar(scene) {
+      estado = "jogando";
+      textoTituloEspera.setVisible(false);
+      bird.body.allowGravity = false;
+      bird.body.velocity.y = 0;
+      scene.physics.world.gravity.y = GRAVIDADE;
+      bird.body.allowGravity = true;
+      proximoSpawnX = TELA_W + 50;
+      // Primeiro pulo pra começar com gás
+      bird.body.velocity.y = PULO;
+      scene.sound.play("pular", { volume: 0.4 });
+    }
+
+    function update(_, deltaMs) {
+      const scene = this;
+      if (estado !== "jogando") return;
+      const dt = deltaMs / 1000;
+
+      // Move chão (efeito de scroll)
+      chao.tilePositionX += 100 * dt;
+
+      // Tilt do pássaro baseado na velocidade vertical
+      const v = bird.body.velocity.y;
+      const ang = Phaser.Math.Clamp(v / 8, -25, 90);
+      bird.angle += (ang - bird.angle) * 0.08;
+
+      // Move canos e detecta passou
+      canos.children.iterate(c => {
+        if (!c) return;
+        if (c.x < -LARGURA_CANO) {
+          c.destroy();
+          return;
+        }
+        if (!c.dataPontuou && c.x < bird.x - 5 && c.dataParCima) {
+          c.dataPontuou = true;
+          pontos++;
+          textoPontos.setText(pontos);
+          scene.sound.play("ponto", { volume: 0.5 });
+        }
+      });
+
+      // Spawna novos canos quando chega a hora
+      if (canos.children.size === 0
+          || canos.children.entries[canos.children.entries.length - 1].x < TELA_W - ESPACO_CANOS) {
+        spawnarCanos(scene);
+      }
+
+      // Limites de tela
+      if (bird.y < -20) bird.body.velocity.y = 50;
+    }
+
+    function spawnarCanos(scene) {
+      const margem = 80;
+      const minY = margem + GAP_CANO / 2;
+      const maxY = TELA_H - CHAO_H - margem - GAP_CANO / 2;
+      const centroGap = Phaser.Math.Between(minY, maxY);
+      const x = TELA_W + LARGURA_CANO / 2;
+
+      const alturaCima = centroGap - GAP_CANO / 2;
+      const alturaBaixo = TELA_H - CHAO_H - (centroGap + GAP_CANO / 2);
+
+      const canoCima = scene.add.rectangle(x, alturaCima / 2, LARGURA_CANO, alturaCima, 0x4fdb4f);
+      canoCima.setStrokeStyle(3, 0x166e16);
+      scene.physics.add.existing(canoCima);
+      canoCima.body.setVelocityX(VEL_CANO);
+      canoCima.body.allowGravity = false;
+      canoCima.dataParCima = true;
+      canoCima.dataPontuou = false;
+      canos.add(canoCima);
+
+      // Topo do cano (boquinha)
+      const topo1 = scene.add.rectangle(x, alturaCima - 6, LARGURA_CANO + 12, 16, 0x4fdb4f);
+      topo1.setStrokeStyle(3, 0x166e16);
+      scene.physics.add.existing(topo1);
+      topo1.body.setVelocityX(VEL_CANO);
+      topo1.body.allowGravity = false;
+      canos.add(topo1);
+
+      const yBaixo = TELA_H - CHAO_H - alturaBaixo / 2;
+      const canoBaixo = scene.add.rectangle(x, yBaixo, LARGURA_CANO, alturaBaixo, 0x4fdb4f);
+      canoBaixo.setStrokeStyle(3, 0x166e16);
+      scene.physics.add.existing(canoBaixo);
+      canoBaixo.body.setVelocityX(VEL_CANO);
+      canoBaixo.body.allowGravity = false;
+      canos.add(canoBaixo);
+
+      // Boquinha do cano de baixo
+      const topo2 = scene.add.rectangle(x, yBaixo - alturaBaixo / 2 + 6, LARGURA_CANO + 12, 16, 0x4fdb4f);
+      topo2.setStrokeStyle(3, 0x166e16);
+      scene.physics.add.existing(topo2);
+      topo2.body.setVelocityX(VEL_CANO);
+      topo2.body.allowGravity = false;
+      canos.add(topo2);
+    }
+
+    function bater(scene) {
+      if (estado !== "jogando") return;
+      estado = "fim";
+      scene.sound.play("bater", { volume: 0.6 });
+      bird.anims.stop();
+      bird.setTint(0xff8888);
+      // Para todos os canos
+      canos.children.iterate(c => { if (c && c.body) c.body.setVelocityX(0); });
+
+      // Atualiza recorde
+      let novoRecorde = false;
+      if (pontos > melhor) {
+        melhor = pontos;
+        localStorage.setItem("flappy_melhor", melhor);
+        novoRecorde = true;
+      }
+      textoMelhor.setText(`Melhor: ${melhor}`);
+
+      // Tela de fim
+      const tit = novoRecorde ? "🏆 NOVO RECORDE! 🏆" : "💥 GAME OVER";
+      textoFim = scene.add.text(TELA_W / 2, TELA_H / 2,
+        `${tit}\n\nPontos: ${pontos}\nMelhor: ${melhor}\n\nClique pra jogar de novo`, {
+        fontSize: "20px", color: "#ffffff", align: "center", fontStyle: "bold",
+        stroke: "#000000", strokeThickness: 4,
+        backgroundColor: "rgba(0,0,0,0.7)", padding: { x: 18, y: 14 },
+      }).setOrigin(0.5).setDepth(50);
+    }
+
+    function desenharNuvens(scene) {
+      for (let i = 0; i < 6; i++) {
+        const x = Math.random() * TELA_W;
+        const y = 30 + Math.random() * 200;
+        const g = scene.add.graphics();
+        g.fillStyle(0xffffff, 0.7);
+        g.fillCircle(x, y, 14);
+        g.fillCircle(x + 14, y - 6, 12);
+        g.fillCircle(x + 28, y, 14);
+        g.fillCircle(x + 14, y + 4, 16);
+        g.setDepth(1);
+      }
+    }
+  </script>
+</body>
+</html>

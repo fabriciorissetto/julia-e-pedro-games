@@ -20,4 +20,11 @@ window.GAMES = [
     color: "#9b4fff",
     description: "Ache o impostor antes que ele te ache"
   },
+  {
+    slug: "flappy",
+    title: "Flappy Bird",
+    emoji: "🐦",
+    color: "#4fa8db",
+    description: "Passa pelos canos sem bater"
+  },
 ];
