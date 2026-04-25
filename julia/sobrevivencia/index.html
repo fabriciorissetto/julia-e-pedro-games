@@ -27,6 +27,28 @@
       z-index: 50;
       box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     }
+    .reiniciar {
+      position: fixed; top: 50px; left: 8px;
+      background: rgba(255, 220, 220, 0.95);
+      padding: 7px 12px; border-radius: 16px;
+      color: #c92d4d;
+      font-weight: bold; font-size: 13px;
+      z-index: 50;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      border: none; cursor: pointer; font-family: inherit;
+    }
+    .reiniciar:active { transform: scale(0.96); }
+    .loja-btn {
+      position: fixed; top: 92px; left: 8px;
+      background: linear-gradient(135deg, #ffd84d 0%, #ff9f30 100%);
+      padding: 8px 14px; border-radius: 16px;
+      color: #6a3a0a;
+      font-weight: bold; font-size: 14px;
+      z-index: 50;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      border: none; cursor: pointer; font-family: inherit;
+    }
+    .loja-btn:active { transform: scale(0.96); }
 
     .hud {
       position: fixed; top: 8px; left: 50%;
@@ -44,6 +66,7 @@
       min-width: 50px; text-align: center;
     }
     .hud .item.dia { color: #b56fff; }
+    .hud .item.moedas { color: #c89030; }
     .hud .item.noite { background: linear-gradient(135deg, #2a1f4d 0%, #4a2a7d 100%); color: #ffd84d; }
     .hud .item.vida { color: #c92d4d; }
     .hud .item.alerta { animation: piscar 0.6s infinite; }
@@ -311,6 +334,71 @@
       .inicio-card h1 { font-size: 24px; }
     }
 
+    /* ===== Loja ===== */
+    .loja-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.65);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 150;
+      animation: fadeIn 0.3s;
+    }
+    .loja-overlay.escondido { display: none; }
+    .loja-card {
+      background: linear-gradient(135deg, #fff7d6 0%, #ffd84d 100%);
+      padding: 20px 24px;
+      border-radius: 22px;
+      max-width: 92%; width: 540px;
+      box-shadow: 0 14px 40px rgba(0,0,0,0.4);
+      animation: pop 0.4s cubic-bezier(.2,1.4,.4,1);
+      text-align: center;
+    }
+    .loja-card h2 { font-size: 26px; color: #6a3a0a; margin-bottom: 4px; }
+    .loja-card .saldo {
+      font-size: 18px; color: #c89030; font-weight: bold;
+      margin-bottom: 14px;
+    }
+    .loja-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+    }
+    .loja-item {
+      background: #fff;
+      border-radius: 14px; padding: 10px 6px;
+      cursor: pointer;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.18);
+      border: 3px solid transparent;
+      transition: transform 0.1s;
+    }
+    .loja-item:hover, .loja-item:active { transform: scale(1.04); }
+    .loja-item.barato { border-color: #88dd88; }
+    .loja-item.medio { border-color: #ffaa44; }
+    .loja-item.lendario {
+      border-color: #ff5050;
+      background: linear-gradient(135deg, #fff 0%, #ffe5d0 100%);
+    }
+    .loja-item.indisponivel {
+      opacity: 0.45; cursor: not-allowed;
+      filter: grayscale(0.8);
+    }
+    .loja-item.comprado {
+      background: linear-gradient(135deg, #d6ffd6 0%, #88dd88 100%);
+      cursor: default;
+    }
+    .loja-item .emoji { font-size: 36px; line-height: 1.1; display: block; }
+    .loja-item .nome { font-size: 12px; font-weight: bold; color: #2d6e1a; margin-top: 3px; }
+    .loja-item .preco { font-size: 13px; font-weight: bold; color: #c89030; margin-top: 2px; }
+    .loja-card .fechar {
+      margin-top: 18px;
+      background: linear-gradient(135deg, #ff6fb5 0%, #b56fff 100%);
+      border: none; padding: 10px 24px;
+      border-radius: 14px; font-size: 16px;
+      font-weight: bold; color: #fff;
+      cursor: pointer; font-family: inherit;
+      box-shadow: 0 5px 14px rgba(255, 100, 180, 0.4);
+    }
+    @media (max-width: 500px) {
+      .loja-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
     /* nome do player no HUD */
     .hud .item.nome {
       color: #b56fff;
@@ -335,6 +423,8 @@
 </head>
 <body>
   <a href="../" class="voltar">← Voltar</a>
+  <button id="btnReiniciar" class="reiniciar">↻ Reiniciar</button>
+  <button id="btnAbrirLoja" class="loja-btn">🏪 Loja</button>
 
   <div id="telaInicio" class="inicio">
     <div class="inicio-card">
@@ -356,6 +446,7 @@
     <div class="item vida">❤️ <span id="hudVida">10</span></div>
     <div class="item">🪵 <span id="hudMadeira">5</span></div>
     <div class="item">🍎 <span id="hudComida">3</span></div>
+    <div class="item moedas">💰 <span id="hudMoedas">0</span></div>
     <div class="item dia" id="hudDiaItem">☀️ Dia <span id="hudDia">1</span>/10</div>
   </div>
 
@@ -382,6 +473,15 @@
 
   <div id="game"></div>
 
+  <div id="lojaOverlay" class="loja-overlay escondido">
+    <div class="loja-card">
+      <h2>🏪 Loja Voadora</h2>
+      <div class="saldo">💰 <span id="lojaSaldo">0</span> moedinhas</div>
+      <div class="loja-grid" id="lojaGrid"></div>
+      <button id="lojaFechar" class="fechar">Fechar</button>
+    </div>
+  </div>
+
   <div id="overlay" class="overlay escondido">
     <div class="overlay-card">
       <h1 id="overlayTit">Você venceu!</h1>
@@ -399,6 +499,8 @@
     const WORLD_W = 100 * SIZE; // 3200 — mapa bem maior
     const WORLD_H = 100 * SIZE;
     const PLAYER_SPEED = 180;
+    const VEICULO_BONUS = 90;
+    const AEREO_BONUS = 140;
     const META_DIAS = 10;
     const DIA_MS = 28000;
     const NOITE_MS = 18000;
@@ -458,6 +560,12 @@
       carrinho:    { tipo: 'veiculo', nome: 'Carrinho',   emoji: '🛒' },
       patinete:    { tipo: 'veiculo', nome: 'Patinete',   emoji: '🛴' },
       unicornio:   { tipo: 'veiculo', nome: 'Unicórnio',  emoji: '🦄', raridade: 'raro' },
+      // === aéreos (loja, mais rápidos) ===
+      baloo:       { tipo: 'veiculo', nome: 'Balão',         emoji: '🎈', raridade: 'raro',     aereo: true },
+      helicoptero: { tipo: 'veiculo', nome: 'Helicóptero',   emoji: '🚁', raridade: 'raro',     aereo: true },
+      aviao:       { tipo: 'veiculo', nome: 'Avião',         emoji: '✈️', raridade: 'lendario', aereo: true },
+      discoVoador: { tipo: 'veiculo', nome: 'Disco Voador',  emoji: '🛸', raridade: 'lendario', aereo: true },
+      foguete:     { tipo: 'veiculo', nome: 'Foguete',       emoji: '🚀', raridade: 'lendario', aereo: true },
 
       // === pets (seguem o player) ===
       gatinho:     { tipo: 'pet', nome: 'Gatinho',     emoji: '🐱', raridade: 'raro' },
@@ -477,8 +585,8 @@
     let cursors, wasd, ePrev=false, fPrev=false, bPrev=false, spPrev=false;
     let arvores, baus, monstros, paredes;
     let inv = {
-      madeira: 5, comida: 3, vida: 10,
-      itens: [],          // [{id, key}] — coletados
+      madeira: 5, comida: 3, vida: 10, moedas: 0,
+      itens: [],          // [{id, key}] — coletados (sem duplicatas)
       equipado: { arma: null, chapeu: null, rosto: null, escudo: null, capa: null, veiculo: null, pet: null, petItem: null }
     };
     const VIDA_MAX = 10;
@@ -490,14 +598,29 @@
     let acabou = false;
     let invulnAte = 0;
     let touchDir = {x:0, y:0};
+    let ultimaDir = {x: 1, y: 0}; // pra cerca/construção
     let scene;
     let nightOverlay;
     let interactHint;
     let armaSprite, chapeuSprite, rostoSprite, escudoSprite, capaSprite, veiculoSprite, petSprite, petAcessorioSprite;
+    let pesEsq, pesDir;
     let petPos = { x: 0, y: 0 };
     let proxArranhada = 0;
     let magiaProntoEm = 0; // timestamp em que a magia volta a poder ser usada
     let atacando = false;
+
+    // ===== loja =====
+    const LOJA_ITENS = [
+      { key: 'baloo',       preco: 30 },
+      { key: 'helicoptero', preco: 60 },
+      { key: 'aviao',       preco: 90 },
+      { key: 'discoVoador', preco: 130 },
+      { key: 'foguete',     preco: 200 },
+      { key: 'magiaFogo',   preco: 150 },
+      { key: 'martelo',     preco: 50 },
+      { key: 'espadaMag',   preco: 70 },
+      { key: 'asasPet',     preco: 80 },
+    ];
 
     // ===== skins =====
     // sprite (numérico) = usa frame do dungeon. Sem sprite = usa emoji grande.
@@ -613,18 +736,21 @@
       paredes = this.physics.add.staticGroup();
       monstros = this.physics.add.group();
 
-      // árvores (proporcional ao tamanho do mapa)
+      // árvores com seed determinístico (pra carregar save funcionar)
       const FRAMES_ARVORE = [T.arvorePinheiro, T.arvoreRedonda, T.arvoreLaranja, T.arvoreLaranja2];
+      const rng = new Phaser.Math.RandomDataGenerator(['floresta-fixa']);
+      let arvId = 0;
       for (let i=0;i<380;i++){
-        const x = Phaser.Math.Between(40, WORLD_W-40);
-        const y = Phaser.Math.Between(40, WORLD_H-40);
+        const x = rng.between(40, WORLD_W-40);
+        const y = rng.between(40, WORLD_H-40);
         if (Math.hypot(x - WORLD_W/2, y - WORLD_H/2) < 90) continue;
-        const frame = Phaser.Math.RND.pick(FRAMES_ARVORE);
+        const frame = rng.pick(FRAMES_ARVORE);
         const a = arvores.create(x, y, 'town', frame).setScale(SCALE).refreshBody();
         a.body.setCircle(TILE*0.45, TILE*0.05, TILE*0.25);
         a.body.position.set(x - TILE*0.45*SCALE, y - TILE*0.2*SCALE);
         a.hpArvore = 3;
         a.tipo = 'arvore';
+        a.arvId = arvId++;
       }
       // arbustos decorativos
       for (let i=0;i<160;i++){
@@ -633,25 +759,28 @@
         this.add.image(x, y, 'town', T.arbustinho).setScale(SCALE).setDepth(1);
       }
 
-      // baús: mais e mais espalhados
+      // baús com IDs determinísticos
+      let bauId = 0;
       for (let i=0;i<22;i++){
-        const ang = Math.random()*Math.PI*2;
-        const dist = Phaser.Math.Between(180, 1100);
+        const ang = rng.frac()*Math.PI*2;
+        const dist = rng.between(180, 1100);
         const x = Phaser.Math.Clamp(WORLD_W/2 + Math.cos(ang)*dist, 60, WORLD_W-60);
         const y = Phaser.Math.Clamp(WORLD_H/2 + Math.sin(ang)*dist, 60, WORLD_H-60);
         const b = baus.create(x, y, 'town', T.bauMarrom).setScale(SCALE).refreshBody();
         b.tipo = 'bau-facil';
         b.aberto = false;
+        b.bauId = bauId++;
       }
       for (let i=0;i<8;i++){
-        const ang = Math.random()*Math.PI*2;
-        const dist = Phaser.Math.Between(1100, 1500);
+        const ang = rng.frac()*Math.PI*2;
+        const dist = rng.between(1100, 1500);
         const x = Phaser.Math.Clamp(WORLD_W/2 + Math.cos(ang)*dist, 60, WORLD_W-60);
         const y = Phaser.Math.Clamp(WORLD_H/2 + Math.sin(ang)*dist, 60, WORLD_H-60);
         const b = baus.create(x, y, 'town', T.bauMarrom).setScale(SCALE).refreshBody();
         b.setTint(0xffd84d);
         b.tipo = 'bau-dourado';
         b.aberto = false;
+        b.bauId = bauId++;
       }
 
       // jogador
@@ -670,6 +799,10 @@
       petSprite = this.add.text(0, 0, '', { fontSize: '20px' }).setOrigin(0.5).setDepth(9).setVisible(false);
       petAcessorioSprite = this.add.text(0, 0, '', { fontSize: '12px' }).setOrigin(0.5).setDepth(10).setVisible(false);
       petPos.x = WORLD_W/2; petPos.y = WORLD_H/2;
+
+      // pézinhos
+      pesEsq = this.add.rectangle(0, 0, 5, 6, 0x4a2a18).setDepth(8).setVisible(false);
+      pesDir = this.add.rectangle(0, 0, 5, 6, 0x4a2a18).setDepth(8).setVisible(false);
 
       // câmera
       this.cameras.main.setBounds(0, 0, WORLD_W, WORLD_H);
@@ -737,11 +870,167 @@
       jbase.addEventListener('touchmove',  e=>{ e.preventDefault(); if (active) move(e.touches[0].clientX, e.touches[0].clientY); }, {passive:false});
       jbase.addEventListener('touchend',   e=>{ e.preventDefault(); reset(); }, {passive:false});
 
-      document.getElementById('btnRecomecar').onclick = () => location.reload();
+      document.getElementById('btnRecomecar').onclick = () => { limparSave(); location.reload(); };
+      document.getElementById('btnReiniciar').onclick = () => {
+        if (confirm('Reiniciar partida? Você perde tudo.')) {
+          limparSave();
+          location.reload();
+        }
+      };
+      document.getElementById('btnAbrirLoja').onclick = abrirLoja;
+      document.getElementById('lojaFechar').onclick = fecharLoja;
 
       atualizarHUD();
       renderBag();
-      montarTelaInicio();
+
+      // Se há save, retoma jogo direto sem tela inicial
+      const save = carregarSave();
+      if (save) {
+        aplicarSave(save);
+        const skin = SKINS[perfil.skin];
+        aplicarSkin();
+        document.getElementById('hudNome').innerHTML = `${skin.emoji} ${perfil.nome}`;
+        document.getElementById('telaInicio').classList.add('escondido');
+        // se era noite, atualiza visual
+        const elDia = document.getElementById('hudDiaItem');
+        if (ehNoite) {
+          elDia.classList.add('noite');
+          elDia.innerHTML = '🌙 Noite <span id="hudDia">' + dia + '</span>/' + META_DIAS;
+        } else {
+          elDia.innerHTML = '☀️ Dia <span id="hudDia">' + dia + '</span>/' + META_DIAS;
+        }
+        atualizarHUD();
+        renderBag();
+        jogoIniciado = true;
+      } else {
+        montarTelaInicio();
+      }
+
+      // salva periodicamente
+      this.time.addEvent({ delay: 3000, loop: true, callback: salvarEstado });
+    }
+
+    // ===== loja =====
+    function abrirLoja() {
+      ensureAudio();
+      somEquipar();
+      renderLoja();
+      document.getElementById('lojaOverlay').classList.remove('escondido');
+    }
+    function fecharLoja() {
+      document.getElementById('lojaOverlay').classList.add('escondido');
+    }
+    function renderLoja() {
+      document.getElementById('lojaSaldo').textContent = inv.moedas;
+      const grid = document.getElementById('lojaGrid');
+      grid.innerHTML = '';
+      LOJA_ITENS.forEach(it => {
+        const def = CATALOGO[it.key];
+        const el = document.createElement('div');
+        el.className = 'loja-item';
+        if (it.preco <= 50) el.classList.add('barato');
+        else if (it.preco <= 100) el.classList.add('medio');
+        else el.classList.add('lendario');
+
+        const jaTem = inv.itens.some(x => x.key === it.key);
+        const podePagar = inv.moedas >= it.preco;
+        if (jaTem) el.classList.add('comprado');
+        else if (!podePagar) el.classList.add('indisponivel');
+
+        el.innerHTML = `
+          <span class="emoji">${def.emoji}</span>
+          <div class="nome">${def.nome}</div>
+          <div class="preco">${jaTem ? '✓ tem' : '💰 ' + it.preco}</div>
+        `;
+        if (!jaTem && podePagar) {
+          el.onclick = () => comprarItem(it);
+        }
+        grid.appendChild(el);
+      });
+    }
+    function comprarItem(it) {
+      ensureAudio();
+      if (inv.moedas < it.preco) return;
+      if (inv.itens.some(x => x.key === it.key)) return;
+      inv.moedas -= it.preco;
+      adicionarItem(it.key);
+      somPickup();
+      mostrarToast('🛒 Comprou ' + CATALOGO[it.key].nome + '!');
+      renderLoja();
+      atualizarHUD();
+      renderBag();
+      salvarEstado();
+    }
+
+    // ===== save/load =====
+    const SAVE_KEY = 'survivenciaSave_v2';
+    function salvarEstado() {
+      if (!jogoIniciado || acabou) return;
+      try {
+        const baussAbertos = [];
+        baus.children.iterate(b => { if (b && b.aberto) baussAbertos.push(b.bauId); });
+        const arvoresCortadas = [];
+        arvores.children.iterate(a => { if (!a) arvoresCortadas.push(a); });
+        // mais simples: lista das árvores que ainda existem com seus IDs
+        const arvoresVivas = [];
+        arvores.children.iterate(a => { if (a) arvoresVivas.push({id: a.arvId, hp: a.hpArvore}); });
+        const paredesList = [];
+        paredes.children.iterate(p => { if (p) paredesList.push({x: p.x, y: p.y, vertical: !!p.vertical}); });
+        const data = {
+          inv,
+          dia, ehNoite, cicloMs,
+          x: player.x, y: player.y,
+          baussAbertos,
+          arvoresVivas,
+          paredes: paredesList,
+          perfil
+        };
+        localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+      } catch(e) { console.warn('save falhou', e); }
+    }
+    function carregarSave() {
+      try {
+        const raw = localStorage.getItem(SAVE_KEY);
+        if (!raw) return null;
+        return JSON.parse(raw);
+      } catch(e) { return null; }
+    }
+    function limparSave() {
+      localStorage.removeItem(SAVE_KEY);
+    }
+    function aplicarSave(s) {
+      if (!s) return;
+      Object.assign(inv, s.inv);
+      dia = s.dia; ehNoite = s.ehNoite; cicloMs = s.cicloMs;
+      player.x = s.x; player.y = s.y;
+      // marca baús abertos
+      baus.children.iterate(b => {
+        if (b && s.baussAbertos.includes(b.bauId)) {
+          b.aberto = true;
+          b.setTint(0x666666); b.setAlpha(0.55);
+          const x = scene.add.text(b.x, b.y, '✓', {
+            fontSize: '22px', color: '#88ff88', fontStyle: 'bold',
+            stroke: '#0a3a0a', strokeThickness: 3
+          }).setOrigin(0.5).setDepth(15);
+          b.checkSprite = x;
+        }
+      });
+      // remove árvores cortadas
+      const idsVivas = new Set(s.arvoresVivas.map(a => a.id));
+      const hpById = new Map(s.arvoresVivas.map(a => [a.id, a.hp]));
+      arvores.children.iterate(a => {
+        if (a && !idsVivas.has(a.arvId)) a.destroy();
+        else if (a) a.hpArvore = hpById.get(a.arvId);
+      });
+      // recria paredes
+      (s.paredes || []).forEach(p => {
+        const w = paredes.create(p.x, p.y, 'town', T.cercaMeio).setScale(SCALE);
+        w.tipo = 'parede';
+        w.vertical = p.vertical;
+        if (p.vertical) w.setRotation(Math.PI/2);
+        w.refreshBody();
+      });
+      if (s.perfil) Object.assign(perfil, s.perfil);
     }
 
     // ===== tela inicial =====
@@ -783,6 +1072,8 @@
       document.getElementById('hudNome').innerHTML = `${skin.emoji} ${perfil.nome}`;
       document.getElementById('telaInicio').classList.add('escondido');
       jogoIniciado = true;
+      atualizarHUD();
+      renderBag();
     }
 
     function aplicarSkin() {
@@ -818,9 +1109,15 @@
       if (touchDir.x || touchDir.y) { dx = touchDir.x; dy = touchDir.y; }
       const mag = Math.hypot(dx, dy);
       if (mag > 0) { dx/=mag; dy/=mag; }
-      player.setVelocity(dx*PLAYER_SPEED, dy*PLAYER_SPEED);
+      let velocidade = PLAYER_SPEED;
+      if (inv.equipado.veiculo) {
+        const veic = CATALOGO[inv.equipado.veiculo];
+        velocidade += veic.aereo ? AEREO_BONUS : VEICULO_BONUS;
+      }
+      player.setVelocity(dx*velocidade, dy*velocidade);
       if (dx < 0) player.setFlipX(true);
       else if (dx > 0) player.setFlipX(false);
+      if (dx !== 0 || dy !== 0) { ultimaDir.x = dx; ultimaDir.y = dy; }
 
       // posiciona equipamentos
       atualizarEquipamentosVisuais(time);
@@ -917,6 +1214,20 @@
         playerSkinSprite.x = player.x;
         playerSkinSprite.y = player.y - 2;
         playerSkinSprite.setScale(player.flipX ? -1 : 1, 1);
+      }
+
+      // pézinhos: visíveis quando NÃO tem veículo
+      const semVeic = !inv.equipado.veiculo;
+      if (semVeic) {
+        pesEsq.setVisible(true); pesDir.setVisible(true);
+        const andando = Math.abs(player.body.velocity.x) > 5 || Math.abs(player.body.velocity.y) > 5;
+        const fase = time / 110;
+        const offEsq = andando ? Math.sin(fase) * 3 : 0;
+        const offDir = andando ? Math.sin(fase + Math.PI) * 3 : 0;
+        pesEsq.x = player.x - 5; pesEsq.y = player.y + 14 + offEsq;
+        pesDir.x = player.x + 5; pesDir.y = player.y + 14 + offDir;
+      } else {
+        pesEsq.setVisible(false); pesDir.setVisible(false);
       }
 
       // veículo bem embaixo do player
@@ -1049,49 +1360,51 @@
       const r = Math.random();
       const dropsTexto = [];
 
-      if (dourado) {
-        // baú dourado: sempre item legal + bônus + recursos
-        if (r < 0.18) {
-          adicionarItem('magiaFogo'); dropsTexto.push('🔥 MAGIA DE FOGO!');
-        } else if (r < 0.30) {
-          // item RARO de pet
-          const pet = Phaser.Math.RND.pick(['garrasPet','asasPet']);
-          adicionarItem(pet); dropsTexto.push('🌟 ' + CATALOGO[pet].nome);
-        } else if (r < 0.55) {
-          const arma = Phaser.Math.RND.pick(['martelo','machado','espadaMag','lanca','varinha']);
-          adicionarItem(arma); dropsTexto.push('⚔️ ' + CATALOGO[arma].nome);
+      // helper que tenta dar item; se duplicado vira moedas
+      const tentarDar = (key, prefixo) => {
+        if (key && adicionarItem(key)) {
+          dropsTexto.push(prefixo + ' ' + CATALOGO[key].nome);
         } else {
-          // 2 visuais raros de uma vez!
-          const pool = ['coroa','tiara','escudoOuro','capaVerm','bicicleta','unicornio','asas','oculosCoracao','gatinho','coelho','coleirinha','lacoPet'];
-          const visu1 = Phaser.Math.RND.pick(pool);
-          const visu2 = Phaser.Math.RND.pick(pool.filter(x=>x!==visu1));
-          adicionarItem(visu1); adicionarItem(visu2);
-          dropsTexto.push('✨ ' + CATALOGO[visu1].nome + ' + ' + CATALOGO[visu2].nome);
+          const m = dourado ? 15 : 8;
+          inv.moedas += m;
+          dropsTexto.push('+' + m + ' 💰 (repetido)');
+        }
+      };
+
+      if (dourado) {
+        // baú dourado: sempre item legal + bônus + recursos + moedas
+        if (r < 0.18) {
+          tentarDar(pickNovo(['magiaFogo']) || 'magiaFogo', '🔥');
+        } else if (r < 0.30) {
+          tentarDar(pickNovo(['garrasPet','asasPet']), '🌟');
+        } else if (r < 0.55) {
+          tentarDar(pickNovo(['martelo','machado','espadaMag','lanca','varinha']), '⚔️');
+        } else {
+          // 2 visuais raros
+          const pool = ['coroa','tiara','escudoOuro','capaVerm','bicicleta','unicornio','asas','oculosCoracao','gatinho','coelho','coleirinha','lacoPet','helicoptero','aviao','baloo','discoVoador'];
+          tentarDar(pickNovo(pool), '✨');
+          tentarDar(pickNovo(pool), '✨');
         }
         inv.comida += 4; inv.madeira += 5;
         inv.vida = Math.min(VIDA_MAX, inv.vida + 2);
-        dropsTexto.push('+4 🍎 +5 🪵 +2 ❤️');
+        inv.moedas += Phaser.Math.Between(10, 20);
+        dropsTexto.push('+🍎 +🪵 +❤️ +💰');
       } else {
-        // baú marrom: SEMPRE dá um item legal + às vezes recursos
-        const poolVisuais = ['chapeuBruxa','bone','laco','chapeuPirata','chapeuChef','escudoAzul','capaAzul','oculos','oculosArco','skate','patins','carrinho','passarinho'];
+        // baú marrom
+        const poolVisuais = ['chapeuBruxa','bone','laco','chapeuPirata','chapeuChef','escudoAzul','capaAzul','oculos','oculosArco','skate','patins','carrinho','patinete','passarinho','cachorrinho'];
         const poolArmas = ['espadinha','espada','varinha'];
 
         if (r < 0.50) {
-          const visu = Phaser.Math.RND.pick(poolVisuais);
-          adicionarItem(visu); dropsTexto.push('✨ ' + CATALOGO[visu].nome);
-        } else if (r < 0.80) {
-          const arma = Phaser.Math.RND.pick(poolArmas);
-          adicionarItem(arma); dropsTexto.push('🗡️ ' + CATALOGO[arma].nome);
-        } else if (r < 0.92) {
-          // raríssimo: item raro num baú simples
-          const raros = ['coroa','asas','bicicleta','gatinho','coelho'];
-          const raro = Phaser.Math.RND.pick(raros);
-          adicionarItem(raro); dropsTexto.push('🌟 ' + CATALOGO[raro].nome);
+          tentarDar(pickNovo(poolVisuais), '✨');
+        } else if (r < 0.78) {
+          tentarDar(pickNovo(poolArmas), '🗡️');
+        } else if (r < 0.90) {
+          tentarDar(pickNovo(['coroa','asas','bicicleta','gatinho','coelho']), '🌟');
         } else {
-          // raríssimo: item de pet num baú simples
-          const pet = Phaser.Math.RND.pick(['coleirinha','lacoPet']);
-          adicionarItem(pet); dropsTexto.push('🐾 ' + CATALOGO[pet].nome);
+          tentarDar(pickNovo(['coleirinha','lacoPet']), '🐾');
         }
+        inv.moedas += Phaser.Math.Between(3, 8);
+        dropsTexto.push('+💰 moedas');
         // recursos extras
         const r2 = Math.random();
         if (r2 < 0.6) { inv.comida += 2; dropsTexto.push('+2 🍎'); }
@@ -1106,15 +1419,22 @@
       renderBag();
     }
 
+    // tenta adicionar; se duplicado, retorna false (chamada vira moedas)
     function adicionarItem(key) {
+      if (inv.itens.some(it => it.key === key)) return false;
       const item = { id: proxItemId++, key };
       inv.itens.push(item);
-      // auto-equipa se o slot estiver vazio
       const tipo = CATALOGO[key].tipo;
       const slot = (tipo === 'magia') ? 'arma' : tipo;
       if (slot in inv.equipado && !inv.equipado[slot]) {
         inv.equipado[slot] = key;
       }
+      return true;
+    }
+    // sorteia chave do pool que ainda não foi coletada
+    function pickNovo(pool) {
+      const novos = pool.filter(k => !inv.itens.some(it => it.key === k));
+      return novos.length ? Phaser.Math.RND.pick(novos) : null;
     }
 
     function acaoComer() {
@@ -1133,20 +1453,28 @@
     function acaoConstruir() {
       ensureAudio();
       if (inv.madeira < 2) { mostrarToast('Precisa 2 🪵'); return; }
-      const ang = Math.atan2(player.body.velocity.y || 0.001, player.body.velocity.x || (player.flipX?-1:1));
+      // direção: se andando vertical, cerca vertical; se horizontal, horizontal
+      const dx = ultimaDir.x, dy = ultimaDir.y;
+      const vertical = Math.abs(dy) > Math.abs(dx);
       const dist = SIZE * 1.2;
-      let px = player.x + Math.cos(ang)*dist;
-      let py = player.y + Math.sin(ang)*dist;
+      const dirX = vertical ? 0 : (dx >= 0 ? 1 : -1);
+      const dirY = vertical ? (dy >= 0 ? 1 : -1) : 0;
+      let px = player.x + dirX*dist;
+      let py = player.y + dirY*dist;
       px = Math.round(px / SIZE) * SIZE;
       py = Math.round(py / SIZE) * SIZE;
       if (px < SIZE || px > WORLD_W-SIZE || py < SIZE || py > WORLD_H-SIZE) return;
       let conflito = false;
       paredes.children.iterate(p => { if (p && Math.abs(p.x-px)<4 && Math.abs(p.y-py)<4) conflito = true; });
       if (conflito) return;
-      paredes.create(px, py, 'town', T.cercaMeio).setScale(SCALE).refreshBody().tipo = 'parede';
+      const p = paredes.create(px, py, 'town', T.cercaMeio).setScale(SCALE);
+      p.tipo = 'parede';
+      p.vertical = vertical;
+      if (vertical) p.setRotation(Math.PI/2);
+      p.refreshBody();
       inv.madeira -= 2;
       somConstruir();
-      mostrarToast('🧱 parede construída');
+      mostrarToast(vertical ? '🧱 cerca vertical' : '🧱 cerca horizontal');
       atualizarHUD();
     }
 
@@ -1187,10 +1515,22 @@
           if (m.hp <= 0) {
             const burst = scene.add.text(m.x, m.y, '💥', { fontSize: '28px' }).setOrigin(0.5).setDepth(30);
             scene.tweens.add({ targets: burst, alpha: 0, scale: 1.6, duration: 400, onComplete: ()=>burst.destroy() });
+            dropMoedasMonstro(m.x, m.y);
             m.destroy();
           }
         }
       });
+    }
+
+    function dropMoedasMonstro(x, y) {
+      const ganho = Phaser.Math.Between(2, 5);
+      inv.moedas += ganho;
+      const t = scene.add.text(x, y - 8, '+' + ganho + ' 💰', {
+        fontSize: '14px', color: '#ffd84d', fontStyle: 'bold',
+        stroke: '#6a3a0a', strokeThickness: 3
+      }).setOrigin(0.5).setDepth(35);
+      scene.tweens.add({ targets: t, y: y - 32, alpha: 0, duration: 700, onComplete: () => t.destroy() });
+      atualizarHUD();
     }
 
     function animarEspadada() {
@@ -1292,6 +1632,7 @@
           if (m.hp <= 0) {
             const burst = scene.add.text(m.x, m.y, '💥', { fontSize: '32px' }).setOrigin(0.5).setDepth(30);
             scene.tweens.add({ targets: burst, alpha: 0, scale: 2, duration: 400, onComplete: ()=>burst.destroy() });
+            dropMoedasMonstro(m.x, m.y);
             m.destroy();
           }
         }
@@ -1332,6 +1673,7 @@
       if (m.hp <= 0) {
         const burst = scene.add.text(m.x, m.y, '💥', { fontSize: '24px' }).setOrigin(0.5).setDepth(30);
         scene.tweens.add({ targets: burst, alpha: 0, scale: 1.6, duration: 400, onComplete: () => burst.destroy() });
+        dropMoedasMonstro(m.x, m.y);
         m.destroy();
       }
     }
@@ -1392,6 +1734,7 @@
       document.getElementById('hudVida').textContent = inv.vida;
       document.getElementById('hudMadeira').textContent = inv.madeira;
       document.getElementById('hudComida').textContent = inv.comida;
+      document.getElementById('hudMoedas').textContent = inv.moedas;
     }
 
     const SLOTS_MIN = 10; // 5 linhas x 2 colunas
