@@ -136,6 +136,31 @@
         w: 32, h: 32, frames: 6, escala: 1.7, fps: 18,
         tint: 0xffd700, // dourado de saiyajin
       },
+      // === BIBLIOTECA SECRETA (Konami) — ocultas até desbloqueadas, aí custam 50 ===
+      { slug: "bunny", nome: "Coelho", custo: 50, oculto: true, categoria: "animal",
+        url: "/shared/assets/sprites/pixelfrog/pixel-adventure-1/Enemies/Bunny/Idle (34x44).png",
+        w: 34, h: 44, frames: 8, escala: 1.2, fps: 12 },
+      { slug: "chicken", nome: "Galinha", custo: 50, oculto: true, categoria: "animal",
+        url: "/shared/assets/sprites/pixelfrog/pixel-adventure-1/Enemies/Chicken/Idle (32x34).png",
+        w: 32, h: 34, frames: 13, escala: 1.4, fps: 14 },
+      { slug: "mushroom", nome: "Cogumelo", custo: 50, oculto: true, categoria: "monstro",
+        url: "/shared/assets/sprites/pixelfrog/pixel-adventure-1/Enemies/Mushroom/Idle (32x32).png",
+        w: 32, h: 32, frames: 14, escala: 1.5, fps: 14 },
+      { slug: "plant", nome: "Planta", custo: 50, oculto: true, categoria: "monstro",
+        url: "/shared/assets/sprites/pixelfrog/pixel-adventure-1/Enemies/Plant/Idle (44x42).png",
+        w: 44, h: 42, frames: 11, escala: 1.0, fps: 12 },
+      { slug: "slime", nome: "Slime", custo: 50, oculto: true, categoria: "monstro",
+        url: "/shared/assets/sprites/pixelfrog/pixel-adventure-1/Enemies/Slime/Idle-Run (44x30).png",
+        w: 44, h: 30, frames: 10, escala: 1.2, fps: 14 },
+      { slug: "ninja", nome: "Ninja Frog", custo: 50, oculto: true, categoria: "personagem",
+        url: "/shared/assets/sprites/pixelfrog/pixel-adventure-1/Main Characters/Ninja Frog/Idle (32x32).png",
+        w: 32, h: 32, frames: 11, escala: 1.6, fps: 14 },
+      { slug: "pinkman", nome: "Pink Man", custo: 50, oculto: true, categoria: "personagem",
+        url: "/shared/assets/sprites/pixelfrog/pixel-adventure-1/Main Characters/Pink Man/Idle (32x32).png",
+        w: 32, h: 32, frames: 11, escala: 1.6, fps: 14 },
+      { slug: "virtual", nome: "Virtual Guy", custo: 50, oculto: true, categoria: "personagem",
+        url: "/shared/assets/sprites/pixelfrog/pixel-adventure-1/Main Characters/Virtual Guy/Idle (32x32).png",
+        w: 32, h: 32, frames: 11, escala: 1.6, fps: 14 },
     ];
 
     // ====== Habilidades ======
@@ -166,21 +191,32 @@
     }
     function criarUsuario(nick) {
       const u = carregarUsuarios();
-      u[nick] = { recorde: 0, pontosTotal: 0, skinAtual: "blue", skinsCompradas: ["blue"], habilidades: [] };
+      u[nick] = { recorde: 0, pontosTotal: 0, skinAtual: "blue", skinsCompradas: ["blue"],
+                  habilidades: [], skinsDesbloqueadas: [], konamiUsado: false };
       salvarUsuarios(u);
       setUsuarioAtual(nick);
     }
     function carregarHabilidades() { return (dadosUsuario() || {}).habilidades || []; }
     function salvarHabilidades(arr) { atualizarUsuario({ habilidades: arr }); }
     function temHabilidade(slug) { return carregarHabilidades().includes(slug); }
+    // Konami / biblioteca secreta
+    function konamiJaUsado() { return !!(dadosUsuario() || {}).konamiUsado; }
+    function carregarSkinsDesbloqueadas() { return (dadosUsuario() || {}).skinsDesbloqueadas || []; }
+    function desbloquearSkin(slug) {
+      const lista = carregarSkinsDesbloqueadas();
+      if (!lista.includes(slug)) lista.push(slug);
+      atualizarUsuario({ skinsDesbloqueadas: lista, konamiUsado: true });
+    }
     function dadosUsuario() {
       const nick = getUsuarioAtual();
       const u = carregarUsuarios();
       const d = u[nick];
-      if (d && !d.habilidades) {
-        // migra usuário antigo (sem campo habilidades)
-        d.habilidades = [];
-        salvarUsuarios(u);
+      if (d) {
+        let mudou = false;
+        if (!d.habilidades) { d.habilidades = []; mudou = true; }
+        if (!d.skinsDesbloqueadas) { d.skinsDesbloqueadas = []; mudou = true; }
+        if (d.konamiUsado === undefined) { d.konamiUsado = false; mudou = true; }
+        if (mudou) salvarUsuarios(u);
       }
       return d || null;
     }
@@ -476,6 +512,178 @@
       }
 
       iniciarFluxoLogin(this);
+
+      // ===== Konami Code listener =====
+      iniciarKonami(this);
+    }
+
+    // ============================================
+    // KONAMI CODE & BIBLIOTECA SECRETA
+    // ============================================
+    function iniciarKonami(scene) {
+      const SEQ = ["ArrowUp","ArrowUp","ArrowDown","ArrowDown","ArrowRight","ArrowLeft","ArrowRight","ArrowLeft"];
+      let buffer = [];
+      window.addEventListener("keydown", (e) => {
+        if (estado === "jogando") return; // não dispara durante partida
+        buffer.push(e.key);
+        if (buffer.length > SEQ.length) buffer = buffer.slice(-SEQ.length);
+        if (buffer.length === SEQ.length && buffer.every((k, i) => k === SEQ[i])) {
+          buffer = [];
+          if (!konamiJaUsado()) mostrarCuboKonami(scene);
+        }
+      });
+    }
+
+    function mostrarCuboKonami(scene) {
+      // Cubo preto com "?" no centro da tela, dura 3s
+      const cubo = scene.add.rectangle(TELA_W / 2, TELA_H / 2, 120, 120, 0x000000, 0.95)
+        .setStrokeStyle(4, 0xfff04f).setScrollFactor(0).setDepth(60).setInteractive();
+      const txt = scene.add.text(TELA_W / 2, TELA_H / 2, "?", {
+        fontSize: "70px", color: "#fff04f", fontStyle: "bold",
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(61);
+
+      // Pulse
+      scene.tweens.add({
+        targets: [cubo, txt], scale: 1.08, duration: 400,
+        yoyo: true, repeat: -1, ease: "Sine.inOut",
+      });
+
+      // Auto-destroy em 3s
+      const destruir = () => {
+        if (cubo.active) {
+          scene.tweens.killTweensOf([cubo, txt]);
+          cubo.destroy(); txt.destroy();
+        }
+      };
+      scene.time.delayedCall(3000, destruir);
+
+      cubo.on("pointerdown", () => {
+        scene.sound.play("comprar", { volume: 0.5 });
+        destruir();
+        mostrarBibliotecaSecreta(scene);
+      });
+    }
+
+    let telaSecreta = null;
+    let buscaSecreta = "";
+    function mostrarBibliotecaSecreta(scene) {
+      if (telaSecreta) telaSecreta.destroy();
+      telaSecreta = scene.add.container(0, 0).setDepth(70);
+      const fundo = scene.add.rectangle(TELA_W / 2, TELA_H / 2, TELA_W, TELA_H, 0x000022, 0.96);
+      telaSecreta.add(fundo);
+
+      const titulo = scene.add.text(TELA_W / 2, 25, "🎁 BIBLIOTECA SECRETA", {
+        fontSize: "20px", color: "#fff04f", fontStyle: "bold",
+        stroke: "#000000", strokeThickness: 4,
+      }).setOrigin(0.5);
+      telaSecreta.add(titulo);
+
+      const sub = scene.add.text(TELA_W / 2, 50,
+        "Escolhe uma — ela vai pra sua loja por 50💰. Só pode escolher UMA.", {
+        fontSize: "10px", color: "#aaaaaa", align: "center",
+      }).setOrigin(0.5);
+      telaSecreta.add(sub);
+
+      // Input de busca (HTML overlay simples)
+      const inputDom = document.createElement("input");
+      inputDom.type = "text";
+      inputDom.placeholder = "buscar (ex: animal, monstro, ninja...)";
+      inputDom.value = buscaSecreta;
+      inputDom.style.cssText = `
+        position: fixed; left: 50%; top: 80px; transform: translateX(-50%);
+        width: 280px; padding: 8px 12px; font-size: 14px; z-index: 100;
+        background: #0d1322; color: #fff; border: 2px solid #4fdb9b;
+        border-radius: 8px; outline: none;
+      `;
+      document.body.appendChild(inputDom);
+      setTimeout(() => inputDom.focus(), 50);
+      const onInput = () => {
+        buscaSecreta = inputDom.value.toLowerCase();
+        renderGrid();
+      };
+      inputDom.addEventListener("input", onInput);
+      telaSecreta.dataInput = inputDom;
+
+      // Grid de skins
+      let gridContainer = scene.add.container(0, 0);
+      telaSecreta.add(gridContainer);
+
+      function renderGrid() {
+        gridContainer.removeAll(true);
+        const desbloqueadas = carregarSkinsDesbloqueadas();
+        const candidatas = SKINS.filter(s => s.oculto && !desbloqueadas.includes(s.slug));
+        const filtro = buscaSecreta.trim();
+        const visiveis = filtro
+          ? candidatas.filter(s =>
+              s.nome.toLowerCase().includes(filtro) ||
+              (s.categoria && s.categoria.includes(filtro)) ||
+              s.slug.toLowerCase().includes(filtro))
+          : candidatas;
+
+        if (visiveis.length === 0) {
+          const t = scene.add.text(TELA_W / 2, TELA_H / 2, "Nenhuma skin encontrada", {
+            fontSize: "14px", color: "#aaaaaa",
+          }).setOrigin(0.5);
+          gridContainer.add(t);
+          return;
+        }
+
+        // Grid 3 colunas
+        const cols = 3;
+        const cellW = 120, cellH = 100;
+        const gridX = TELA_W / 2 - (cols * cellW) / 2 + cellW / 2;
+        const gridY = 130;
+        visiveis.forEach((s, i) => {
+          const col = i % cols;
+          const row = Math.floor(i / cols);
+          const x = gridX + col * cellW;
+          const y = gridY + row * cellH;
+          const card = scene.add.rectangle(x, y, cellW - 8, cellH - 8, 0x222244, 0.95)
+            .setStrokeStyle(2, 0x4fdb9b).setInteractive();
+          gridContainer.add(card);
+          const sp = scene.add.sprite(x, y - 10, `skin_${s.slug}`);
+          const escMax = Math.min(40 / s.w, 40 / s.h, 1.4);
+          sp.setScale(escMax);
+          if (s.frames > 1) sp.play(`anim_${s.slug}`);
+          gridContainer.add(sp);
+          const nome = scene.add.text(x, y + 28, s.nome, {
+            fontSize: "11px", color: "#ffffff", fontStyle: "bold",
+          }).setOrigin(0.5);
+          gridContainer.add(nome);
+          const cat = scene.add.text(x, y + 42, s.categoria, {
+            fontSize: "9px", color: "#aaaaaa",
+          }).setOrigin(0.5);
+          gridContainer.add(cat);
+
+          card.on("pointerdown", () => {
+            scene.sound.play("comprar", { volume: 0.6 });
+            desbloquearSkin(s.slug);
+            scene.cameras.main.flash(300, 255, 215, 0);
+            fecharBibliotecaSecreta();
+          });
+        });
+      }
+      renderGrid();
+
+      // Botão fechar
+      const btn = scene.add.rectangle(TELA_W / 2, TELA_H - 30, 160, 38, 0x4f9bff, 1)
+        .setInteractive().setStrokeStyle(3, 0x000000);
+      const t = scene.add.text(TELA_W / 2, TELA_H - 30, "Cancelar", {
+        fontSize: "14px", color: "#ffffff", fontStyle: "bold",
+      }).setOrigin(0.5);
+      btn.on("pointerdown", () => {
+        scene.sound.play("ponto", { volume: 0.4 });
+        fecharBibliotecaSecreta();
+      });
+      telaSecreta.add(btn); telaSecreta.add(t);
+    }
+
+    function fecharBibliotecaSecreta() {
+      if (telaSecreta) {
+        if (telaSecreta.dataInput) telaSecreta.dataInput.remove();
+        telaSecreta.destroy();
+        telaSecreta = null;
+      }
     }
 
     function iniciarFluxoLogin(scene) {
@@ -865,7 +1073,10 @@
     function renderSkinsLoja(scene) {
       const startY = 135;
       const itemH = 60;
-      const compraveis = SKINS.filter(s => s.custo >= 0); // exclui Goku
+      const desbloqueadas = carregarSkinsDesbloqueadas();
+      const compraveis = SKINS.filter(s =>
+        s.custo >= 0 && (!s.oculto || desbloqueadas.includes(s.slug))
+      );
       compraveis.forEach((s, i) => {
         const y = startY + i * itemH;
         const card = scene.add.rectangle(TELA_W / 2, y, 370, itemH - 8, 0x222244, 0.95)
