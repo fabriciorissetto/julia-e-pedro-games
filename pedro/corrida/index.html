@@ -80,6 +80,7 @@
 
     // ====== Estado ======
     let carro;
+    let emitterTurbo;
     let oponentes = [];
     let teclas, teclaEspaco;
     let estadoCorrida = "correndo";
@@ -89,6 +90,7 @@
     let botoes = { cima: false, baixo: false, esq: false, dir: false, turbo: false };
     let melhorVolta = parseFloat(localStorage.getItem("corrida_melhor_volta")) || null;
     let melhorTotal = parseFloat(localStorage.getItem("corrida_melhor_total")) || null;
+    let listaCones = []; // posições dos cones (pra IA desviar)
 
     // Waypoints da pista (sentido horário) — usado pela IA dos oponentes
     const WAYPOINTS = [
@@ -136,15 +138,18 @@
         { x: 1000, y: 350 }, { x: 1500, y: 350 },
       ];
       cones.forEach(p => obstaculos.add(criarCone(this, p.x, p.y)));
+      listaCones = cones;
 
       // ===== Texturas dos carros =====
       criarTexturaCarro(this, "carroJogador", 0xff4f6f);
       criarTexturaCarro(this, "carroOponente1", 0x4f9bff);
       criarTexturaCarro(this, "carroOponente2", 0xfff04f);
+      criarTexturaChama(this, "chama");
 
       // ===== Carro do jogador =====
       carro = this.physics.add.sprite(1100, 1250, "carroJogador");
       configurarCarro(carro);
+      carro.setDepth(2);
       carro.dataSpeed = 0;
       carro.dataTurbo = TURBO_MAX;
       carro.dataVolta = 1;
@@ -153,10 +158,23 @@
       carro.dataNome = "Você";
       carro.dataWp = 0; // só pra ranking de meio de corrida
 
+      // ===== Fogo do turbo (partículas) =====
+      emitterTurbo = this.add.particles(0, 0, "chama", {
+        lifespan: 350,
+        speed: { min: 120, max: 240 },
+        scale: { start: 0.9, end: 0 },
+        alpha: { start: 1, end: 0 },
+        tint: [0xffffff, 0xfff04f, 0xff8800, 0xff4f00],
+        blendMode: "ADD",
+        frequency: 18,
+        emitting: false,
+      });
+      emitterTurbo.setDepth(1); // atrás do carro
+
       // ===== Oponentes =====
       const oponentesData = [
-        { x: 1100, y: 1300, key: "carroOponente1", nome: "Azul", velMax: 360 },
-        { x: 1050, y: 1200, key: "carroOponente2", nome: "Amarelo", velMax: 380 },
+        { x: 1100, y: 1300, key: "carroOponente1", nome: "Azul", velMax: 360, habilidade: 0.75 },
+        { x: 1050, y: 1200, key: "carroOponente2", nome: "Amarelo", velMax: 380, habilidade: 0.55 },
       ];
       oponentesData.forEach(d => {
         const op = this.physics.add.sprite(d.x, d.y, d.key);
@@ -166,8 +184,11 @@
         op.dataPassouCheckpoint = false;
         op.dataTerminou = false;
         op.dataNome = d.nome;
-        op.dataWp = 0;        // próximo waypoint
+        op.dataWp = 0;
         op.dataVelMax = d.velMax;
+        op.dataHabilidade = d.habilidade;
+        op.dataVeObstaculos = true;
+        op.dataProximaDecisao = 0;
         oponentes.push(op);
       });
 
@@ -250,7 +271,7 @@
       atualizarJogador(this, dt);
 
       // ===== OPONENTES =====
-      oponentes.forEach(op => atualizarOponente(op, dt));
+      oponentes.forEach(op => atualizarOponente(op, dt, this.time.now));
 
       // ===== UI =====
       atualizarUI(this);
@@ -298,9 +319,19 @@
       // Aplica velocidade NA DIREÇÃO do carro (sem deslizamento)
       carro.body.velocity.x = Math.cos(carro.rotation) * carro.dataSpeed;
       carro.body.velocity.y = Math.sin(carro.rotation) * carro.dataSpeed;
+
+      // Fogo do turbo: posiciona atrás do carro e emite só com turbo ativo
+      const angTras = carro.rotation + Math.PI;
+      emitterTurbo.setPosition(
+        carro.x + Math.cos(angTras) * 24,
+        carro.y + Math.sin(angTras) * 24
+      );
+      const grausTras = Phaser.Math.RadToDeg(angTras);
+      emitterTurbo.setParticleAngle({ min: grausTras - 25, max: grausTras + 25 });
+      emitterTurbo.emitting = turbo;
     }
 
-    function atualizarOponente(op, dt) {
+    function atualizarOponente(op, dt, now) {
       if (op.dataTerminou) {
         op.body.velocity.x = 0;
         op.body.velocity.y = 0;
@@ -315,8 +346,20 @@
         op.dataWp = (op.dataWp + 1) % WAYPOINTS.length;
       }
 
-      // Gira gradualmente em direção ao waypoint
-      const alvo = Math.atan2(dy, dx);
+      // Ângulo alvo (em direção ao waypoint)
+      let alvo = Math.atan2(dy, dx);
+
+      // ===== Desvio de cones — IA "vê" obstáculos com chance baseada em habilidade =====
+      if (now > op.dataProximaDecisao) {
+        op.dataVeObstaculos = Math.random() < op.dataHabilidade;
+        op.dataProximaDecisao = now + 400 + Math.random() * 700;
+      }
+      if (op.dataVeObstaculos) {
+        const desvio = calcularDesvio(op);
+        if (desvio !== null) alvo = desvio;
+      }
+
+      // Gira gradualmente em direção ao alvo
       let diff = alvo - op.rotation;
       while (diff > Math.PI) diff -= 2 * Math.PI;
       while (diff < -Math.PI) diff += 2 * Math.PI;
@@ -328,6 +371,34 @@
       op.dataSpeed = Math.min(op.dataSpeed + ACEL_OPONENTE * dt, op.dataVelMax);
       op.body.velocity.x = Math.cos(op.rotation) * op.dataSpeed;
       op.body.velocity.y = Math.sin(op.rotation) * op.dataSpeed;
+    }
+
+    function calcularDesvio(op) {
+      // Procura o cone mais próximo "à frente" do oponente
+      const RAIO = 160;
+      const ANG_VISAO = Math.PI / 3; // 60° de cada lado
+      let coneAlvo = null;
+      let menorDist = Infinity;
+      for (const c of listaCones) {
+        const cdx = c.x - op.x;
+        const cdy = c.y - op.y;
+        const d = Math.hypot(cdx, cdy);
+        if (d > RAIO) continue;
+        let angCone = Math.atan2(cdy, cdx);
+        let diff = angCone - op.rotation;
+        while (diff > Math.PI) diff -= 2 * Math.PI;
+        while (diff < -Math.PI) diff += 2 * Math.PI;
+        if (Math.abs(diff) > ANG_VISAO) continue;
+        if (d < menorDist) {
+          menorDist = d;
+          coneAlvo = { dx: cdx, dy: cdy, diff };
+        }
+      }
+      if (!coneAlvo) return null;
+      // Vira pro lado oposto do cone — quanto mais perto, mais forte o desvio
+      const intensidade = 1 - menorDist / 160; // 0..1
+      const desloc = (Math.PI / 3) * intensidade; // até 60°
+      return op.rotation - Math.sign(coneAlvo.diff) * desloc;
     }
 
     function atualizarUI(scene) {
@@ -466,6 +537,16 @@
       g.fillRect(34, 0, 12, 6);
       g.fillRect(34, 26, 12, 6);
       g.generateTexture(key, 50, 32);
+      g.destroy();
+    }
+
+    function criarTexturaChama(scene, key) {
+      // Círculo branco com gradiente — a cor vem do "tint" das partículas
+      const r = 16;
+      const g = scene.add.graphics();
+      g.fillStyle(0xffffff, 1);
+      g.fillCircle(r, r, r);
+      g.generateTexture(key, r * 2, r * 2);
       g.destroy();
     }
 
