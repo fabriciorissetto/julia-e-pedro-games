@@ -1,246 +1,471 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Cobrinha Come Come</title>
   <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body {
-      margin: 0;
-      padding: 0;
-      background: #1a0f2e;
       height: 100%;
       overflow: hidden;
-      font-family: sans-serif;
+      background:
+        radial-gradient(ellipse at top, #b9eaff 0%, #87ceeb 30%, #6fb84a 70%, #4ba747 100%);
+      font-family: 'Comic Sans MS', 'Trebuchet MS', cursive;
+      touch-action: none;
     }
     body {
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      display: flex; align-items: center; justify-content: center;
     }
     #game {
-      background: #1a0f2e;
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.4);
+    }
+    .voltar {
+      position: fixed; top: 12px; left: 12px;
+      background: rgba(255,255,255,0.95);
+      padding: 10px 18px;
+      border-radius: 22px;
+      text-decoration: none;
+      color: #2d6e1a;
+      font-weight: bold; font-size: 18px;
+      z-index: 50;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.25);
+      font-family: inherit;
+    }
+    .dica {
+      position: fixed; top: 12px; right: 12px;
+      background: rgba(255,255,255,0.92);
+      padding: 8px 14px;
+      border-radius: 18px;
+      color: #6a3a8a;
+      font-weight: bold; font-size: 14px;
+      z-index: 50;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.18);
+      font-family: inherit;
+      text-align: right;
+      line-height: 1.3;
+    }
+    @media (max-width: 480px) {
+      .dica { font-size: 11px; padding: 6px 10px; max-width: 60vw; }
     }
   </style>
 </head>
 <body>
+  <a href="../" class="voltar">← Voltar</a>
+  <div class="dica">Setas pra mover<br>ESPAÇO ou segure pra correr 💨</div>
   <div id="game"></div>
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
   <script>
-    // Tamanho do grid em células
-    const CELL = 36;
-    const COLS = 24;
-    const ROWS = 24;
+    const CELL = 48;
+    const COLS = 18;
+    const ROWS = 18;
     const W = CELL * COLS;
     const H = CELL * ROWS;
-
-    let snake;        // array de {x,y}
-    let dir;          // {x,y}
-    let nextDir;
-    let food;         // {x,y}
-    let foodColor;    // cor da bolinha atual
-    let stepTimer = 0;
-    const STEP_MS = 280;
     const META = 10;
-    let scoreText;
-    let score = 0;
-    let graphics;
-    let pulseTime = 0;
-    let venceu = false;
-    let winText, winSubText;
-    let confetes = [];
+    const STEP_MS_NORMAL = 280;
+    const STEP_MS_BOOST = 150;
 
-    // sons fofos
+    const FOOD_TIPOS = ['gema-azul','gema-vermelha','gema-verde','gema-amarela','estrela','moeda'];
+    const TRAIL_EMOJIS = ['✨','💫','⭐','🌟','💨'];
+    const FESTA_EMOJIS = ['💖','⭐','🌸','✨','🎉','💫','🌟','🎀'];
+    const POP_EMOJIS = ['💖','⭐','✨','🌟'];
+
+    let snake, dir, nextDir;
+    let food;
+    let foodSprite;
+    let stepTimer = 0;
+    let pulseTime = 0;
+    let score = 0;
+    let venceu = false;
+    let boost = false;
+
+    let bgGraphics, bodyGraphics, hudGraphics;
+    let scoreTexto;
+    let progBarFundo, progBarFill;
+    let boostTexto;
+    let cabecaSprite;
+    let cabecaTween;
+    let nuvens = [];
+    let confetes = [];
+    let winText, winSubText;
+
+    // ==== áudio ====
     let audioCtx = null;
     function ensureAudio() {
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       if (audioCtx.state === 'suspended') audioCtx.resume();
     }
-    function tom(freq, dur, type = 'sine', vol = 0.18) {
+    function tom(freq, dur, type='sine', vol=0.18) {
       if (!audioCtx) return;
       const o = audioCtx.createOscillator();
       const g = audioCtx.createGain();
       o.connect(g); g.connect(audioCtx.destination);
       o.type = type;
-      o.frequency.setValueAtTime(freq, audioCtx.currentTime);
-      g.gain.setValueAtTime(vol, audioCtx.currentTime);
-      g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + dur);
-      o.start();
-      o.stop(audioCtx.currentTime + dur);
+      const t0 = audioCtx.currentTime;
+      o.frequency.setValueAtTime(freq, t0);
+      g.gain.setValueAtTime(vol, t0);
+      g.gain.exponentialRampToValueAtTime(0.01, t0 + dur);
+      o.start(t0);
+      o.stop(t0 + dur);
     }
-    function somComeu() { tom(880, 0.1); setTimeout(() => tom(1320, 0.13), 70); }
+    function tomSweep(f1, f2, dur, type='sawtooth', vol=0.13) {
+      if (!audioCtx) return;
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.connect(g); g.connect(audioCtx.destination);
+      o.type = type;
+      const t0 = audioCtx.currentTime;
+      o.frequency.setValueAtTime(f1, t0);
+      o.frequency.exponentialRampToValueAtTime(Math.max(50, f2), t0 + dur);
+      g.gain.setValueAtTime(vol, t0);
+      g.gain.exponentialRampToValueAtTime(0.01, t0 + dur);
+      o.start(t0);
+      o.stop(t0 + dur);
+    }
+    function somComeu() {
+      tom(880, 0.08, 'triangle');
+      setTimeout(() => tom(1320, 0.08, 'triangle'), 60);
+      setTimeout(() => tom(1760, 0.14, 'triangle', 0.22), 120);
+    }
+    function somClique() { tom(700, 0.04, 'sine', 0.08); }
+    function somBoostOn() {
+      tomSweep(300, 1500, 0.28, 'sawtooth', 0.13);
+      setTimeout(() => tom(2200, 0.1, 'triangle', 0.1), 220);
+    }
+    function somBoostOff() {
+      tomSweep(1400, 280, 0.22, 'sawtooth', 0.1);
+    }
     function somVitoria() {
-      [523, 659, 784, 1047, 1319].forEach((f, i) =>
+      [523, 659, 784, 1047, 1319, 1568].forEach((f, i) =>
         setTimeout(() => tom(f, 0.22, 'triangle', 0.22), i * 110));
     }
+    function somDerrota() {
+      [350, 280, 220].forEach((f, i) =>
+        setTimeout(() => tom(f, 0.28, 'sawtooth', 0.16), i * 120));
+    }
 
-    // paleta fofa pra bolinhas
-    const FOOD_COLORS = [
-      0xff6fb5, // rosa
-      0xb56fff, // roxo
-      0x6fb5ff, // azul
-      0xffd16f, // amarelo
-      0xff8888, // vermelho clarinho
-      0x88ffcc  // verde água
-    ];
+    // ==== preload ====
+    function preload() {
+      this.load.image('cobra', 'sprites/cobra.png');
+      this.load.image('mato', 'sprites/mato.png');
+      this.load.image('planta', 'sprites/planta.png');
+      this.load.image('planta-roxa', 'sprites/planta-roxa.png');
+      this.load.image('nuvem1', 'sprites/nuvem1.png');
+      this.load.image('nuvem2', 'sprites/nuvem2.png');
+      FOOD_TIPOS.forEach(t => this.load.image(t, `sprites/${t}.png`));
+    }
 
-    function preload() {}
-
+    // ==== create ====
     function create() {
-      graphics = this.add.graphics();
+      // fundo
+      bgGraphics = this.add.graphics().setDepth(0);
+      desenharFundo();
+
+      // decorações no chão (matos, plantinhas)
+      const decoTipos = ['mato','planta','planta-roxa'];
+      for (let i = 0; i < 32; i++) {
+        const tipo = Phaser.Utils.Array.GetRandom(decoTipos);
+        const x = Phaser.Math.Between(20, W - 20);
+        const y = Phaser.Math.Between(20, H - 20);
+        const escala = Phaser.Math.FloatBetween(0.3, 0.55);
+        const deco = this.add.image(x, y, tipo).setScale(escala).setAlpha(0.9).setDepth(1);
+        deco.setRotation(Phaser.Math.FloatBetween(-0.1, 0.1));
+        this.tweens.add({
+          targets: deco, angle: Phaser.Math.Between(-6, 6),
+          duration: Phaser.Math.Between(2200, 3500),
+          yoyo: true, repeat: -1, ease: 'Sine.inOut'
+        });
+      }
+
+      // nuvenzinhas no fundo do céu (parte de cima)
+      for (let i = 0; i < 4; i++) {
+        const n = this.add.image(
+          Phaser.Math.Between(0, W),
+          Phaser.Math.Between(30, 160),
+          Math.random() < 0.5 ? 'nuvem1' : 'nuvem2'
+        ).setScale(Phaser.Math.FloatBetween(0.6, 1.0)).setAlpha(0.85).setDepth(2);
+        n.velocidade = Phaser.Math.FloatBetween(0.15, 0.35);
+        nuvens.push(n);
+      }
+
+      // body graphics
+      bodyGraphics = this.add.graphics().setDepth(12);
+
+      // cabeça sprite (em cima do corpo)
+      cabecaSprite = this.add.image(0, 0, 'cobra').setDepth(15).setScale(0.2);
+      cabecaTween = this.tweens.add({
+        targets: cabecaSprite,
+        scaleX: 0.22, scaleY: 0.18,
+        duration: 350, yoyo: true, repeat: -1, ease: 'Sine.inOut'
+      });
 
       // estado inicial
-      snake = [
-        { x: 12, y: 12 },
-        { x: 11, y: 12 },
-        { x: 10, y: 12 }
-      ];
-      dir = { x: 1, y: 0 };
-      nextDir = { x: 1, y: 0 };
-      score = 0;
-      placeFood();
+      reset.call(this);
 
-      scoreText = this.add.text(12, 10, 'Pontos: 0 / ' + META, {
-        fontSize: '26px',
-        color: '#ffffff',
-        fontFamily: 'sans-serif',
-        fontStyle: 'bold'
+      // HUD card
+      hudGraphics = this.add.graphics().setDepth(20);
+      hudGraphics.fillStyle(0xffffff, 0.9);
+      hudGraphics.fillRoundedRect(12, 12, 250, 70, 18);
+      hudGraphics.lineStyle(3, 0xffffff, 1);
+      hudGraphics.strokeRoundedRect(12, 12, 250, 70, 18);
+
+      scoreTexto = this.add.text(28, 30, '🍓 0 / ' + META, {
+        fontSize: '24px', color: '#2d6e1a', fontStyle: 'bold',
+        fontFamily: '"Comic Sans MS", "Trebuchet MS", cursive'
+      }).setOrigin(0, 0.5).setDepth(21);
+
+      progBarFundo = this.add.rectangle(28, 60, 218, 12, 0x2d6e1a, 0.2).setOrigin(0, 0.5).setDepth(21);
+      progBarFundo.setStrokeStyle(2, 0x2d6e1a, 0.4);
+      progBarFill = this.add.rectangle(28, 60, 4, 10, 0x6dc94f).setOrigin(0, 0.5).setDepth(22);
+
+      // boost indicator (escondido)
+      boostTexto = this.add.text(W - 24, 46, '💨 RAPIDÃO!', {
+        fontSize: '26px', color: '#ffeb3b', fontStyle: 'bold',
+        stroke: '#b56fff', strokeThickness: 5,
+        fontFamily: '"Comic Sans MS", "Trebuchet MS", cursive'
+      }).setOrigin(1, 0.5).setDepth(25).setAlpha(0);
+
+      // teclado direção
+      this.input.keyboard.on('keydown-LEFT',  () => { ensureAudio(); somClique(); setDir(-1, 0); });
+      this.input.keyboard.on('keydown-RIGHT', () => { ensureAudio(); somClique(); setDir( 1, 0); });
+      this.input.keyboard.on('keydown-UP',    () => { ensureAudio(); somClique(); setDir( 0,-1); });
+      this.input.keyboard.on('keydown-DOWN',  () => { ensureAudio(); somClique(); setDir( 0, 1); });
+      this.input.keyboard.on('keydown-A',  () => { ensureAudio(); somClique(); setDir(-1, 0); });
+      this.input.keyboard.on('keydown-D',  () => { ensureAudio(); somClique(); setDir( 1, 0); });
+      this.input.keyboard.on('keydown-W',  () => { ensureAudio(); somClique(); setDir( 0,-1); });
+      this.input.keyboard.on('keydown-S',  () => { ensureAudio(); somClique(); setDir( 0, 1); });
+
+      // espaço = boost
+      this.input.keyboard.on('keydown-SPACE', () => {
+        ensureAudio();
+        if (venceu) {
+          recomecar.call(this);
+          return;
+        }
+        if (!boost) {
+          boost = true;
+          somBoostOn();
+          mostrarBoost.call(this);
+        }
       });
-      scoreText.setShadow(2, 2, '#000000', 4, true, true);
+      this.input.keyboard.on('keyup-SPACE', () => {
+        if (boost) {
+          boost = false;
+          somBoostOff();
+          esconderBoost.call(this);
+        }
+      });
 
-      // teclado
-      this.input.keyboard.on('keydown-LEFT',  () => { ensureAudio(); setDir(-1, 0); });
-      this.input.keyboard.on('keydown-RIGHT', () => { ensureAudio(); setDir( 1, 0); });
-      this.input.keyboard.on('keydown-UP',    () => { ensureAudio(); setDir( 0,-1); });
-      this.input.keyboard.on('keydown-DOWN',  () => { ensureAudio(); setDir( 0, 1); });
-
-      // swipe / toque pra celular
-      let startX = 0, startY = 0;
+      // toque - swipe + segurar pra boost
+      let startX=0, startY=0;
       this.input.on('pointerdown', (p) => {
         ensureAudio();
-        startX = p.x;
-        startY = p.y;
+        startX = p.x; startY = p.y;
+        if (venceu) return;
+        if (!boost) {
+          boost = true;
+          somBoostOn();
+          mostrarBoost.call(this);
+        }
       });
       this.input.on('pointerup', (p) => {
+        if (boost) {
+          boost = false;
+          somBoostOff();
+          esconderBoost.call(this);
+        }
         if (venceu) {
-          // toca pra jogar de novo
-          venceu = false;
-          if (winText) { winText.destroy(); winText = null; }
-          if (winSubText) { winSubText.destroy(); winSubText = null; }
-          confetes.forEach(c => c.destroy());
-          confetes = [];
-          reset();
+          recomecar.call(this);
           return;
         }
         const dx = p.x - startX;
         const dy = p.y - startY;
         if (Math.abs(dx) < 20 && Math.abs(dy) < 20) return;
-        if (Math.abs(dx) > Math.abs(dy)) {
-          setDir(dx > 0 ? 1 : -1, 0);
-        } else {
-          setDir(0, dy > 0 ? 1 : -1);
-        }
+        somClique();
+        if (Math.abs(dx) > Math.abs(dy)) setDir(dx > 0 ? 1 : -1, 0);
+        else setDir(0, dy > 0 ? 1 : -1);
       });
     }
 
-    function setDir(x, y) {
-      // não pode virar pra trás
-      if (snake.length > 1 && x === -dir.x && y === -dir.y) return;
-      nextDir = { x, y };
-    }
-
-    function placeFood() {
-      while (true) {
-        const fx = Phaser.Math.Between(0, COLS - 1);
-        const fy = Phaser.Math.Between(0, ROWS - 1);
-        if (!snake.some(s => s.x === fx && s.y === fy)) {
-          food = { x: fx, y: fy };
-          foodColor = Phaser.Utils.Array.GetRandom(FOOD_COLORS);
-          return;
+    function desenharFundo() {
+      bgGraphics.clear();
+      // base verde grama
+      bgGraphics.fillStyle(0x6dc94f, 1);
+      bgGraphics.fillRect(0, 0, W, H);
+      // céu suave em cima
+      const skyH = 140;
+      for (let i = 0; i < skyH; i++) {
+        const t = i / skyH;
+        const alpha = (1 - t) * 0.45;
+        bgGraphics.fillStyle(0xb9eaff, alpha);
+        bgGraphics.fillRect(0, i, W, 1);
+      }
+      // listras horizontais bem suaves (textura de gramado)
+      bgGraphics.fillStyle(0x5db045, 0.18);
+      for (let y = 0; y < ROWS; y += 2) {
+        bgGraphics.fillRect(0, y * CELL, W, CELL);
+      }
+      // checkerboard sutil
+      bgGraphics.fillStyle(0x7ddc62, 0.14);
+      for (let y = 0; y < ROWS; y++) {
+        for (let x = 0; x < COLS; x++) {
+          if ((x + y) % 2 === 0) {
+            bgGraphics.fillRect(x*CELL, y*CELL, CELL, CELL);
+          }
         }
       }
     }
 
-    function reset() {
-      snake = [
-        { x: 12, y: 12 },
-        { x: 11, y: 12 },
-        { x: 10, y: 12 }
-      ];
-      dir = { x: 1, y: 0 };
-      nextDir = { x: 1, y: 0 };
-      score = 0;
-      placeFood();
-      scoreText.setText('Pontos: 0 / ' + META);
+    function setDir(x, y) {
+      if (snake.length > 1 && x === -dir.x && y === -dir.y) return;
+      nextDir = { x, y };
+    }
+
+    function placeFood(scene) {
+      let fx, fy;
+      while (true) {
+        fx = Phaser.Math.Between(0, COLS-1);
+        fy = Phaser.Math.Between(0, ROWS-1);
+        if (!snake.some(s => s.x === fx && s.y === fy)) break;
+      }
+      food = { x: fx, y: fy };
+      const tipo = Phaser.Utils.Array.GetRandom(FOOD_TIPOS);
+      if (foodSprite) {
+        foodSprite.setTexture(tipo);
+        foodSprite.setPosition(fx*CELL + CELL/2, fy*CELL + CELL/2);
+      } else {
+        foodSprite = scene.add.image(
+          fx*CELL + CELL/2, fy*CELL + CELL/2, tipo
+        ).setDepth(10).setScale(0.55);
+        scene.tweens.add({
+          targets: foodSprite, scale: 0.65,
+          duration: 500, yoyo: true, repeat: -1, ease: 'Sine.inOut'
+        });
+      }
+      // halo ao aparecer
+      const halo = scene.add.circle(
+        fx*CELL + CELL/2, fy*CELL + CELL/2, CELL*0.3, 0xffffff, 0.6
+      ).setDepth(9);
+      scene.tweens.add({
+        targets: halo, radius: CELL*0.7, alpha: 0,
+        scale: 2, duration: 500,
+        onComplete: () => halo.destroy()
+      });
     }
 
     function step() {
       dir = nextDir;
       const head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
-
-      // atravessa a parede e aparece do outro lado (não morre mais)
+      // wrap
       if (head.x < 0) head.x = COLS - 1;
       if (head.x >= COLS) head.x = 0;
       if (head.y < 0) head.y = ROWS - 1;
       if (head.y >= ROWS) head.y = 0;
-
-      // bateu no próprio corpo -> reseta suave
+      // bateu no próprio corpo
       if (snake.some(s => s.x === head.x && s.y === head.y)) {
-        reset();
+        somDerrota();
+        this.cameras.main.shake(220, 0.014);
+        reset.call(this);
         return;
       }
-
       snake.unshift(head);
-
       if (head.x === food.x && head.y === food.y) {
         score += 1;
-        scoreText.setText('Pontos: ' + score + ' / ' + META);
+        scoreTexto.setText('🍓 ' + score + ' / ' + META);
         somComeu();
+        explodirAcerto.call(this, foodSprite.x, foodSprite.y);
+        this.cameras.main.flash(120, 255, 220, 100);
         if (score >= META) {
           vencer.call(this);
           return;
         }
-        placeFood();
+        placeFood(this);
       } else {
         snake.pop();
       }
+      // trail de boost
+      if (boost) {
+        const tail = snake[snake.length-1];
+        const tx = tail.x*CELL + CELL/2;
+        const ty = tail.y*CELL + CELL/2;
+        const sparkle = this.add.text(tx, ty,
+          Phaser.Utils.Array.GetRandom(TRAIL_EMOJIS),
+          { fontSize: '28px' }
+        ).setOrigin(0.5).setDepth(11);
+        this.tweens.add({
+          targets: sparkle, alpha: 0, scale: 0.3,
+          y: ty - 10,
+          duration: 500, onComplete: () => sparkle.destroy()
+        });
+      }
+    }
+
+    function explodirAcerto(x, y) {
+      for (let i = 0; i < 10; i++) {
+        const ang = (Math.PI * 2 / 10) * i;
+        const dist = Phaser.Math.Between(50, 80);
+        const e = this.add.text(x, y,
+          Phaser.Utils.Array.GetRandom(POP_EMOJIS),
+          { fontSize: '32px' }
+        ).setOrigin(0.5).setDepth(20);
+        this.tweens.add({
+          targets: e,
+          x: x + Math.cos(ang) * dist,
+          y: y + Math.sin(ang) * dist,
+          alpha: 0, scale: 0.3,
+          duration: 700, ease: 'Cubic.out',
+          onComplete: () => e.destroy()
+        });
+      }
+    }
+
+    function reset() {
+      snake = [{x:8,y:9},{x:7,y:9},{x:6,y:9}];
+      dir = {x:1,y:0};
+      nextDir = {x:1,y:0};
+      score = 0;
+      if (scoreTexto) scoreTexto.setText('🍓 0 / ' + META);
+      placeFood(this);
+    }
+
+    function recomecar() {
+      venceu = false;
+      if (winText) { winText.destroy(); winText = null; }
+      if (winSubText) { winSubText.destroy(); winSubText = null; }
+      confetes.forEach(c => c.destroy());
+      confetes = [];
+      reset.call(this);
     }
 
     function vencer() {
       venceu = true;
       somVitoria();
-      winText = this.add.text(W / 2, H / 2 - 40, 'VOCÊ\nCHEGOU!\n🏰🎉', {
-        fontSize: '92px',
-        color: '#ffffff',
-        fontFamily: 'sans-serif',
-        fontStyle: 'bold',
-        align: 'center',
-        stroke: '#ff6fb5',
-        strokeThickness: 10
-      }).setOrigin(0.5).setDepth(20).setScale(0.3);
+      this.cameras.main.flash(400, 255, 240, 180);
+      winText = this.add.text(W/2, H/2 - 40, 'VOCÊ\nCHEGOU!\n🏰🎉', {
+        fontSize: '92px', color: '#ffffff', fontStyle: 'bold',
+        align: 'center', stroke: '#ff6fb5', strokeThickness: 10,
+        fontFamily: '"Comic Sans MS", "Trebuchet MS", cursive'
+      }).setOrigin(0.5).setDepth(50).setScale(0.3);
       this.tweens.add({
         targets: winText, scale: 1, duration: 600, ease: 'Back.out'
       });
-      winSubText = this.add.text(W / 2, H / 2 + 200, '✨ Toca pra jogar de novo ✨', {
-        fontSize: '34px',
-        color: '#ffffff',
-        fontFamily: 'sans-serif',
-        fontStyle: 'bold',
-        stroke: '#b56fff',
-        strokeThickness: 6
-      }).setOrigin(0.5).setDepth(20).setAlpha(0);
+      winSubText = this.add.text(W/2, H/2 + 200, '✨ Toca pra jogar de novo ✨', {
+        fontSize: '34px', color: '#ffffff', fontStyle: 'bold',
+        stroke: '#b56fff', strokeThickness: 6,
+        fontFamily: '"Comic Sans MS", "Trebuchet MS", cursive'
+      }).setOrigin(0.5).setDepth(50).setAlpha(0);
       this.tweens.add({
         targets: winSubText, alpha: 1, duration: 500, delay: 1200
       });
-      // chuva de confete
-      const emojis = ['💖', '⭐', '🌸', '✨', '🎉', '💫', '🌟', '🎀'];
-      for (let i = 0; i < 40; i++) {
-        this.time.delayedCall(i * 60, () => {
+      for (let i = 0; i < 50; i++) {
+        this.time.delayedCall(i * 55, () => {
           const c = this.add.text(
             Phaser.Math.Between(0, W), -30,
-            emojis[Phaser.Math.Between(0, emojis.length - 1)],
+            FESTA_EMOJIS[Phaser.Math.Between(0, FESTA_EMOJIS.length-1)],
             { fontSize: '40px' }
-          ).setDepth(15);
+          ).setDepth(45);
           confetes.push(c);
           this.tweens.add({
             targets: c,
@@ -253,83 +478,70 @@
       }
     }
 
-    function draw() {
-      graphics.clear();
+    function mostrarBoost() {
+      this.tweens.killTweensOf(boostTexto);
+      this.tweens.add({
+        targets: boostTexto,
+        alpha: 1, scale: 1.15,
+        duration: 200, ease: 'Back.out'
+      });
+    }
+    function esconderBoost() {
+      this.tweens.killTweensOf(boostTexto);
+      this.tweens.add({
+        targets: boostTexto,
+        alpha: 0, scale: 1,
+        duration: 250
+      });
+    }
 
-      // fundo quadriculado bem suave
-      graphics.fillStyle(0x2a1845, 1);
-      graphics.fillRect(0, 0, W, H);
-      graphics.fillStyle(0x32205a, 1);
-      for (let y = 0; y < ROWS; y++) {
-        for (let x = 0; x < COLS; x++) {
-          if ((x + y) % 2 === 0) {
-            graphics.fillRect(x * CELL, y * CELL, CELL, CELL);
-          }
+    function draw() {
+      // posiciona cabeça
+      const head = snake[0];
+      cabecaSprite.x = head.x*CELL + CELL/2;
+      cabecaSprite.y = head.y*CELL + CELL/2;
+      // brilhinho extra quando em boost
+      if (boost) {
+        cabecaSprite.setTint(0xfff7a8);
+      } else {
+        cabecaSprite.clearTint();
+      }
+
+      // body
+      bodyGraphics.clear();
+      const cores = [0xb56fff, 0x6fb5ff, 0x88ffcc, 0xffd16f, 0xff6fb5, 0xffaa66];
+      for (let i = 1; i < snake.length; i++) {
+        const seg = snake[i];
+        const px = seg.x*CELL + CELL/2;
+        const py = seg.y*CELL + CELL/2;
+        const cor = cores[i % cores.length];
+        const r = CELL/2 - 3;
+        // sombra
+        bodyGraphics.fillStyle(0x000000, 0.18);
+        bodyGraphics.fillCircle(px+2, py+3, r);
+        // corpo
+        bodyGraphics.fillStyle(cor, 1);
+        bodyGraphics.fillCircle(px, py, r);
+        // brilho
+        bodyGraphics.fillStyle(0xffffff, 0.5);
+        bodyGraphics.fillCircle(px - r*0.35, py - r*0.35, r*0.3);
+        // boost: extra glow
+        if (boost) {
+          bodyGraphics.fillStyle(0xfff7a8, 0.35);
+          bodyGraphics.fillCircle(px, py, r + 3);
         }
       }
 
-      // bolinha (comida) com brilho pulsante
-      const cx = food.x * CELL + CELL / 2;
-      const cy = food.y * CELL + CELL / 2;
-      const pulse = 1 + Math.sin(pulseTime * 0.005) * 0.1;
-      const r = (CELL / 2 - 3) * pulse;
+      // nuvens passando
+      nuvens.forEach(n => {
+        n.x += n.velocidade * (boost ? 2.5 : 1);
+        if (n.x > W + 80) n.x = -80;
+      });
 
-      // halo brilhante
-      graphics.fillStyle(foodColor, 0.25);
-      graphics.fillCircle(cx, cy, r + 6);
-      // bolinha
-      graphics.fillStyle(foodColor, 1);
-      graphics.fillCircle(cx, cy, r);
-      // reflexo branco
-      graphics.fillStyle(0xffffff, 0.7);
-      graphics.fillCircle(cx - r * 0.35, cy - r * 0.35, r * 0.3);
-
-      // cobrinha
-      for (let i = 0; i < snake.length; i++) {
-        const s = snake[i];
-        const px = s.x * CELL + CELL / 2;
-        const py = s.y * CELL + CELL / 2;
-        const radius = CELL / 2 - 2;
-
-        if (i === 0) {
-          // cabeça rosa brilhante
-          graphics.fillStyle(0xff6fb5, 1);
-          graphics.fillCircle(px, py, radius);
-          graphics.fillStyle(0xffb3d9, 1);
-          graphics.fillCircle(px - radius * 0.3, py - radius * 0.3, radius * 0.4);
-
-          // olhinhos olhando pra direção
-          const eyeOffX = dir.x * radius * 0.35;
-          const eyeOffY = dir.y * radius * 0.35;
-          const eyeSpread = radius * 0.4;
-          // se anda na horizontal, olhos em cima/baixo; se vertical, esquerda/direita
-          let ex1, ey1, ex2, ey2;
-          if (dir.x !== 0) {
-            ex1 = px + eyeOffX; ey1 = py - eyeSpread;
-            ex2 = px + eyeOffX; ey2 = py + eyeSpread;
-          } else {
-            ex1 = px - eyeSpread; ey1 = py + eyeOffY;
-            ex2 = px + eyeSpread; ey2 = py + eyeOffY;
-          }
-          // branco do olho
-          graphics.fillStyle(0xffffff, 1);
-          graphics.fillCircle(ex1, ey1, radius * 0.28);
-          graphics.fillCircle(ex2, ey2, radius * 0.28);
-          // pupila preta
-          graphics.fillStyle(0x000000, 1);
-          graphics.fillCircle(ex1 + dir.x * 2, ey1 + dir.y * 2, radius * 0.15);
-          graphics.fillCircle(ex2 + dir.x * 2, ey2 + dir.y * 2, radius * 0.15);
-        } else {
-          // corpo em arco-íris suave (varia a cor por segmento)
-          const t = i / snake.length;
-          const colors = [0xb56fff, 0x6fb5ff, 0x88ffcc, 0xffd16f, 0xff6fb5];
-          const c = colors[i % colors.length];
-          graphics.fillStyle(c, 1);
-          graphics.fillCircle(px, py, radius);
-          // brilhinho
-          graphics.fillStyle(0xffffff, 0.4);
-          graphics.fillCircle(px - radius * 0.3, py - radius * 0.3, radius * 0.25);
-        }
+      // progress bar
+      if (progBarFill) {
+        const ratio = Math.min(1, score / META);
+        progBarFill.width = Math.max(4, ratio * 218);
       }
     }
 
@@ -337,9 +549,10 @@
       pulseTime += delta;
       if (!venceu) {
         stepTimer += delta;
-        if (stepTimer >= STEP_MS) {
+        const stepMs = boost ? STEP_MS_BOOST : STEP_MS_NORMAL;
+        if (stepTimer >= stepMs) {
           stepTimer = 0;
-          step();
+          step.call(this);
         }
       }
       draw();
@@ -350,11 +563,8 @@
       parent: 'game',
       width: W,
       height: H,
-      backgroundColor: '#1a0f2e',
-      scale: {
-        mode: Phaser.Scale.FIT,
-        autoCenter: Phaser.Scale.CENTER_BOTH
-      },
+      backgroundColor: '#6dc94f',
+      scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
       scene: { preload, create, update }
     });
   </script>
