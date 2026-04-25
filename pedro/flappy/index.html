@@ -33,9 +33,9 @@
     const GRAVIDADE = 1100;
     const PULO = -380;
     const VEL_CANO = -180;
-    const ESPACO_CANOS = 180;
-    const GAP_CANO = 150;
-    const LARGURA_CANO = 64;
+    const ESPACO_CANOS = 160;     // distância horizontal entre paredes
+    const GAP_CANO = 160;          // tamanho do buraco
+    const LARGURA_CANO = 90;       // paredes bem largas
     const CHAO_H = 60;
 
     // ====== Skins (cada uma é uma spritesheet com N frames) ======
@@ -144,8 +144,11 @@
         }
       });
 
-      // ===== Pássaro =====
-      criarPassaro(this);
+      // ===== Pássaro (criado UMA vez; trocamos a textura quando muda skin) =====
+      bird = this.physics.add.sprite(120, TELA_H / 2, `skin_${skinAtual}`);
+      bird.body.allowGravity = false;
+      bird.setDepth(5);
+      aplicarSkinNoBird(this);
 
       // ===== Canos =====
       canos = this.physics.add.group();
@@ -160,7 +163,10 @@
 
       // ===== Colisões =====
       this.physics.add.collider(bird, chao, () => bater(scene));
-      this.physics.add.overlap(bird, canos, () => bater(scene));
+      this.physics.add.overlap(bird, canos, (_b, c) => {
+        if (c.dataDeco) return;
+        bater(scene);
+      });
 
       // ===== UI =====
       textoPontos = this.add.text(TELA_W / 2, 60, "0", {
@@ -188,18 +194,15 @@
       mostrarMenu(this);
     }
 
-    function criarPassaro(scene) {
-      if (bird) bird.destroy();
+    function aplicarSkinNoBird(scene) {
       const skin = SKINS.find(s => s.slug === skinAtual) || SKINS[0];
-      bird = scene.physics.add.sprite(120, TELA_H / 2, `skin_${skin.slug}`);
+      bird.setTexture(`skin_${skin.slug}`);
       bird.setScale(skin.escala);
-      // Hitbox retangular menor que o sprite
       const hbW = Math.floor(skin.w * 0.65);
       const hbH = Math.floor(skin.h * 0.55);
       bird.setSize(hbW, hbH);
-      bird.body.allowGravity = false;
-      bird.setDepth(5);
       if (skin.frames > 1) bird.play(`anim_${skin.slug}`);
+      else if (bird.anims) bird.anims.stop();
     }
 
     // ============================================
@@ -411,7 +414,7 @@
         scene.sound.play("ponto", { volume: 0.4 });
         telaLoja.destroy();
         telaLoja = null;
-        criarPassaro(scene); // atualiza skin
+        aplicarSkinNoBird(scene);
         mostrarMenu(scene);
       });
       telaLoja.add(btnVoltar);
@@ -426,20 +429,17 @@
       if (textoFim) { textoFim.destroy(); textoFim = null; }
       pontos = 0;
       textoPontos.setText("0").setVisible(true);
-      // Limpa canos antigos
-      canos.children.iterate(c => { if (c) c.destroy(); });
+      // Limpa paredes antigas
       canos.clear(true, true);
-      // Reposiciona pássaro
-      criarPassaro(scene);
+      // Atualiza skin (caso tenha mudado) e reposiciona pássaro existente
+      aplicarSkinNoBird(scene);
       bird.setPosition(120, TELA_H / 2);
       bird.angle = 0;
       bird.clearTint();
+      bird.setVisible(true);
       bird.body.allowGravity = true;
       scene.physics.world.gravity.y = GRAVIDADE;
       bird.body.velocity.y = PULO;
-      // Recolisões (porque criarPassaro recria o sprite)
-      scene.physics.add.collider(bird, chao, () => bater(scene));
-      scene.physics.add.overlap(bird, canos, () => bater(scene));
       scene.sound.play("pular", { volume: 0.4 });
       estado = "jogando";
     }
@@ -477,7 +477,7 @@
     }
 
     function spawnarCanos(scene) {
-      const margem = 80;
+      const margem = 70;
       const minY = margem + GAP_CANO / 2;
       const maxY = TELA_H - CHAO_H - margem - GAP_CANO / 2;
       const centroGap = Phaser.Math.Between(minY, maxY);
@@ -486,36 +486,60 @@
       const alturaCima = centroGap - GAP_CANO / 2;
       const alturaBaixo = TELA_H - CHAO_H - (centroGap + GAP_CANO / 2);
 
-      const canoCima = scene.add.rectangle(x, alturaCima / 2, LARGURA_CANO, alturaCima, 0x4fdb4f);
-      canoCima.setStrokeStyle(3, 0x166e16);
-      scene.physics.add.existing(canoCima);
-      canoCima.body.setVelocityX(VEL_CANO);
-      canoCima.body.allowGravity = false;
-      canoCima.dataParCima = true;
-      canoCima.dataPontuou = false;
-      canos.add(canoCima);
+      // ===== Parede de cima =====
+      const paredeCima = scene.add.rectangle(x, alturaCima / 2, LARGURA_CANO, alturaCima, 0x8a6a4a);
+      paredeCima.setStrokeStyle(4, 0x4a3520);
+      scene.physics.add.existing(paredeCima);
+      paredeCima.body.setVelocityX(VEL_CANO);
+      paredeCima.body.allowGravity = false;
+      paredeCima.dataParCima = true;
+      paredeCima.dataPontuou = false;
+      canos.add(paredeCima);
 
-      const topo1 = scene.add.rectangle(x, alturaCima - 6, LARGURA_CANO + 12, 16, 0x4fdb4f);
-      topo1.setStrokeStyle(3, 0x166e16);
-      scene.physics.add.existing(topo1);
-      topo1.body.setVelocityX(VEL_CANO);
-      topo1.body.allowGravity = false;
-      canos.add(topo1);
+      // Listras horizontais (tijolo) — visual, sem física
+      desenharTijolos(scene, x, 0, alturaCima);
 
+      // Borda inferior da parede de cima (acentua o "buraco")
+      const bordaCima = scene.add.rectangle(x, alturaCima - 8, LARGURA_CANO + 14, 16, 0x6a4f33);
+      bordaCima.setStrokeStyle(3, 0x3a2515);
+      scene.physics.add.existing(bordaCima);
+      bordaCima.body.setVelocityX(VEL_CANO);
+      bordaCima.body.allowGravity = false;
+      canos.add(bordaCima);
+
+      // ===== Parede de baixo =====
       const yBaixo = TELA_H - CHAO_H - alturaBaixo / 2;
-      const canoBaixo = scene.add.rectangle(x, yBaixo, LARGURA_CANO, alturaBaixo, 0x4fdb4f);
-      canoBaixo.setStrokeStyle(3, 0x166e16);
-      scene.physics.add.existing(canoBaixo);
-      canoBaixo.body.setVelocityX(VEL_CANO);
-      canoBaixo.body.allowGravity = false;
-      canos.add(canoBaixo);
+      const paredeBaixo = scene.add.rectangle(x, yBaixo, LARGURA_CANO, alturaBaixo, 0x8a6a4a);
+      paredeBaixo.setStrokeStyle(4, 0x4a3520);
+      scene.physics.add.existing(paredeBaixo);
+      paredeBaixo.body.setVelocityX(VEL_CANO);
+      paredeBaixo.body.allowGravity = false;
+      canos.add(paredeBaixo);
 
-      const topo2 = scene.add.rectangle(x, yBaixo - alturaBaixo / 2 + 6, LARGURA_CANO + 12, 16, 0x4fdb4f);
-      topo2.setStrokeStyle(3, 0x166e16);
-      scene.physics.add.existing(topo2);
-      topo2.body.setVelocityX(VEL_CANO);
-      topo2.body.allowGravity = false;
-      canos.add(topo2);
+      desenharTijolos(scene, x, TELA_H - CHAO_H - alturaBaixo, alturaBaixo);
+
+      const bordaBaixo = scene.add.rectangle(x, TELA_H - CHAO_H - alturaBaixo + 8, LARGURA_CANO + 14, 16, 0x6a4f33);
+      bordaBaixo.setStrokeStyle(3, 0x3a2515);
+      scene.physics.add.existing(bordaBaixo);
+      bordaBaixo.body.setVelocityX(VEL_CANO);
+      bordaBaixo.body.allowGravity = false;
+      canos.add(bordaBaixo);
+    }
+
+    function desenharTijolos(scene, x, yTopo, altura) {
+      // Linhas horizontais a cada 20px formando padrão de tijolo (visual)
+      const passo = 22;
+      for (let dy = passo; dy < altura; dy += passo) {
+        const linha = scene.add.rectangle(x, yTopo + dy, LARGURA_CANO - 6, 2, 0x4a3520, 0.6);
+        scene.physics.add.existing(linha);
+        linha.body.setVelocityX(VEL_CANO);
+        linha.body.allowGravity = false;
+        // Sem física de colisão — só visual. Adiciono ao canos pra mover/destruir junto
+        canos.add(linha);
+        // Marca como decoração pra não contar pontos nem colidir
+        linha.dataDeco = true;
+        if (linha.body) linha.body.checkCollision.none = true;
+      }
     }
 
     function bater(scene) {
