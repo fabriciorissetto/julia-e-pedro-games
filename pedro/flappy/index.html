@@ -33,20 +33,67 @@
     const GRAVIDADE = 1100;
     const PULO = -380;
     const VEL_CANO = -180;
-    const ESPACO_CANOS = 180;     // espaçamento horizontal entre canos
-    const GAP_CANO = 150;          // tamanho do buraco entre canos cima/baixo
+    const ESPACO_CANOS = 180;
+    const GAP_CANO = 150;
     const LARGURA_CANO = 64;
     const CHAO_H = 60;
 
+    // ====== Skins (cada uma é uma spritesheet com N frames) ======
+    const SKINS = [
+      {
+        slug: "blue", nome: "Azulinho", custo: 0,
+        url: "/shared/assets/sprites/pixelfrog/pixel-adventure-1/Enemies/BlueBird/Flying (32x32).png",
+        w: 32, h: 32, frames: 9, escala: 1.6, fps: 14,
+      },
+      {
+        slug: "bee", nome: "Abelha", custo: 5,
+        url: "/shared/assets/sprites/pixelfrog/pixel-adventure-1/Enemies/Bee/Idle (36x34).png",
+        w: 36, h: 34, frames: 6, escala: 1.4, fps: 12,
+      },
+      {
+        slug: "bat", nome: "Morcego", custo: 15,
+        url: "/shared/assets/sprites/pixelfrog/pixel-adventure-1/Enemies/Bat/Flying (46x30).png",
+        w: 46, h: 30, frames: 7, escala: 1.2, fps: 14,
+      },
+      {
+        slug: "fat", nome: "Gordinho", custo: 30,
+        url: "/shared/assets/sprites/pixelfrog/pixel-adventure-1/Enemies/FatBird/Idle (40x48).png",
+        w: 40, h: 48, frames: 8, escala: 1.1, fps: 10,
+      },
+      {
+        slug: "duck", nome: "Patinho", custo: 50,
+        url: "/shared/assets/sprites/pixelfrog/pixel-adventure-1/Enemies/Duck/Jump (36x36).png",
+        w: 36, h: 36, frames: 1, escala: 1.4, fps: 1,
+      },
+    ];
+
+    // ====== Estado salvo ======
+    function carregarPontosTotal() { return parseInt(localStorage.getItem("flappy_pontos_total")) || 0; }
+    function salvarPontosTotal(v) { localStorage.setItem("flappy_pontos_total", v); }
+    function carregarMelhor() { return parseInt(localStorage.getItem("flappy_melhor")) || 0; }
+    function salvarMelhor(v) { localStorage.setItem("flappy_melhor", v); }
+    function carregarSkinAtual() { return localStorage.getItem("flappy_skin") || "blue"; }
+    function salvarSkinAtual(s) { localStorage.setItem("flappy_skin", s); }
+    function carregarSkinsCompradas() {
+      const s = localStorage.getItem("flappy_skins_compradas");
+      return s ? JSON.parse(s) : ["blue"];
+    }
+    function salvarSkinsCompradas(arr) {
+      localStorage.setItem("flappy_skins_compradas", JSON.stringify(arr));
+    }
+
     // ====== Estado ======
     let bird;
-    let canos;             // group
+    let canos;
     let chao;
-    let proximoSpawnX = TELA_W + 100;
     let pontos = 0;
-    let melhor = parseInt(localStorage.getItem("flappy_melhor")) || 0;
-    let estado = "esperando"; // "esperando" | "jogando" | "fim"
-    let textoPontos, textoTituloEspera, textoMelhor, textoFim;
+    let pontosTotal = carregarPontosTotal();
+    let melhor = carregarMelhor();
+    let skinAtual = carregarSkinAtual();
+    let skinsCompradas = carregarSkinsCompradas();
+    let estado = "menu"; // "menu" | "loja" | "jogando" | "fim"
+    let textoPontos, telaMenu, telaLoja, textoFim;
+    let textoMoedasMenu;
 
     const config = {
       type: Phaser.AUTO,
@@ -61,54 +108,53 @@
     new Phaser.Game(config);
 
     function preload() {
-      this.load.spritesheet(
-        "passaro",
-        "/shared/assets/sprites/pixelfrog/pixel-adventure-1/Enemies/BlueBird/Flying (32x32).png",
-        { frameWidth: 32, frameHeight: 32 }
-      );
-      this.load.image(
-        "fundoCeu",
-        "/shared/assets/sprites/pixelfrog/pixel-adventure-1/Background/Blue.png"
-      );
+      SKINS.forEach(s => {
+        if (s.frames > 1) {
+          this.load.spritesheet(`skin_${s.slug}`, s.url, {
+            frameWidth: s.w, frameHeight: s.h,
+          });
+        } else {
+          this.load.image(`skin_${s.slug}`, s.url);
+        }
+      });
+      this.load.image("fundoCeu", "/shared/assets/sprites/pixelfrog/pixel-adventure-1/Background/Blue.png");
       this.load.audio("pular", "/shared/assets/sounds/kenney/digital/Audio/pepSound1.ogg");
       this.load.audio("ponto", "/shared/assets/sounds/kenney/interface/Audio/confirmation_001.ogg");
       this.load.audio("bater", "/shared/assets/sounds/kenney/digital/Audio/lowDown.ogg");
+      this.load.audio("comprar", "/shared/assets/sounds/kenney/interface/Audio/confirmation_004.ogg");
+      this.load.audio("erro", "/shared/assets/sounds/kenney/interface/Audio/close_004.ogg");
     }
 
     function create() {
       const scene = this;
 
-      // ===== Fundo céu (tile repetido) =====
+      // ===== Fundo =====
       this.add.tileSprite(TELA_W / 2, TELA_H / 2, TELA_W, TELA_H, "fundoCeu").setDepth(0);
-      // Nuvens decorativas
       desenharNuvens(this);
 
-      // ===== Animação do pássaro =====
-      this.anims.create({
-        key: "voar",
-        frames: this.anims.generateFrameNumbers("passaro", { start: 0, end: 8 }),
-        frameRate: 14,
-        repeat: -1,
+      // ===== Animações de cada skin =====
+      SKINS.forEach(s => {
+        if (s.frames > 1) {
+          this.anims.create({
+            key: `anim_${s.slug}`,
+            frames: this.anims.generateFrameNumbers(`skin_${s.slug}`, { start: 0, end: s.frames - 1 }),
+            frameRate: s.fps,
+            repeat: -1,
+          });
+        }
       });
 
       // ===== Pássaro =====
-      bird = this.physics.add.sprite(120, TELA_H / 2, "passaro");
-      bird.play("voar");
-      bird.setScale(1.6);
-      bird.setSize(20, 18);
-      bird.body.allowGravity = false;
-      bird.setDepth(5);
+      criarPassaro(this);
 
       // ===== Canos =====
       canos = this.physics.add.group();
 
       // ===== Chão =====
       chao = this.add.tileSprite(TELA_W / 2, TELA_H - CHAO_H / 2, TELA_W, CHAO_H, "fundoCeu");
-      chao.setTint(0x7d5a3a); // marrom-areia
+      chao.setTint(0x7d5a3a);
       chao.setDepth(8);
       this.physics.add.existing(chao, true);
-
-      // Linha de grama em cima do chão
       const grama = this.add.rectangle(TELA_W / 2, TELA_H - CHAO_H, TELA_W, 8, 0x4fdb9b);
       grama.setDepth(8);
 
@@ -118,50 +164,284 @@
 
       // ===== UI =====
       textoPontos = this.add.text(TELA_W / 2, 60, "0", {
-        fontSize: "60px", color: "#ffffff",
-        fontStyle: "bold", stroke: "#000000", strokeThickness: 6,
-      }).setOrigin(0.5).setDepth(20);
-
-      textoTituloEspera = this.add.text(TELA_W / 2, TELA_H / 2 - 30,
-        "🐦 FLAPPY BIRD\n\nAperta ESPAÇO\nou clica pra começar", {
-        fontSize: "22px", color: "#ffffff", align: "center", fontStyle: "bold",
-        stroke: "#000000", strokeThickness: 4,
-        backgroundColor: "rgba(0,0,0,0.4)", padding: { x: 16, y: 12 },
-      }).setOrigin(0.5).setDepth(20);
-
-      textoMelhor = this.add.text(TELA_W / 2, TELA_H - 100, `Melhor: ${melhor}`, {
-        fontSize: "18px", color: "#ffffff",
-        stroke: "#000000", strokeThickness: 3,
-      }).setOrigin(0.5).setDepth(20);
+        fontSize: "60px", color: "#ffffff", fontStyle: "bold",
+        stroke: "#000000", strokeThickness: 6,
+      }).setOrigin(0.5).setDepth(20).setVisible(false);
 
       // ===== Input =====
-      const pular = () => {
-        if (estado === "esperando") iniciar(scene);
-        else if (estado === "jogando") {
+      const acao = () => {
+        if (estado === "menu" || estado === "fim") return;
+        if (estado === "loja") return;
+        if (estado === "jogando") {
           bird.body.velocity.y = PULO;
           scene.sound.play("pular", { volume: 0.4 });
-          // Pequeno tilt pra cima
           scene.tweens.add({ targets: bird, angle: -25, duration: 100 });
-        } else if (estado === "fim") {
-          location.reload();
         }
       };
-      this.input.keyboard.on("keydown-SPACE", pular);
-      this.input.keyboard.on("keydown-UP", pular);
-      this.input.on("pointerdown", pular);
+      this.input.keyboard.on("keydown-SPACE", acao);
+      this.input.keyboard.on("keydown-UP", acao);
+      this.input.on("pointerdown", (p) => {
+        if (estado === "jogando") acao();
+      });
+
+      // ===== Mostra menu inicial =====
+      mostrarMenu(this);
     }
 
-    function iniciar(scene) {
-      estado = "jogando";
-      textoTituloEspera.setVisible(false);
+    function criarPassaro(scene) {
+      if (bird) bird.destroy();
+      const skin = SKINS.find(s => s.slug === skinAtual) || SKINS[0];
+      bird = scene.physics.add.sprite(120, TELA_H / 2, `skin_${skin.slug}`);
+      bird.setScale(skin.escala);
+      // Hitbox retangular menor que o sprite
+      const hbW = Math.floor(skin.w * 0.65);
+      const hbH = Math.floor(skin.h * 0.55);
+      bird.setSize(hbW, hbH);
       bird.body.allowGravity = false;
-      bird.body.velocity.y = 0;
-      scene.physics.world.gravity.y = GRAVIDADE;
+      bird.setDepth(5);
+      if (skin.frames > 1) bird.play(`anim_${skin.slug}`);
+    }
+
+    // ============================================
+    // MENU PRINCIPAL
+    // ============================================
+    function mostrarMenu(scene) {
+      estado = "menu";
+      if (telaMenu) telaMenu.destroy();
+      telaMenu = scene.add.container(0, 0).setDepth(30);
+
+      const fundo = scene.add.rectangle(TELA_W / 2, TELA_H / 2, TELA_W, TELA_H, 0x000000, 0.45);
+      telaMenu.add(fundo);
+
+      const titulo = scene.add.text(TELA_W / 2, 90, "🐦 FLAPPY BIRD", {
+        fontSize: "32px", color: "#ffffff", fontStyle: "bold",
+        stroke: "#000000", strokeThickness: 5,
+      }).setOrigin(0.5);
+      telaMenu.add(titulo);
+
+      // Mostra moedas
+      textoMoedasMenu = scene.add.text(TELA_W / 2, 145,
+        `💰 ${pontosTotal} pontos`, {
+        fontSize: "20px", color: "#fff04f", fontStyle: "bold",
+        stroke: "#000000", strokeThickness: 3,
+      }).setOrigin(0.5);
+      telaMenu.add(textoMoedasMenu);
+
+      // Skin atual em destaque
+      const skin = SKINS.find(s => s.slug === skinAtual) || SKINS[0];
+      const previewSkin = scene.add.image(TELA_W / 2, 230, `skin_${skin.slug}`);
+      previewSkin.setScale(skin.escala * 1.8);
+      if (skin.frames > 1) {
+        const nomeAnim = `preview_${skin.slug}`;
+        if (!scene.anims.exists(nomeAnim)) {
+          scene.anims.create({
+            key: nomeAnim,
+            frames: scene.anims.generateFrameNumbers(`skin_${skin.slug}`, { start: 0, end: skin.frames - 1 }),
+            frameRate: skin.fps, repeat: -1,
+          });
+        }
+        previewSkin.play(nomeAnim);
+      }
+      telaMenu.add(previewSkin);
+
+      const nomeSkin = scene.add.text(TELA_W / 2, 285, skin.nome, {
+        fontSize: "16px", color: "#ffffff", fontStyle: "bold",
+        stroke: "#000000", strokeThickness: 3,
+      }).setOrigin(0.5);
+      telaMenu.add(nomeSkin);
+
+      // Botão JOGAR
+      const btnJogar = scene.add.rectangle(TELA_W / 2, 360, 200, 56, 0x4fdb9b, 1)
+        .setInteractive().setStrokeStyle(3, 0x000000);
+      const txtJogar = scene.add.text(TELA_W / 2, 360, "▶ JOGAR", {
+        fontSize: "24px", color: "#000000", fontStyle: "bold",
+      }).setOrigin(0.5);
+      btnJogar.on("pointerover", () => btnJogar.setFillStyle(0x6ff5b3));
+      btnJogar.on("pointerout", () => btnJogar.setFillStyle(0x4fdb9b));
+      btnJogar.on("pointerdown", () => {
+        scene.sound.play("ponto", { volume: 0.4 });
+        iniciarPartida(scene);
+      });
+      telaMenu.add(btnJogar);
+      telaMenu.add(txtJogar);
+
+      // Botão LOJA
+      const btnLoja = scene.add.rectangle(TELA_W / 2, 430, 200, 50, 0xfff04f, 1)
+        .setInteractive().setStrokeStyle(3, 0x000000);
+      const txtLoja = scene.add.text(TELA_W / 2, 430, "🛒 LOJA", {
+        fontSize: "22px", color: "#000000", fontStyle: "bold",
+      }).setOrigin(0.5);
+      btnLoja.on("pointerover", () => btnLoja.setFillStyle(0xfff89b));
+      btnLoja.on("pointerout", () => btnLoja.setFillStyle(0xfff04f));
+      btnLoja.on("pointerdown", () => {
+        scene.sound.play("ponto", { volume: 0.4 });
+        telaMenu.destroy();
+        telaMenu = null;
+        mostrarLoja(scene);
+      });
+      telaMenu.add(btnLoja);
+      telaMenu.add(txtLoja);
+
+      // Recorde
+      const txtRec = scene.add.text(TELA_W / 2, 510, `🏆 Recorde: ${melhor}`, {
+        fontSize: "16px", color: "#ffffff",
+        stroke: "#000000", strokeThickness: 3,
+      }).setOrigin(0.5);
+      telaMenu.add(txtRec);
+
+      const txtControles = scene.add.text(TELA_W / 2, 550,
+        "ESPAÇO ou clique pra pular", {
+        fontSize: "12px", color: "#ffffff",
+      }).setOrigin(0.5);
+      telaMenu.add(txtControles);
+    }
+
+    // ============================================
+    // LOJA
+    // ============================================
+    function mostrarLoja(scene) {
+      estado = "loja";
+      if (telaLoja) telaLoja.destroy();
+      telaLoja = scene.add.container(0, 0).setDepth(30);
+
+      const fundo = scene.add.rectangle(TELA_W / 2, TELA_H / 2, TELA_W, TELA_H, 0x000000, 0.7);
+      telaLoja.add(fundo);
+
+      const titulo = scene.add.text(TELA_W / 2, 30, "🛒 LOJA", {
+        fontSize: "26px", color: "#fff04f", fontStyle: "bold",
+        stroke: "#000000", strokeThickness: 4,
+      }).setOrigin(0.5);
+      telaLoja.add(titulo);
+
+      const txtMoedas = scene.add.text(TELA_W / 2, 65, `💰 ${pontosTotal} pontos`, {
+        fontSize: "18px", color: "#ffffff", fontStyle: "bold",
+        stroke: "#000000", strokeThickness: 3,
+      }).setOrigin(0.5);
+      telaLoja.add(txtMoedas);
+
+      // Lista de skins
+      const startY = 110;
+      const itemH = 78;
+      SKINS.forEach((s, i) => {
+        const y = startY + i * itemH;
+        const card = scene.add.rectangle(TELA_W / 2, y, 360, itemH - 8, 0x222244, 0.95)
+          .setStrokeStyle(2, 0xffffff);
+        telaLoja.add(card);
+
+        // Avatar
+        const ic = scene.add.image(TELA_W / 2 - 140, y, `skin_${s.slug}`);
+        ic.setScale(s.escala * 0.9);
+        if (s.frames > 1) {
+          const nomeAnim = `lojaAnim_${s.slug}`;
+          if (!scene.anims.exists(nomeAnim)) {
+            scene.anims.create({
+              key: nomeAnim,
+              frames: scene.anims.generateFrameNumbers(`skin_${s.slug}`, { start: 0, end: s.frames - 1 }),
+              frameRate: s.fps, repeat: -1,
+            });
+          }
+          ic.play(nomeAnim);
+        }
+        telaLoja.add(ic);
+
+        // Nome + custo
+        const txtNome = scene.add.text(TELA_W / 2 - 80, y - 12, s.nome, {
+          fontSize: "16px", color: "#ffffff", fontStyle: "bold",
+        }).setOrigin(0, 0.5);
+        telaLoja.add(txtNome);
+
+        const possui = skinsCompradas.includes(s.slug);
+        const equipada = skinAtual === s.slug;
+
+        let textoStatus, corStatus;
+        if (equipada) { textoStatus = "✓ EQUIPADA"; corStatus = "#4fdb9b"; }
+        else if (possui) { textoStatus = "Equipar"; corStatus = "#4f9bff"; }
+        else { textoStatus = `💰 ${s.custo}`; corStatus = pontosTotal >= s.custo ? "#fff04f" : "#aaaaaa"; }
+
+        const txtStatus = scene.add.text(TELA_W / 2 + 100, y, textoStatus, {
+          fontSize: "16px", color: corStatus, fontStyle: "bold",
+        }).setOrigin(0.5);
+        telaLoja.add(txtStatus);
+
+        // Card clicável (compra/equipa)
+        card.setInteractive();
+        card.on("pointerdown", () => {
+          if (equipada) return;
+          if (possui) {
+            // Equipar
+            skinAtual = s.slug;
+            salvarSkinAtual(skinAtual);
+            scene.sound.play("comprar", { volume: 0.5 });
+            telaLoja.destroy();
+            telaLoja = null;
+            mostrarLoja(scene); // recarrega
+          } else {
+            // Comprar
+            if (pontosTotal >= s.custo) {
+              pontosTotal -= s.custo;
+              salvarPontosTotal(pontosTotal);
+              skinsCompradas.push(s.slug);
+              salvarSkinsCompradas(skinsCompradas);
+              skinAtual = s.slug;
+              salvarSkinAtual(skinAtual);
+              scene.sound.play("comprar", { volume: 0.6 });
+              telaLoja.destroy();
+              telaLoja = null;
+              mostrarLoja(scene);
+            } else {
+              scene.sound.play("erro", { volume: 0.5 });
+              // Pequeno shake no card
+              scene.tweens.add({
+                targets: card, x: TELA_W / 2 + 8, duration: 60,
+                yoyo: true, repeat: 3,
+                onComplete: () => card.x = TELA_W / 2,
+              });
+            }
+          }
+        });
+      });
+
+      // Botão voltar
+      const btnVoltar = scene.add.rectangle(TELA_W / 2, TELA_H - 40, 160, 44, 0x4f9bff, 1)
+        .setInteractive().setStrokeStyle(3, 0x000000);
+      const txtVoltar = scene.add.text(TELA_W / 2, TELA_H - 40, "← Voltar", {
+        fontSize: "18px", color: "#ffffff", fontStyle: "bold",
+      }).setOrigin(0.5);
+      btnVoltar.on("pointerdown", () => {
+        scene.sound.play("ponto", { volume: 0.4 });
+        telaLoja.destroy();
+        telaLoja = null;
+        criarPassaro(scene); // atualiza skin
+        mostrarMenu(scene);
+      });
+      telaLoja.add(btnVoltar);
+      telaLoja.add(txtVoltar);
+    }
+
+    // ============================================
+    // PARTIDA
+    // ============================================
+    function iniciarPartida(scene) {
+      if (telaMenu) { telaMenu.destroy(); telaMenu = null; }
+      if (textoFim) { textoFim.destroy(); textoFim = null; }
+      pontos = 0;
+      textoPontos.setText("0").setVisible(true);
+      // Limpa canos antigos
+      canos.children.iterate(c => { if (c) c.destroy(); });
+      canos.clear(true, true);
+      // Reposiciona pássaro
+      criarPassaro(scene);
+      bird.setPosition(120, TELA_H / 2);
+      bird.angle = 0;
+      bird.clearTint();
       bird.body.allowGravity = true;
-      proximoSpawnX = TELA_W + 50;
-      // Primeiro pulo pra começar com gás
+      scene.physics.world.gravity.y = GRAVIDADE;
       bird.body.velocity.y = PULO;
+      // Recolisões (porque criarPassaro recria o sprite)
+      scene.physics.add.collider(bird, chao, () => bater(scene));
+      scene.physics.add.overlap(bird, canos, () => bater(scene));
       scene.sound.play("pular", { volume: 0.4 });
+      estado = "jogando";
     }
 
     function update(_, deltaMs) {
@@ -169,36 +449,30 @@
       if (estado !== "jogando") return;
       const dt = deltaMs / 1000;
 
-      // Move chão (efeito de scroll)
       chao.tilePositionX += 100 * dt;
 
-      // Tilt do pássaro baseado na velocidade vertical
       const v = bird.body.velocity.y;
       const ang = Phaser.Math.Clamp(v / 8, -25, 90);
       bird.angle += (ang - bird.angle) * 0.08;
 
-      // Move canos e detecta passou
       canos.children.iterate(c => {
         if (!c) return;
-        if (c.x < -LARGURA_CANO) {
-          c.destroy();
-          return;
-        }
+        if (c.x < -LARGURA_CANO) { c.destroy(); return; }
         if (!c.dataPontuou && c.x < bird.x - 5 && c.dataParCima) {
           c.dataPontuou = true;
           pontos++;
+          pontosTotal++;
+          salvarPontosTotal(pontosTotal);
           textoPontos.setText(pontos);
           scene.sound.play("ponto", { volume: 0.5 });
         }
       });
 
-      // Spawna novos canos quando chega a hora
       if (canos.children.size === 0
           || canos.children.entries[canos.children.entries.length - 1].x < TELA_W - ESPACO_CANOS) {
         spawnarCanos(scene);
       }
 
-      // Limites de tela
       if (bird.y < -20) bird.body.velocity.y = 50;
     }
 
@@ -221,7 +495,6 @@
       canoCima.dataPontuou = false;
       canos.add(canoCima);
 
-      // Topo do cano (boquinha)
       const topo1 = scene.add.rectangle(x, alturaCima - 6, LARGURA_CANO + 12, 16, 0x4fdb4f);
       topo1.setStrokeStyle(3, 0x166e16);
       scene.physics.add.existing(topo1);
@@ -237,7 +510,6 @@
       canoBaixo.body.allowGravity = false;
       canos.add(canoBaixo);
 
-      // Boquinha do cano de baixo
       const topo2 = scene.add.rectangle(x, yBaixo - alturaBaixo / 2 + 6, LARGURA_CANO + 12, 16, 0x4fdb4f);
       topo2.setStrokeStyle(3, 0x166e16);
       scene.physics.add.existing(topo2);
@@ -250,28 +522,55 @@
       if (estado !== "jogando") return;
       estado = "fim";
       scene.sound.play("bater", { volume: 0.6 });
-      bird.anims.stop();
+      if (bird.anims) bird.anims.stop();
       bird.setTint(0xff8888);
-      // Para todos os canos
       canos.children.iterate(c => { if (c && c.body) c.body.setVelocityX(0); });
 
-      // Atualiza recorde
       let novoRecorde = false;
       if (pontos > melhor) {
         melhor = pontos;
-        localStorage.setItem("flappy_melhor", melhor);
+        salvarMelhor(melhor);
         novoRecorde = true;
       }
-      textoMelhor.setText(`Melhor: ${melhor}`);
 
-      // Tela de fim
-      const tit = novoRecorde ? "🏆 NOVO RECORDE! 🏆" : "💥 GAME OVER";
-      textoFim = scene.add.text(TELA_W / 2, TELA_H / 2,
-        `${tit}\n\nPontos: ${pontos}\nMelhor: ${melhor}\n\nClique pra jogar de novo`, {
+      const tit = novoRecorde ? "🏆 NOVO RECORDE!" : "💥 GAME OVER";
+      textoFim = scene.add.container(0, 0).setDepth(50);
+      const fundo = scene.add.rectangle(TELA_W / 2, TELA_H / 2, TELA_W, TELA_H, 0x000000, 0.65);
+      textoFim.add(fundo);
+      const txt = scene.add.text(TELA_W / 2, TELA_H / 2 - 60,
+        `${tit}\n\nPontos: ${pontos}\nMelhor: ${melhor}\n💰 Total: ${pontosTotal}`, {
         fontSize: "20px", color: "#ffffff", align: "center", fontStyle: "bold",
         stroke: "#000000", strokeThickness: 4,
-        backgroundColor: "rgba(0,0,0,0.7)", padding: { x: 18, y: 14 },
-      }).setOrigin(0.5).setDepth(50);
+      }).setOrigin(0.5);
+      textoFim.add(txt);
+
+      const btnRej = scene.add.rectangle(TELA_W / 2, TELA_H / 2 + 80, 200, 50, 0x4fdb9b, 1)
+        .setInteractive().setStrokeStyle(3, 0x000000);
+      const txtRej = scene.add.text(TELA_W / 2, TELA_H / 2 + 80, "▶ Jogar de novo", {
+        fontSize: "18px", color: "#000000", fontStyle: "bold",
+      }).setOrigin(0.5);
+      btnRej.on("pointerdown", () => {
+        scene.sound.play("ponto", { volume: 0.4 });
+        textoFim.destroy(); textoFim = null;
+        iniciarPartida(scene);
+      });
+      textoFim.add(btnRej); textoFim.add(txtRej);
+
+      const btnMenu = scene.add.rectangle(TELA_W / 2, TELA_H / 2 + 145, 200, 44, 0xfff04f, 1)
+        .setInteractive().setStrokeStyle(3, 0x000000);
+      const txtMenu = scene.add.text(TELA_W / 2, TELA_H / 2 + 145, "🛒 Loja / Menu", {
+        fontSize: "16px", color: "#000000", fontStyle: "bold",
+      }).setOrigin(0.5);
+      btnMenu.on("pointerdown", () => {
+        scene.sound.play("ponto", { volume: 0.4 });
+        textoFim.destroy(); textoFim = null;
+        textoPontos.setVisible(false);
+        canos.children.iterate(c => { if (c) c.destroy(); });
+        canos.clear(true, true);
+        bird.setVisible(false);
+        mostrarMenu(scene);
+      });
+      textoFim.add(btnMenu); textoFim.add(txtMenu);
     }
 
     function desenharNuvens(scene) {
