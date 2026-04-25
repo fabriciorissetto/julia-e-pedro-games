@@ -69,6 +69,8 @@
     .hud .item.moedas { color: #c89030; }
     .hud .item.noite { background: linear-gradient(135deg, #2a1f4d 0%, #4a2a7d 100%); color: #ffd84d; }
     .hud .item.vida { color: #c92d4d; }
+    .hud .item.online { color: #2a8aff; }
+    .hud .item.online.offline { color: #999; background: #ddd; }
     .hud .item.alerta { animation: piscar 0.6s infinite; }
     @keyframes piscar { 0%,100% { transform: scale(1);} 50% { transform: scale(1.1); background: #ffe5e5; } }
 
@@ -448,6 +450,7 @@
     <div class="item">🍎 <span id="hudComida">3</span></div>
     <div class="item moedas">💰 <span id="hudMoedas">0</span></div>
     <div class="item dia" id="hudDiaItem">☀️ Dia <span id="hudDia">1</span>/10</div>
+    <div class="item online" id="hudOnline" title="Jogadores na floresta">🌐 <span id="hudOnlineCount">1</span></div>
   </div>
 
   <div class="controles" id="controles">
@@ -1104,6 +1107,7 @@
       if (scene && scene.input && scene.input.keyboard) scene.input.keyboard.enabled = true;
       atualizarHUD();
       renderBag();
+      conectarMultiplayer();
     }
 
     function aplicarSkin() {
@@ -1129,6 +1133,9 @@
         if (player) player.setVelocity(0, 0);
         return;
       }
+
+      // sincroniza com outros jogadores
+      tickMultiplayer(time);
 
       // movimento
       let dx = 0, dy = 0;
@@ -2102,6 +2109,168 @@
       document.getElementById('overlayTit').textContent = '💔 Ai, não foi dessa vez!';
       document.getElementById('overlayMsg').textContent = 'Você sobreviveu até o dia ' + dia + '. Quer tentar de novo?';
       document.getElementById('overlay').classList.remove('escondido');
+    }
+
+    // ===== multiplayer (PartyKit) =====
+    let ws = null;
+    let meuId = null;
+    const outrosJogadores = new Map(); // id -> { sprite, nomeText, alvoX, alvoY, ehSprite, flipX, nome }
+    let ultimoEnvioMs = 0;
+    const ENVIO_INTERVALO_MS = 75;
+
+    // URL do servidor PartyKit. Em local, usa localhost. Em produção,
+    // será atualizado pra "floresta.<usuario>.partykit.dev" depois do deploy.
+    const PARTYKIT_HOST = (() => {
+      const h = location.hostname;
+      if (h === 'localhost' || h === '127.0.0.1' || h === '') return 'localhost:1999';
+      return 'floresta.fabriciorissetto.partykit.dev';
+    })();
+    const PARTYKIT_ROOM = 'mundo';
+
+    function conectarMultiplayer() {
+      if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+      const protocolo = location.protocol === 'https:' ? 'wss' : 'ws';
+      const url = protocolo + '://' + PARTYKIT_HOST + '/parties/main/' + PARTYKIT_ROOM;
+      try {
+        ws = new WebSocket(url);
+      } catch (e) {
+        marcarOffline();
+        return;
+      }
+
+      ws.addEventListener('open', () => {
+        const skin = SKINS[perfil.skin] || SKINS.princesa;
+        ws.send(JSON.stringify({
+          tipo: 'identificar',
+          nome: perfil.nome || 'Visitante',
+          skin: perfil.skin,
+          spriteFrame: typeof skin.sprite === 'number' ? skin.sprite : null,
+          emoji: skin.emoji || null,
+        }));
+        marcarOnline();
+      });
+
+      ws.addEventListener('message', (e) => {
+        let msg;
+        try { msg = JSON.parse(e.data); } catch { return; }
+        if (msg.tipo === 'boasVindas') {
+          meuId = msg.meuId;
+          (msg.jogadores || []).forEach(j => { if (j.id !== meuId) atualizarOutroJogador(j); });
+          atualizarContagemOnline(msg.jogadores ? msg.jogadores.length : 1);
+        } else if (msg.tipo === 'estado') {
+          const idsAtivos = new Set();
+          (msg.jogadores || []).forEach(j => {
+            idsAtivos.add(j.id);
+            if (j.id !== meuId) atualizarOutroJogador(j);
+          });
+          // remove sprites de quem sumiu
+          outrosJogadores.forEach((obj, id) => {
+            if (!idsAtivos.has(id)) {
+              destruirOutroJogador(id);
+            }
+          });
+          atualizarContagemOnline(idsAtivos.size);
+        } else if (msg.tipo === 'saiu') {
+          destruirOutroJogador(msg.id);
+        }
+      });
+
+      ws.addEventListener('close', () => {
+        marcarOffline();
+        // limpa todos os outros jogadores visualmente
+        outrosJogadores.forEach((_, id) => destruirOutroJogador(id));
+        // tenta reconectar se ainda jogando
+        if (jogoIniciado && !acabou) {
+          setTimeout(conectarMultiplayer, 2000);
+        }
+      });
+
+      ws.addEventListener('error', () => {
+        marcarOffline();
+      });
+    }
+
+    function marcarOnline() {
+      const el = document.getElementById('hudOnline');
+      if (el) el.classList.remove('offline');
+    }
+    function marcarOffline() {
+      const el = document.getElementById('hudOnline');
+      if (el) el.classList.add('offline');
+      const c = document.getElementById('hudOnlineCount');
+      if (c) c.textContent = '...';
+    }
+    function atualizarContagemOnline(n) {
+      const c = document.getElementById('hudOnlineCount');
+      if (c) c.textContent = String(n);
+    }
+
+    function atualizarOutroJogador(dados) {
+      if (!scene) return;
+      let obj = outrosJogadores.get(dados.id);
+      if (!obj) {
+        let sprite;
+        if (typeof dados.spriteFrame === 'number') {
+          sprite = scene.add.sprite(dados.x, dados.y, 'dungeon', dados.spriteFrame).setScale(SCALE);
+          sprite.ehSprite = true;
+        } else {
+          sprite = scene.add.text(dados.x, dados.y, dados.emoji || '🧑', { fontSize: '34px' }).setOrigin(0.5, 0.6);
+          sprite.ehSprite = false;
+        }
+        sprite.setDepth(9);
+        const nomeText = scene.add.text(dados.x, dados.y - 30, dados.nome || '', {
+          fontSize: '12px', color: '#fff', fontStyle: 'bold',
+          backgroundColor: '#0008', padding: { x: 4, y: 1 },
+          fontFamily: 'Comic Sans MS, Trebuchet MS, cursive'
+        }).setOrigin(0.5, 1).setDepth(11);
+        obj = {
+          sprite, nomeText,
+          alvoX: dados.x, alvoY: dados.y,
+          flipX: !!dados.flipX,
+          nome: dados.nome || '',
+          ehSprite: sprite.ehSprite,
+        };
+        outrosJogadores.set(dados.id, obj);
+      }
+      obj.alvoX = Number.isFinite(dados.x) ? dados.x : obj.alvoX;
+      obj.alvoY = Number.isFinite(dados.y) ? dados.y : obj.alvoY;
+      obj.flipX = !!dados.flipX;
+      if (dados.nome && dados.nome !== obj.nome) {
+        obj.nome = dados.nome;
+        obj.nomeText.setText(dados.nome);
+      }
+    }
+
+    function destruirOutroJogador(id) {
+      const obj = outrosJogadores.get(id);
+      if (!obj) return;
+      try { obj.sprite.destroy(); } catch {}
+      try { obj.nomeText.destroy(); } catch {}
+      outrosJogadores.delete(id);
+    }
+
+    function tickMultiplayer(time) {
+      if (!ws || ws.readyState !== WebSocket.OPEN || !player) return;
+      if (time - ultimoEnvioMs < ENVIO_INTERVALO_MS) return;
+      ultimoEnvioMs = time;
+      ws.send(JSON.stringify({
+        tipo: 'mover',
+        x: player.x,
+        y: player.y,
+        vx: player.body ? player.body.velocity.x : 0,
+        vy: player.body ? player.body.velocity.y : 0,
+        flipX: !!player.flipX,
+      }));
+      // interpola sprites dos outros suavemente
+      const lerp = 0.28;
+      outrosJogadores.forEach(obj => {
+        const s = obj.sprite;
+        s.x += (obj.alvoX - s.x) * lerp;
+        s.y += (obj.alvoY - s.y) * lerp;
+        if (obj.ehSprite && typeof s.setFlipX === 'function') s.setFlipX(obj.flipX);
+        obj.nomeText.x = s.x;
+        obj.nomeText.y = s.y - 30;
+      });
     }
 
     // ===== game =====

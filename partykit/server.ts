@@ -1,0 +1,145 @@
+// Servidor PartyKit do "10 Dias na Floresta" multiplayer.
+// Mundo único compartilhado (mesma sala "mundo" pra todo mundo).
+// Por enquanto, autoritativo só pras posições/identidade dos jogadores.
+// Terreno (árvores, baús) é gerado deterministicamente no cliente, então
+// já é igual pra todo mundo sem precisar sincronizar.
+
+import type * as Party from "partykit/server";
+
+type Jogador = {
+  id: string;
+  nome: string;
+  skin: string;       // chave de skin (ex: 'princesaRosa') ou emoji
+  spriteFrame: number | null; // frame do spritesheet 'dungeon' se for skin de sprite
+  emoji: string | null;       // se for skin de emoji
+  x: number;
+  y: number;
+  vx: number;         // pra interpolação no cliente
+  vy: number;
+  flipX: boolean;
+  ultimoInput: number; // ms epoch — pra detectar idle
+};
+
+type MsgIdentificar = {
+  tipo: "identificar";
+  nome: string;
+  skin: string;
+  spriteFrame: number | null;
+  emoji: string | null;
+};
+
+type MsgMover = {
+  tipo: "mover";
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  flipX: boolean;
+};
+
+type MsgEntrada = MsgIdentificar | MsgMover;
+
+const TICK_MS = 75; // ~13Hz — suave o bastante, leve no broadcast
+
+export default class FlorestaServer implements Party.Server {
+  jogadores = new Map<string, Jogador>();
+
+  constructor(readonly room: Party.Room) {}
+
+  async onStart() {
+    // Agenda o primeiro tick
+    await this.room.storage.setAlarm(Date.now() + TICK_MS);
+  }
+
+  onConnect(conn: Party.Connection) {
+    const novo: Jogador = {
+      id: conn.id,
+      nome: "Visitante",
+      skin: "padrao",
+      spriteFrame: null,
+      emoji: "🧑",
+      x: 1500, // WORLD_W/2 default — cliente reposiciona depois
+      y: 1500,
+      vx: 0,
+      vy: 0,
+      flipX: false,
+      ultimoInput: Date.now(),
+    };
+    this.jogadores.set(conn.id, novo);
+
+    // Manda pro recém-chegado o estado completo imediatamente
+    conn.send(JSON.stringify({
+      tipo: "boasVindas",
+      meuId: conn.id,
+      jogadores: Array.from(this.jogadores.values()),
+    }));
+  }
+
+  onMessage(raw: string, sender: Party.Connection) {
+    let data: MsgEntrada;
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      return;
+    }
+    const j = this.jogadores.get(sender.id);
+    if (!j) return;
+
+    if (data.tipo === "identificar") {
+      j.nome = String(data.nome ?? "").slice(0, 20) || "Visitante";
+      j.skin = String(data.skin ?? "padrao").slice(0, 32);
+      j.spriteFrame = typeof data.spriteFrame === "number" ? data.spriteFrame : null;
+      j.emoji = data.emoji ? String(data.emoji).slice(0, 8) : null;
+      j.ultimoInput = Date.now();
+    } else if (data.tipo === "mover") {
+      // valida números
+      const nx = Number(data.x);
+      const ny = Number(data.y);
+      if (Number.isFinite(nx) && Number.isFinite(ny)) {
+        j.x = nx;
+        j.y = ny;
+        j.vx = Number(data.vx) || 0;
+        j.vy = Number(data.vy) || 0;
+        j.flipX = !!data.flipX;
+        j.ultimoInput = Date.now();
+      }
+    }
+  }
+
+  onClose(conn: Party.Connection) {
+    this.jogadores.delete(conn.id);
+    // Avisa todo mundo que o jogador saiu
+    this.room.broadcast(JSON.stringify({
+      tipo: "saiu",
+      id: conn.id,
+    }));
+  }
+
+  onError(_conn: Party.Connection, _err: Error) {
+    // PartyKit já loga; nada a fazer aqui.
+  }
+
+  async onAlarm() {
+    // Tick: limpa fantasmas (idle > 30s) e faz broadcast do estado
+    const agora = Date.now();
+    const TIMEOUT = 30_000;
+    for (const [id, j] of this.jogadores) {
+      if (agora - j.ultimoInput > TIMEOUT) {
+        this.jogadores.delete(id);
+      }
+    }
+
+    if (this.jogadores.size > 0) {
+      this.room.broadcast(JSON.stringify({
+        tipo: "estado",
+        t: agora,
+        jogadores: Array.from(this.jogadores.values()),
+      }));
+    }
+
+    // Reagenda
+    await this.room.storage.setAlarm(Date.now() + TICK_MS);
+  }
+}
+
+FlorestaServer satisfies Party.Worker;
