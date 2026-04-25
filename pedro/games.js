@@ -6,4 +6,11 @@ window.GAMES = [
     color: "#4f9bff",
     description: "Aperta pra cima pra pular"
   },
+  {
+    slug: "corrida",
+    title: "Corrida",
+    emoji: "🏎️",
+    color: "#ff4f6f",
+    description: "Você contra o cronômetro, 3 voltas"
+  },
 ];

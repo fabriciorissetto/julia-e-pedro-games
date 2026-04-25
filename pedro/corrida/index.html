@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <title>Corrida</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #1a1a2e;
+      overflow: hidden;
+      height: 100%;
+      font-family: system-ui, sans-serif;
+      touch-action: none;
+    }
+    #game { width: 100vw; height: 100vh; }
+    #voltar {
+      position: fixed; top: 12px; left: 12px;
+      background: rgba(0,0,0,0.5); color: #fff;
+      text-decoration: none; padding: 8px 14px;
+      border-radius: 8px; font-size: 14px; z-index: 10;
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+</head>
+<body>
+  <a id="voltar" href="../">← voltar</a>
+  <div id="game"></div>
+
+  <script>
+    // ====== Tamanhos do mundo (a pista é maior que a tela) ======
+    const TELA_W = 800;
+    const TELA_H = 600;
+    const MUNDO_W = 2400;
+    const MUNDO_H = 1600;
+
+    // ====== Pista (formato "donut" retangular) ======
+    // Borda externa
+    const PISTA_X = 200, PISTA_Y = 200;
+    const PISTA_W = 2000, PISTA_H = 1200;
+    // Buraco interno (a "ilha" no meio)
+    const ILHA_X = 600, ILHA_Y = 500;
+    const ILHA_W = 1200, ILHA_H = 600;
+
+    // ====== Carro ======
+    const ACEL = 700;          // aceleração
+    const VEL_MAX = 420;       // velocidade máxima
+    const VEL_MAX_RE = 180;    // ré mais lenta
+    const DRAG = 350;          // atrito quando solta o gás
+    const ROT_VEL = 3.2;       // velocidade de rotação (rad/s)
+    const VEL_MIN_PRA_VIRAR = 30; // só vira se tiver se mexendo
+
+    // ====== Corrida ======
+    const TOTAL_VOLTAS = 3;
+
+    const config = {
+      type: Phaser.AUTO,
+      parent: "game",
+      width: TELA_W,
+      height: TELA_H,
+      backgroundColor: "#2d5a2d",
+      scale: {
+        mode: Phaser.Scale.FIT,
+        autoCenter: Phaser.Scale.CENTER_BOTH,
+      },
+      physics: {
+        default: "arcade",
+        arcade: { gravity: { y: 0 }, debug: false },
+      },
+      scene: { create, update },
+    };
+
+    new Phaser.Game(config);
+
+    let carro, teclas;
+    let estadoCorrida = "correndo"; // "correndo" | "fim"
+    let voltaAtual = 1;
+    let passouCheckpoint = false;
+    let tempoInicioVolta = 0;
+    let tempoInicioCorrida = 0;
+    let melhorVolta = parseFloat(localStorage.getItem("corrida_melhor_volta")) || null;
+    let melhorTotal = parseFloat(localStorage.getItem("corrida_melhor_total")) || null;
+    let textoUI;
+    // Botões touch
+    let botoes = { cima: false, baixo: false, esq: false, dir: false };
+
+    function create() {
+      // ===== Limites do mundo =====
+      this.physics.world.setBounds(0, 0, MUNDO_W, MUNDO_H);
+      this.cameras.main.setBounds(0, 0, MUNDO_W, MUNDO_H);
+
+      // ===== Desenha a pista (visual) =====
+      const g = this.add.graphics();
+      // Asfalto
+      g.fillStyle(0x3a3a3a, 1);
+      g.fillRect(PISTA_X, PISTA_Y, PISTA_W, PISTA_H);
+      // Ilha de grama no meio
+      g.fillStyle(0x2d5a2d, 1);
+      g.fillRect(ILHA_X, ILHA_Y, ILHA_W, ILHA_H);
+      // Linhas brancas nos limites
+      g.lineStyle(6, 0xffffff, 1);
+      g.strokeRect(PISTA_X, PISTA_Y, PISTA_W, PISTA_H);
+      g.strokeRect(ILHA_X, ILHA_Y, ILHA_W, ILHA_H);
+
+      // Linha de chegada (xadrez branco/preto na parte de baixo da pista)
+      const chegadaX = 1200;
+      const chegadaY1 = ILHA_Y + ILHA_H; // 1100
+      const chegadaY2 = PISTA_Y + PISTA_H; // 1400
+      desenhaXadrez(g, chegadaX - 20, chegadaY1, 40, chegadaY2 - chegadaY1, 20);
+
+      // ===== Paredes (física) =====
+      const paredes = this.physics.add.staticGroup();
+      const espessura = 20;
+      // Borda externa — 4 paredes finas
+      paredes.add(criarParede(this, PISTA_X + PISTA_W/2, PISTA_Y, PISTA_W, espessura));
+      paredes.add(criarParede(this, PISTA_X + PISTA_W/2, PISTA_Y + PISTA_H, PISTA_W, espessura));
+      paredes.add(criarParede(this, PISTA_X, PISTA_Y + PISTA_H/2, espessura, PISTA_H));
+      paredes.add(criarParede(this, PISTA_X + PISTA_W, PISTA_Y + PISTA_H/2, espessura, PISTA_H));
+      // Ilha interna — 1 retângulo sólido
+      paredes.add(criarParede(this, ILHA_X + ILHA_W/2, ILHA_Y + ILHA_H/2, ILHA_W, ILHA_H));
+
+      // ===== Obstáculos (cones laranjas) =====
+      const obstaculos = this.physics.add.staticGroup();
+      const posicoesCones = [
+        // Reta inferior — chicane
+        { x: 900, y: 1250 },
+        { x: 1100, y: 1350 },
+        { x: 1500, y: 1250 },
+        // Curva esquerda
+        { x: 350, y: 800 },
+        // Curva direita
+        { x: 2100, y: 800 },
+        // Reta superior
+        { x: 1000, y: 350 },
+        { x: 1500, y: 350 },
+      ];
+      posicoesCones.forEach(p => {
+        const cone = criarCone(this, p.x, p.y);
+        obstaculos.add(cone);
+      });
+
+      // ===== Carro do jogador =====
+      criarTexturaCarro(this, "carroJogador", 0xff4f6f);
+      // Spawna logo antes da linha de chegada, virado pra direita
+      carro = this.physics.add.sprite(1100, 1250, "carroJogador");
+      carro.setSize(40, 24); // hitbox menor que sprite
+      carro.setMaxVelocity(VEL_MAX);
+      carro.setDrag(DRAG);
+      carro.setBounce(0.15);
+      carro.setCollideWorldBounds(true);
+
+      // Colisões
+      this.physics.add.collider(carro, paredes, baterEmAlgo);
+      this.physics.add.collider(carro, obstaculos, baterEmAlgo);
+
+      // ===== Câmera segue o carro =====
+      this.cameras.main.startFollow(carro, true, 0.1, 0.1);
+
+      // ===== Linha de chegada e checkpoint (zonas que detectam passagem) =====
+      // Linha de chegada: parte inferior da pista
+      const linhaChegada = this.add.zone(1200, 1250, 60, 280);
+      this.physics.add.existing(linhaChegada, true);
+      this.physics.add.overlap(carro, linhaChegada, passarLinhaChegada);
+
+      // Checkpoint: parte superior da pista (oposto)
+      const checkpoint = this.add.zone(1200, 350, 60, 280);
+      this.physics.add.existing(checkpoint, true);
+      this.physics.add.overlap(carro, checkpoint, passarCheckpoint);
+
+      // ===== Teclas =====
+      teclas = this.input.keyboard.createCursorKeys();
+      this.input.keyboard.addKey("R").on("down", reiniciar);
+
+      // ===== UI fixa (não scrolla com câmera) =====
+      textoUI = this.add.text(10, 10, "", {
+        fontSize: "20px",
+        color: "#ffffff",
+        backgroundColor: "rgba(0,0,0,0.5)",
+        padding: { x: 10, y: 6 },
+      });
+      textoUI.setScrollFactor(0);
+      textoUI.setDepth(100);
+
+      // ===== Botões touch (mobile) =====
+      criarBotoesTouch(this);
+
+      // ===== Cronômetro =====
+      tempoInicioCorrida = this.time.now;
+      tempoInicioVolta = this.time.now;
+    }
+
+    function update(_, delta) {
+      if (estadoCorrida === "fim") {
+        carro.setAcceleration(0, 0);
+        carro.setAngularVelocity(0);
+        return;
+      }
+
+      // ===== Controle =====
+      const acelera = teclas.up.isDown || botoes.cima;
+      const reFreio = teclas.down.isDown || botoes.baixo;
+      const viraEsq = teclas.left.isDown || botoes.esq;
+      const viraDir = teclas.right.isDown || botoes.dir;
+
+      // Aceleração: na direção que o carro tá apontado
+      if (acelera) {
+        const ang = carro.rotation;
+        carro.setAcceleration(Math.cos(ang) * ACEL, Math.sin(ang) * ACEL);
+        carro.setMaxVelocity(VEL_MAX);
+      } else if (reFreio) {
+        const ang = carro.rotation;
+        carro.setAcceleration(-Math.cos(ang) * ACEL, -Math.sin(ang) * ACEL);
+        carro.setMaxVelocity(VEL_MAX_RE);
+      } else {
+        carro.setAcceleration(0, 0);
+        carro.setMaxVelocity(VEL_MAX);
+      }
+
+      // Rotação: só se o carro tá se mexendo
+      const velocidade = Math.hypot(carro.body.velocity.x, carro.body.velocity.y);
+      if (velocidade > VEL_MIN_PRA_VIRAR) {
+        const dt = delta / 1000;
+        if (viraEsq) carro.rotation -= ROT_VEL * dt;
+        if (viraDir) carro.rotation += ROT_VEL * dt;
+      }
+
+      // ===== Atualiza UI =====
+      const tempoVolta = (this.time.now - tempoInicioVolta) / 1000;
+      const tempoTotal = (this.time.now - tempoInicioCorrida) / 1000;
+      textoUI.setText(
+        `Volta: ${voltaAtual} / ${TOTAL_VOLTAS}\n` +
+        `Tempo da volta: ${tempoVolta.toFixed(2)}s\n` +
+        `Tempo total: ${tempoTotal.toFixed(2)}s\n` +
+        `Melhor volta: ${melhorVolta ? melhorVolta.toFixed(2) + "s" : "—"}\n` +
+        `Melhor corrida: ${melhorTotal ? melhorTotal.toFixed(2) + "s" : "—"}`
+      );
+    }
+
+    // ===== Quando bate em parede ou obstáculo: perde velocidade =====
+    function baterEmAlgo(carroSprite) {
+      carroSprite.body.velocity.x *= 0.4;
+      carroSprite.body.velocity.y *= 0.4;
+    }
+
+    // ===== Lap detection =====
+    function passarLinhaChegada(carroSprite) {
+      if (!passouCheckpoint) return; // anti-trapaça
+      passouCheckpoint = false;
+
+      const tempoVolta = (carroSprite.scene.time.now - tempoInicioVolta) / 1000;
+      tempoInicioVolta = carroSprite.scene.time.now;
+
+      // Atualiza melhor volta
+      if (melhorVolta === null || tempoVolta < melhorVolta) {
+        melhorVolta = tempoVolta;
+        localStorage.setItem("corrida_melhor_volta", melhorVolta);
+      }
+
+      voltaAtual++;
+      if (voltaAtual > TOTAL_VOLTAS) {
+        terminarCorrida(carroSprite.scene);
+      }
+    }
+
+    function passarCheckpoint() {
+      passouCheckpoint = true;
+    }
+
+    function terminarCorrida(scene) {
+      estadoCorrida = "fim";
+      const tempoTotal = (scene.time.now - tempoInicioCorrida) / 1000;
+      let novoRecorde = false;
+      if (melhorTotal === null || tempoTotal < melhorTotal) {
+        melhorTotal = tempoTotal;
+        localStorage.setItem("corrida_melhor_total", melhorTotal);
+        novoRecorde = true;
+      }
+
+      const fim = scene.add.text(TELA_W / 2, TELA_H / 2,
+        (novoRecorde ? "🏆 NOVO RECORDE! 🏆\n" : "🏁 CORRIDA COMPLETA 🏁\n") +
+        `Tempo: ${tempoTotal.toFixed(2)}s\n` +
+        `Melhor volta: ${melhorVolta.toFixed(2)}s\n\n` +
+        `Aperta R pra correr de novo`,
+        {
+          fontSize: "28px",
+          color: "#ffffff",
+          backgroundColor: "rgba(0,0,0,0.85)",
+          padding: { x: 24, y: 20 },
+          align: "center",
+        }
+      );
+      fim.setOrigin(0.5);
+      fim.setScrollFactor(0);
+      fim.setDepth(200);
+    }
+
+    function reiniciar() {
+      // Recarrega a página — jeito mais simples e confiável
+      location.reload();
+    }
+
+    // ===== Helpers =====
+
+    function criarParede(scene, x, y, w, h) {
+      const r = scene.add.rectangle(x, y, w, h, 0xffffff, 0);
+      scene.physics.add.existing(r, true);
+      return r;
+    }
+
+    function criarCone(scene, x, y) {
+      // Desenha cone laranja
+      const g = scene.add.graphics();
+      g.fillStyle(0xff8800, 1);
+      g.fillTriangle(x - 14, y + 14, x + 14, y + 14, x, y - 14);
+      g.lineStyle(2, 0xffffff);
+      g.strokeTriangle(x - 14, y + 14, x + 14, y + 14, x, y - 14);
+      // Hitbox física
+      const hit = scene.add.rectangle(x, y, 24, 24, 0xff8800, 0);
+      scene.physics.add.existing(hit, true);
+      return hit;
+    }
+
+    function criarTexturaCarro(scene, key, cor) {
+      const g = scene.add.graphics();
+      // Corpo do carro (apontando pra direita = ângulo 0)
+      g.fillStyle(cor, 1);
+      g.fillRoundedRect(0, 4, 50, 24, 4);
+      // Para-brisa (parte da frente)
+      g.fillStyle(0x222244, 1);
+      g.fillRoundedRect(28, 8, 16, 16, 2);
+      // Rodas
+      g.fillStyle(0x111111, 1);
+      g.fillRect(6, 0, 12, 6);
+      g.fillRect(6, 26, 12, 6);
+      g.fillRect(34, 0, 12, 6);
+      g.fillRect(34, 26, 12, 6);
+      g.generateTexture(key, 50, 32);
+      g.destroy();
+    }
+
+    function desenhaXadrez(g, x, y, w, h, tam) {
+      // Faixa xadrez tipo bandeira de chegada
+      const cols = Math.ceil(w / tam);
+      const rows = Math.ceil(h / tam);
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const branco = (r + c) % 2 === 0;
+          g.fillStyle(branco ? 0xffffff : 0x000000, 1);
+          g.fillRect(x + c * tam, y + r * tam, tam, tam);
+        }
+      }
+    }
+
+    function criarBotoesTouch(scene) {
+      // Só mostra em telas com touch
+      const temTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+      if (!temTouch) return;
+
+      const op = 0.35;
+      const tam = 70;
+      const margem = 20;
+
+      // D-pad esquerdo (esquerda/direita)
+      const esq = scene.add.circle(margem + tam, TELA_H - margem - tam, tam, 0xffffff, op)
+        .setScrollFactor(0).setDepth(100).setInteractive();
+      const dir = scene.add.circle(margem + tam * 3 + 20, TELA_H - margem - tam, tam, 0xffffff, op)
+        .setScrollFactor(0).setDepth(100).setInteractive();
+      // Acelera/freia direita
+      const cima = scene.add.circle(TELA_W - margem - tam * 3 - 20, TELA_H - margem - tam, tam, 0xff4f6f, op)
+        .setScrollFactor(0).setDepth(100).setInteractive();
+      const baixo = scene.add.circle(TELA_W - margem - tam, TELA_H - margem - tam, tam, 0x4f9bff, op)
+        .setScrollFactor(0).setDepth(100).setInteractive();
+
+      // Labels
+      const estilo = { fontSize: "32px", color: "#000" };
+      scene.add.text(esq.x, esq.y, "◀", estilo).setOrigin(0.5).setScrollFactor(0).setDepth(101);
+      scene.add.text(dir.x, dir.y, "▶", estilo).setOrigin(0.5).setScrollFactor(0).setDepth(101);
+      scene.add.text(cima.x, cima.y, "▲", estilo).setOrigin(0.5).setScrollFactor(0).setDepth(101);
+      scene.add.text(baixo.x, baixo.y, "▼", estilo).setOrigin(0.5).setScrollFactor(0).setDepth(101);
+
+      const segura = (botao, key) => {
+        botao.on("pointerdown", () => botoes[key] = true);
+        botao.on("pointerup", () => botoes[key] = false);
+        botao.on("pointerout", () => botoes[key] = false);
+      };
+      segura(esq, "esq");
+      segura(dir, "dir");
+      segura(cima, "cima");
+      segura(baixo, "baixo");
+    }
+  </script>
+</body>
+</html>
