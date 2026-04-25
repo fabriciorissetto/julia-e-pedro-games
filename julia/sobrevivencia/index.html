@@ -72,7 +72,7 @@
       border-radius: 18px;
       backdrop-filter: blur(4px);
       box-shadow: 0 6px 20px rgba(0,0,0,0.4);
-      width: 130px;
+      width: 180px;
       max-height: calc(100vh - 80px);
       overflow-y: auto; overflow-x: hidden;
     }
@@ -84,7 +84,7 @@
     }
     .bag #bagSlots {
       display: grid;
-      grid-template-columns: 1fr;
+      grid-template-columns: 1fr 1fr;
       gap: 6px;
     }
     .bag .slot {
@@ -97,13 +97,13 @@
       border: 3px solid transparent;
       transition: transform 0.1s;
       position: relative;
-      min-height: 60px;
+      min-height: 64px;
     }
     .bag .slot.placeholder {
       background: rgba(255,255,255,0.18);
       border: 2px dashed rgba(255,255,255,0.3);
       cursor: default; box-shadow: none;
-      min-height: 60px;
+      min-height: 64px;
     }
     .bag .slot.placeholder::before {
       content: '·'; color: rgba(255,255,255,0.4);
@@ -233,6 +233,91 @@
       100% { transform: scale(1); opacity: 1; }
     }
 
+    /* ===== Tela inicial ===== */
+    .inicio {
+      position: fixed; inset: 0;
+      background: linear-gradient(135deg, #6dc94f 0%, #4ba747 100%);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 200;
+      overflow-y: auto;
+    }
+    .inicio.escondido { display: none; }
+    .inicio-card {
+      background: linear-gradient(135deg, #ffffff 0%, #ffe5f5 100%);
+      padding: 24px 28px;
+      border-radius: 24px;
+      max-width: 92%; width: 520px;
+      box-shadow: 0 14px 40px rgba(0,0,0,0.4);
+      text-align: center;
+      margin: 16px;
+    }
+    .inicio-card h1 {
+      font-size: 30px; color: #b56fff; margin-bottom: 4px;
+    }
+    .inicio-card p { font-size: 14px; color: #6a3a8a; margin-bottom: 14px; }
+    .inicio-card label {
+      display: block; font-size: 14px; font-weight: bold;
+      color: #2d6e1a; margin: 10px 0 6px; text-align: left;
+    }
+    .inicio-card input[type="text"] {
+      width: 100%; padding: 12px 14px;
+      border: 3px solid #b56fff;
+      border-radius: 14px;
+      font-size: 18px; font-family: inherit;
+      color: #6a3a8a;
+      outline: none;
+      background: #fff;
+    }
+    .inicio-card input[type="text"]:focus { border-color: #ff6fb5; }
+    .skins-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px; margin-top: 6px;
+    }
+    .skin {
+      background: #fff;
+      border: 3px solid transparent;
+      border-radius: 14px;
+      padding: 8px 4px 4px;
+      cursor: pointer;
+      text-align: center;
+      transition: transform 0.1s;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+    }
+    .skin:hover, .skin:active { transform: scale(1.06); }
+    .skin.selecionada {
+      border-color: #ff6fb5;
+      box-shadow: 0 0 14px #ff6fb5, 0 3px 8px rgba(0,0,0,0.2);
+      background: linear-gradient(135deg, #ffffff 0%, #ffe5f5 100%);
+    }
+    .skin .emoji { font-size: 36px; line-height: 1.1; display: block; }
+    .skin .nome {
+      font-size: 11px; font-weight: bold; color: #2d6e1a;
+      margin-top: 2px;
+    }
+    .inicio-card .botao-comecar {
+      margin-top: 18px;
+      background: linear-gradient(135deg, #ff6fb5 0%, #b56fff 100%);
+      border: none; padding: 14px 28px;
+      border-radius: 16px; font-size: 22px;
+      font-weight: bold; color: #fff;
+      cursor: pointer; font-family: inherit;
+      box-shadow: 0 5px 14px rgba(255, 100, 180, 0.4);
+    }
+    .inicio-card .botao-comecar:active { transform: scale(0.97); }
+    @media (max-width: 500px) {
+      .skins-grid { grid-template-columns: repeat(4, 1fr); }
+      .skin .emoji { font-size: 30px; }
+      .inicio-card h1 { font-size: 24px; }
+    }
+
+    /* nome do player no HUD */
+    .hud .item.nome {
+      color: #b56fff;
+      max-width: 140px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+
     .toast {
       position: fixed; top: 60px; left: 50%;
       transform: translateX(-50%);
@@ -251,7 +336,23 @@
 <body>
   <a href="../" class="voltar">← Voltar</a>
 
+  <div id="telaInicio" class="inicio">
+    <div class="inicio-card">
+      <h1>🌲 10 Dias na Floresta</h1>
+      <p>Sobreviva, corte árvores e abra baús!</p>
+
+      <label for="inputNome">✏️ Seu nome</label>
+      <input id="inputNome" type="text" maxlength="14" placeholder="Como te chamam?">
+
+      <label>🎨 Escolha sua skin</label>
+      <div class="skins-grid" id="skinsGrid"></div>
+
+      <button id="btnComecar" class="botao-comecar">▶ Começar!</button>
+    </div>
+  </div>
+
   <div class="hud">
+    <div class="item nome" id="hudNome">👸 Princesa</div>
     <div class="item vida">❤️ <span id="hudVida">10</span></div>
     <div class="item">🪵 <span id="hudMadeira">5</span></div>
     <div class="item">🍎 <span id="hudComida">3</span></div>
@@ -390,6 +491,27 @@
     let petPos = { x: 0, y: 0 };
     let magiaProntoEm = 0; // timestamp em que a magia volta a poder ser usada
     let atacando = false;
+
+    // ===== skins =====
+    // sprite (numérico) = usa frame do dungeon. Sem sprite = usa emoji grande.
+    const SKINS = {
+      princesa:    { nome: 'Princesa',    emoji: '👸', sprite: 84 },
+      principe:    { nome: 'Príncipe',    emoji: '🤴' },
+      menina:      { nome: 'Menina',      emoji: '👧' },
+      menino:      { nome: 'Menino',      emoji: '👦' },
+      gatinho:     { nome: 'Gatinho',     emoji: '🐱' },
+      cachorrinho: { nome: 'Cachorrinho', emoji: '🐶' },
+      ursinho:     { nome: 'Ursinho',     emoji: '🐻' },
+      raposinha:   { nome: 'Raposinha',   emoji: '🦊' },
+      pandinha:    { nome: 'Pandinha',    emoji: '🐼' },
+      unicornio:   { nome: 'Unicórnio',   emoji: '🦄' },
+    };
+    let perfil = {
+      nome: localStorage.getItem('survNome') || '',
+      skin: localStorage.getItem('survSkin') || 'princesa'
+    };
+    let jogoIniciado = false;
+    let playerSkinSprite = null;
 
     // ===== áudio =====
     let audioCtx = null;
@@ -611,11 +733,73 @@
 
       atualizarHUD();
       renderBag();
+      montarTelaInicio();
+    }
+
+    // ===== tela inicial =====
+    function montarTelaInicio() {
+      const grid = document.getElementById('skinsGrid');
+      grid.innerHTML = '';
+      Object.entries(SKINS).forEach(([key, def]) => {
+        const el = document.createElement('div');
+        el.className = 'skin';
+        if (key === perfil.skin) el.classList.add('selecionada');
+        el.innerHTML = `<span class="emoji">${def.emoji}</span><div class="nome">${def.nome}</div>`;
+        el.onclick = () => {
+          ensureAudio();
+          somEquipar();
+          perfil.skin = key;
+          grid.querySelectorAll('.skin').forEach(s => s.classList.remove('selecionada'));
+          el.classList.add('selecionada');
+        };
+        grid.appendChild(el);
+      });
+      const inputNome = document.getElementById('inputNome');
+      inputNome.value = perfil.nome || '';
+      inputNome.focus();
+      inputNome.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') comecarJogo();
+      });
+      document.getElementById('btnComecar').onclick = comecarJogo;
+    }
+
+    function comecarJogo() {
+      ensureAudio();
+      somVitoria();
+      const inputNome = document.getElementById('inputNome');
+      const skin = SKINS[perfil.skin];
+      perfil.nome = (inputNome.value.trim() || skin.nome).slice(0, 14);
+      localStorage.setItem('survNome', perfil.nome);
+      localStorage.setItem('survSkin', perfil.skin);
+      aplicarSkin();
+      document.getElementById('hudNome').innerHTML = `${skin.emoji} ${perfil.nome}`;
+      document.getElementById('telaInicio').classList.add('escondido');
+      jogoIniciado = true;
+    }
+
+    function aplicarSkin() {
+      const skin = SKINS[perfil.skin];
+      if (playerSkinSprite) { playerSkinSprite.destroy(); playerSkinSprite = null; }
+      if (skin.sprite !== undefined) {
+        player.setTexture('dungeon', skin.sprite);
+        player.setVisible(true);
+        player.setScale(SCALE);
+      } else {
+        // skin de emoji: esconde o sprite original e usa text
+        player.setVisible(false);
+        playerSkinSprite = scene.add.text(player.x, player.y, skin.emoji, {
+          fontSize: '34px'
+        }).setOrigin(0.5, 0.6).setDepth(10);
+      }
     }
 
     // ===== loop =====
     function update(time, delta) {
       if (acabou) return;
+      if (!jogoIniciado) {
+        if (player) player.setVelocity(0, 0);
+        return;
+      }
 
       // movimento
       let dx = 0, dy = 0;
@@ -681,7 +865,7 @@
         interactHint.x = alvo.x;
         interactHint.y = alvo.y - 18;
         interactHint.setText(alvo.tipo === 'arvore' ? 'E: cortar' :
-                             alvo.aberto ? 'já aberto' :
+                             alvo.aberto ? '✓ baú vazio' :
                              alvo.tipo === 'bau-dourado' ? 'E: abrir baú dourado' : 'E: abrir baú');
         interactHint.setVisible(true);
       } else interactHint.setVisible(false);
@@ -704,6 +888,13 @@
 
     function atualizarEquipamentosVisuais(time) {
       const flip = player.flipX ? -1 : 1;
+
+      // skin emoji acompanha o player
+      if (playerSkinSprite) {
+        playerSkinSprite.x = player.x;
+        playerSkinSprite.y = player.y - 2;
+        playerSkinSprite.setScale(player.flipX ? -1 : 1, 1);
+      }
 
       // veículo (embaixo do player)
       if (inv.equipado.veiculo) {
@@ -802,7 +993,19 @@
         if (alvo.aberto) return;
         alvo.aberto = true;
         somAbrirBau();
-        scene.tweens.add({ targets: alvo, scaleY: SCALE*0.7, duration: 180, yoyo: true });
+        scene.tweens.add({
+          targets: alvo, scaleY: SCALE*0.55, duration: 220, yoyo: true,
+          onComplete: () => {
+            // visual de aberto: acinzenta e adiciona um marquinha
+            alvo.setTint(0x666666);
+            alvo.setAlpha(0.55);
+            const x = scene.add.text(alvo.x, alvo.y, '✓', {
+              fontSize: '22px', color: '#88ff88', fontStyle: 'bold',
+              stroke: '#0a3a0a', strokeThickness: 3
+            }).setOrigin(0.5).setDepth(15);
+            alvo.checkSprite = x;
+          }
+        });
         sortearRecompensa(alvo);
       }
     }
@@ -1124,7 +1327,7 @@
       document.getElementById('hudComida').textContent = inv.comida;
     }
 
-    const SLOTS_MIN = 9;
+    const SLOTS_MIN = 10; // 5 linhas x 2 colunas
     function renderBag() {
       const cont = document.getElementById('bagSlots');
       cont.innerHTML = '';
