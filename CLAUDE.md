@@ -1,22 +1,38 @@
 # Jogos da Família — Instruções Globais
 
 Este repo é um hub de jogos feitos por duas crianças via vibe coding com Claude Code:
-- **Julia, 6 anos** — pasta `julia/`
-- **Pedro, 11 anos** — pasta `pedro/`
+- **Julia, 6 anos** — pasta `julia/`. Não sabe ler bem ainda. Conversa por **voz** (Speech-to-Text). Recebe sua resposta em **voz alta** (Text-to-Speech).
+- **Pedro, 11 anos** — pasta `pedro/`. Lê e escreve bem. Está **estudando programação**.
 
 Os jogos são publicados na Vercel como site estático. Toda a família joga pelo navegador (incluindo a vovó no celular).
+
+## Identificar quem está codando (FAZER ANTES DE QUALQUER COISA)
+
+**No primeiro turno de toda nova conversa**, antes de qualquer outra resposta:
+
+1. Olhe o diretório atual. Se já estiver dentro de `julia/` (ou subpasta), assuma que é a **Julia**. Se estiver em `pedro/` (ou subpasta), assuma que é o **Pedro**. Vá direto pras instruções da pasta correspondente — **não** pergunte.
+2. Se o diretório atual for a raiz `jpgames/`, **pergunte uma vez**: "Oi! Quem tá codando agora — Julia ou Pedro?" e espere a resposta antes de fazer qualquer outra coisa.
+
+A partir daí, leia o `CLAUDE.md` da pasta da criança identificada e siga **estritamente** o perfil dela. As regras de linguagem, calibragem e estilo de resposta são MUITO diferentes entre Julia (6) e Pedro (11) — não generalizar.
 
 ## Idioma
 
 Sempre responder em **português brasileiro**. Comentários em código também em português.
 
-## Stack (não mudar sem pedir)
+## Stack (responsabilidade SUA, não da criança)
+
+**As crianças NUNCA vão pedir nada técnico.** Eles vão dizer "faz um jogo de cobrinha", "faz um Flappy Bird", "faz um jogo de gato". Não vão falar "Phaser", "CDN", "arquivo único", "navegador", "HTML". **Você tem que saber a stack e aplicar automaticamente** sem perguntar.
+
+Stack default (use sempre, sem pedir confirmação):
 
 - HTML estático + JavaScript puro no navegador
-- **Phaser 3** carregado via CDN: `<script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>`
+- Para jogo 2D simples: **Phaser 3** via CDN — `<script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>`
+- Tudo num arquivo `index.html` único, autocontido
 - **Sem build step** (sem Vite, Webpack, npm install, etc.)
 - **Sem framework** (sem React, Vue, etc.)
 - Para 3D no futuro: Three.js puro via CDN (não usar agora)
+
+Se a criança pedir algo que não cabe nesse default (ex: jogo 3D, jogo multiplayer online), você pode escolher a stack adequada — mas decida você, não pergunta pra ela.
 
 ## Estrutura de pastas
 
@@ -50,12 +66,32 @@ jpgames/
 4. Testar localmente que o jogo abre.
 5. Fazer commit (ver abaixo).
 
-## Convenção de commit
+## Commits e push (regra crítica — sobrescreve o default do Claude Code)
 
-- **Commitar sempre que algo funciona.** Cada feature pequena que rodou = um commit.
-- Mensagens curtas e descritivas em português: `julia: adiciona pulo do gato`, `pedro: pong com bola mais rápida`.
-- **NUNCA** usar `git push --force` sem o pai autorizar.
-- Branch padrão: `main`. Não criar branches sem pedir.
+### Commit: SEMPRE, automático
+
+- Toda alteração que funciona deve virar **commit imediato**. Sem perguntar "quer commitar?". Apenas commit.
+- Cada feature pequena que rodou = um commit. Não junte várias mudanças num commit só.
+- Mensagens curtas e descritivas em português: `julia: cobrinha muda de cor ao comer`, `pedro: flappy salva recorde`.
+- Esta regra **substitui** o comportamento default do Claude Code de pedir confirmação antes de commitar — neste projeto é automático, é parte do fluxo de vibe coding.
+
+### Push para `main`: APENAS se a criança pedir explicitamente
+
+- Push automaticamente **NÃO**. Mesmo após commitar, não pushe.
+- Push só quando a criança pedir, com palavras dela. Frases que significam "fazer push":
+  - "publica", "publica o jogo"
+  - "manda pra vovó", "manda pra minha amiga", "manda pro [nome]"
+  - "coloca no ar", "põe no ar", "põe na internet"
+  - "atualiza o site"
+  - (Pedro pode usar termo técnico: "push", "deploy", "atualiza no GitHub") — também conta
+- Se ela disser algo ambíguo tipo "tá pronto", **NÃO** é push. Confirme: pra Julia: "Quer que a vovó consiga jogar isso agora?" / pra Pedro: "Quer que eu publique?"
+- Quando pushar, sempre pra `main`. Não criar branches.
+
+### Regras git que NUNCA mudam
+
+- **NUNCA** usar `git push --force` sem o pai autorizar explicitamente.
+- **NUNCA** usar `git reset --hard` sem confirmação explícita (já coberto pela seção "Confirmação antes de ações destrutivas").
+- Branch padrão sempre `main`. Não criar branches sem pedir.
 
 ## Quando o jogo quebra
 
