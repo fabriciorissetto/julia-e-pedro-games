@@ -41,12 +41,11 @@
       font-size: 16px; font-weight: bold;
       color: #2d6e1a;
       box-shadow: 0 4px 10px rgba(0,0,0,0.25);
-      min-width: 64px; text-align: center;
+      min-width: 50px; text-align: center;
     }
     .hud .item.dia { color: #b56fff; }
     .hud .item.noite { background: linear-gradient(135deg, #2a1f4d 0%, #4a2a7d 100%); color: #ffd84d; }
     .hud .item.vida { color: #c92d4d; }
-    .hud .item.arma { color: #6a3a8a; }
     .hud .item.alerta { animation: piscar 0.6s infinite; }
     @keyframes piscar { 0%,100% { transform: scale(1);} 50% { transform: scale(1.1); background: #ffe5e5; } }
 
@@ -61,6 +60,82 @@
       z-index: 40; pointer-events: none;
       max-width: 95vw;
       line-height: 1.3;
+    }
+
+    /* ===== Bag (mochila lateral) ===== */
+    .bag {
+      position: fixed; top: 60px; right: 8px;
+      display: flex; flex-direction: column; gap: 6px;
+      z-index: 46;
+      max-height: calc(100vh - 200px);
+      overflow-y: auto; overflow-x: hidden;
+      padding: 6px;
+      background: rgba(0,0,0,0.35);
+      border-radius: 16px;
+      backdrop-filter: blur(4px);
+      width: 78px;
+    }
+    .bag .titulo {
+      font-size: 11px; font-weight: bold; color: #fff;
+      text-align: center; opacity: 0.85; margin-bottom: 2px;
+      pointer-events: none;
+    }
+    .bag .slot {
+      background: rgba(255,255,255,0.95);
+      border-radius: 12px;
+      padding: 4px 4px 2px;
+      text-align: center;
+      cursor: pointer;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.25);
+      border: 3px solid transparent;
+      transition: transform 0.1s;
+      position: relative;
+    }
+    .bag .slot:hover, .bag .slot:active { transform: scale(1.06); }
+    .bag .slot.equipado {
+      border-color: #ffd84d;
+      box-shadow: 0 0 14px #ffd84d, 0 3px 8px rgba(0,0,0,0.3);
+    }
+    .bag .slot.raro {
+      background: linear-gradient(135deg, #fff7d6 0%, #ffd84d 100%);
+    }
+    .bag .slot.magia {
+      background: linear-gradient(135deg, #ffb56f 0%, #ff5050 100%);
+      animation: brilhoMagia 1.5s infinite;
+    }
+    @keyframes brilhoMagia {
+      0%,100% { box-shadow: 0 0 6px #ff8030, 0 3px 8px rgba(0,0,0,0.3); }
+      50% { box-shadow: 0 0 18px #ff5050, 0 3px 8px rgba(0,0,0,0.3); }
+    }
+    .bag .slot .emoji { font-size: 26px; line-height: 1.1; display: block; }
+    .bag .slot .nome {
+      font-size: 9px; font-weight: bold; color: #2d6e1a;
+      line-height: 1; margin-top: 2px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .bag .slot.cooldown::after {
+      content: ''; position: absolute; inset: 0;
+      background: rgba(0,0,0,0.55); border-radius: 12px;
+    }
+    .bag .slot .cdtxt {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; font-weight: bold; color: #fff;
+      z-index: 2; pointer-events: none;
+    }
+    .bag .vazia {
+      color: rgba(255,255,255,0.7);
+      font-size: 10px; text-align: center; padding: 12px 4px;
+    }
+    @media (max-width: 700px) {
+      .bag {
+        top: auto; bottom: 110px; right: 6px; left: auto;
+        flex-direction: row; flex-wrap: nowrap;
+        max-height: 88px; max-width: calc(100vw - 12px);
+        width: auto; overflow-x: auto; overflow-y: hidden;
+      }
+      .bag .titulo { display: none; }
+      .bag .slot { flex: 0 0 60px; }
     }
 
     /* botoes touch pra mobile */
@@ -160,11 +235,15 @@
     <div class="item">🪵 <span id="hudMadeira">5</span></div>
     <div class="item">🍎 <span id="hudComida">3</span></div>
     <div class="item dia" id="hudDiaItem">☀️ Dia <span id="hudDia">1</span>/10</div>
-    <div class="item arma">⚔️ <span id="hudArma">Vazia</span></div>
   </div>
 
   <div class="controles" id="controles">
     Setas/WASD = mover · E = cortar/abrir · F = comer · B = construir · ESPAÇO = atacar
+  </div>
+
+  <div class="bag" id="bag">
+    <div class="titulo">🎒 Mochila</div>
+    <div id="bagSlots"></div>
   </div>
 
   <div class="touch-controls">
@@ -202,48 +281,67 @@
     const DIA_MS = 28000;
     const NOITE_MS = 18000;
     const SPAWN_MONSTRO_MS = 3500;
+    const MAGIA_COOLDOWN_MS = 6000;
+    const MAGIA_RAIO = SIZE * 4; // 4x o tamanho do boneco
 
     // tile indices (do tilemap_packed)
     const T = {
-      // town
-      arvorePinheiro: 4,
-      arvoreRedonda: 5,
-      arbustinho: 7,
-      arvoreLaranja: 8,
-      arvoreLaranja2: 11,
-      cercaEsq: 44,
-      cercaMeio: 45,
-      cercaDir: 46,
-      tronco: 56,
+      arvorePinheiro: 4, arvoreRedonda: 5, arbustinho: 7,
+      arvoreLaranja: 8, arvoreLaranja2: 11,
+      cercaEsq: 44, cercaMeio: 45, cercaDir: 46, tronco: 56,
       bauMarrom: 83,
-      // dungeon (carregar como sprite separado)
-      jogador: 84,
-      monstroRoxo: 96,
-      monstroVerm: 97,
+      jogador: 84, monstroRoxo: 96, monstroVerm: 97,
+    };
+
+    // ===== catálogo de itens =====
+    // tipo: arma, magia, chapeu, escudo, capa
+    const CATALOGO = {
+      espadinha:   { tipo: 'arma',   nome: 'Espadinha',     emoji: '🗡️', forca: 2, raridade: 'comum' },
+      espada:      { tipo: 'arma',   nome: 'Espada',        emoji: '⚔️', forca: 4, raridade: 'comum' },
+      machado:     { tipo: 'arma',   nome: 'Machado',       emoji: '🪓', forca: 5, raridade: 'raro' },
+      martelo:     { tipo: 'arma',   nome: 'Martelo',       emoji: '🔨', forca: 6, raridade: 'raro' },
+      lanca:       { tipo: 'arma',   nome: 'Lança',         emoji: '🔱', forca: 5, raridade: 'raro' },
+      espadaMag:   { tipo: 'arma',   nome: 'Espada Mágica', emoji: '✨', forca: 5, raridade: 'raro' },
+      varinha:     { tipo: 'arma',   nome: 'Varinha',       emoji: '🪄', forca: 3, raridade: 'comum' },
+      magiaFogo:   { tipo: 'magia',  nome: 'Magia de Fogo', emoji: '🔥', forca: 8, raridade: 'lendario' },
+
+      coroa:       { tipo: 'chapeu', nome: 'Coroa',         emoji: '👑' },
+      tiara:       { tipo: 'chapeu', nome: 'Tiara',         emoji: '💎' },
+      chapeuBruxa: { tipo: 'chapeu', nome: 'Chapéu de Bruxa', emoji: '🎩' },
+      bone:        { tipo: 'chapeu', nome: 'Boné',          emoji: '🧢' },
+      laco:        { tipo: 'chapeu', nome: 'Laço Rosa',     emoji: '🎀' },
+
+      escudoAzul:  { tipo: 'escudo', nome: 'Escudo Azul',   emoji: '🛡️' },
+      escudoOuro:  { tipo: 'escudo', nome: 'Escudo de Ouro', emoji: '🏵️' },
+
+      capaVerm:    { tipo: 'capa',   nome: 'Capa Vermelha', emoji: '🧥' },
+      capaAzul:    { tipo: 'capa',   nome: 'Capa Azul',     emoji: '🧣' },
     };
 
     // ===== estado =====
     let player;
     let cursors, wasd, ePrev=false, fPrev=false, bPrev=false, spPrev=false;
-    let arvores; // group
-    let baus;    // group
-    let monstros; // group
-    let paredes; // group
-    let inv = { madeira: 5, comida: 3, vida: 10, arma: null };
+    let arvores, baus, monstros, paredes;
+    let inv = {
+      madeira: 5, comida: 3, vida: 10,
+      itens: [],          // [{id, key}] — coletados
+      equipado: { arma: null, chapeu: null, escudo: null, capa: null }
+    };
     const VIDA_MAX = 10;
+    let proxItemId = 1;
     let dia = 1;
     let ehNoite = false;
     let cicloMs = 0;
     let proxSpawn = 0;
-    let spawnedHoje = 0;
     let acabou = false;
-    let venceu = false;
     let invulnAte = 0;
     let touchDir = {x:0, y:0};
     let scene;
     let nightOverlay;
-    let armaSprite; // sprite visual da arma na mão
     let interactHint;
+    let armaSprite, chapeuSprite, escudoSprite, capaSprite;
+    let magiaProntoEm = 0; // timestamp em que a magia volta a poder ser usada
+    let atacando = false;
 
     // ===== áudio =====
     let audioCtx = null;
@@ -275,6 +373,17 @@
       g.gain.exponentialRampToValueAtTime(0.01,t0+dur);
       o.start(t0); o.stop(t0+dur);
     }
+    function ruido(dur, vol=0.18) {
+      if (!audioCtx) return;
+      const buf = audioCtx.createBuffer(1, audioCtx.sampleRate*dur, audioCtx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i=0;i<d.length;i++) d[i] = (Math.random()*2-1)*Math.pow(1 - i/d.length, 2);
+      const src = audioCtx.createBufferSource();
+      const g = audioCtx.createGain();
+      src.buffer = buf; src.connect(g); g.connect(audioCtx.destination);
+      g.gain.value = vol;
+      src.start();
+    }
     const somCortar  = () => tom(220, 0.08, 'square', 0.14);
     const somMadeira = () => { tom(660, 0.06); setTimeout(()=>tom(880,0.08),60); };
     const somAbrirBau= () => { tom(440,0.1); setTimeout(()=>tom(880,0.1),100); setTimeout(()=>tom(1320,0.15,'triangle',0.2),200); };
@@ -288,6 +397,12 @@
     const somVitoria = () => { [523,659,784,1047,1319,1568].forEach((f,i)=>setTimeout(()=>tom(f,0.22,'triangle',0.22),i*110)); };
     const somDerrota = () => { [350,280,220,180].forEach((f,i)=>setTimeout(()=>tom(f,0.32,'sawtooth',0.18),i*150)); };
     const somPickup  = () => { tom(1200,0.05); setTimeout(()=>tom(1800,0.08),40); };
+    const somEquipar = () => { tom(900,0.05,'triangle'); setTimeout(()=>tom(1400,0.08,'triangle'),50); };
+    const somMagia   = () => {
+      tomSweep(120, 700, 0.4, 'sawtooth', 0.18);
+      setTimeout(()=>ruido(0.5, 0.22), 100);
+      setTimeout(()=>tomSweep(900, 200, 0.5, 'triangle', 0.14), 80);
+    };
 
     // ===== Phaser =====
     function preload() {
@@ -298,7 +413,7 @@
     function create() {
       scene = this;
 
-      // chão de grama (gradient + textura)
+      // chão de grama
       const bg = this.add.graphics();
       bg.fillStyle(0x6dc94f, 1);
       bg.fillRect(0, 0, WORLD_W, WORLD_H);
@@ -307,7 +422,6 @@
       bg.fillStyle(0x7ddc62, 0.18);
       for (let y=0;y<WORLD_H;y+=SIZE) for (let x=0;x<WORLD_W;x+=SIZE)
         if (((x/SIZE)+(y/SIZE))%2===0) bg.fillRect(x,y,SIZE,SIZE);
-      // pontinhos de flor/grama no chão
       for (let i=0;i<400;i++){
         const x = Phaser.Math.Between(0, WORLD_W);
         const y = Phaser.Math.Between(0, WORLD_H);
@@ -322,12 +436,11 @@
       paredes = this.physics.add.staticGroup();
       monstros = this.physics.add.group();
 
-      // árvores espalhadas
+      // árvores
       const FRAMES_ARVORE = [T.arvorePinheiro, T.arvoreRedonda, T.arvoreLaranja, T.arvoreLaranja2];
       for (let i=0;i<140;i++){
         const x = Phaser.Math.Between(40, WORLD_W-40);
         const y = Phaser.Math.Between(40, WORLD_H-40);
-        // não na zona de spawn central
         if (Math.hypot(x - WORLD_W/2, y - WORLD_H/2) < 90) continue;
         const frame = Phaser.Math.RND.pick(FRAMES_ARVORE);
         const a = arvores.create(x, y, 'town', frame).setScale(SCALE).refreshBody();
@@ -336,14 +449,14 @@
         a.hpArvore = 3;
         a.tipo = 'arvore';
       }
-      // arbustos decorativos (sem colisão pra ficar leve)
+      // arbustos decorativos
       for (let i=0;i<60;i++){
         const x = Phaser.Math.Between(20, WORLD_W-20);
         const y = Phaser.Math.Between(20, WORLD_H-20);
-        const sp = this.add.image(x, y, 'town', T.arbustinho).setScale(SCALE).setDepth(1);
+        this.add.image(x, y, 'town', T.arbustinho).setScale(SCALE).setDepth(1);
       }
 
-      // baús: 8 marrons perto do centro, 3 dourados longe
+      // baús
       for (let i=0;i<8;i++){
         const ang = Math.random()*Math.PI*2;
         const dist = Phaser.Math.Between(180, 520);
@@ -359,7 +472,7 @@
         const x = Phaser.Math.Clamp(WORLD_W/2 + Math.cos(ang)*dist, 60, WORLD_W-60);
         const y = Phaser.Math.Clamp(WORLD_H/2 + Math.sin(ang)*dist, 60, WORLD_H-60);
         const b = baus.create(x, y, 'town', T.bauMarrom).setScale(SCALE).refreshBody();
-        b.setTint(0xffd84d); // dourado
+        b.setTint(0xffd84d);
         b.tipo = 'bau-dourado';
         b.aberto = false;
       }
@@ -370,8 +483,11 @@
       player.body.setOffset(TILE*0.15, TILE*0.3);
       player.setDepth(10);
 
-      // sprite da arma (escondido até pegar)
-      armaSprite = this.add.text(0, 0, '⚔️', { fontSize: '18px' }).setOrigin(0.5).setDepth(11).setVisible(false);
+      // sprites de equipamento (escondidos até equipar)
+      capaSprite = this.add.text(0, 0, '', { fontSize: '20px' }).setOrigin(0.5).setDepth(9).setVisible(false);
+      chapeuSprite = this.add.text(0, 0, '', { fontSize: '18px' }).setOrigin(0.5).setDepth(11).setVisible(false);
+      armaSprite = this.add.text(0, 0, '', { fontSize: '20px' }).setOrigin(0.5, 0.5).setDepth(11).setVisible(false);
+      escudoSprite = this.add.text(0, 0, '', { fontSize: '18px' }).setOrigin(0.5).setDepth(11).setVisible(false);
 
       // câmera
       this.cameras.main.setBounds(0, 0, WORLD_W, WORLD_H);
@@ -386,10 +502,9 @@
       this.physics.add.collider(monstros, arvores);
       this.physics.add.overlap(player, monstros, levarDano, null, this);
 
-      // overlay de noite (escurece tudo)
+      // overlay de noite
       nightOverlay = this.add.rectangle(0, 0, WORLD_W, WORLD_H, 0x0a1030, 0)
         .setOrigin(0,0).setDepth(20).setScrollFactor(0);
-      // posicionado em screen-space (não mundo)
       nightOverlay.setSize(this.scale.width*4, this.scale.height*4);
       nightOverlay.x = -this.scale.width*2;
       nightOverlay.y = -this.scale.height*2;
@@ -440,10 +555,10 @@
       jbase.addEventListener('touchmove',  e=>{ e.preventDefault(); if (active) move(e.touches[0].clientX, e.touches[0].clientY); }, {passive:false});
       jbase.addEventListener('touchend',   e=>{ e.preventDefault(); reset(); }, {passive:false});
 
-      // botão recomeçar
       document.getElementById('btnRecomecar').onclick = () => location.reload();
 
       atualizarHUD();
+      renderBag();
     }
 
     // ===== loop =====
@@ -463,16 +578,10 @@
       if (dx < 0) player.setFlipX(true);
       else if (dx > 0) player.setFlipX(false);
 
-      // arma na mãozinha
-      if (inv.arma) {
-        armaSprite.setVisible(true);
-        armaSprite.x = player.x + (player.flipX ? -10 : 10);
-        armaSprite.y = player.y + 4 + Math.sin(time/120)*1.5;
-      } else {
-        armaSprite.setVisible(false);
-      }
+      // posiciona equipamentos
+      atualizarEquipamentosVisuais(time);
 
-      // teclas (com edge detection)
+      // teclas (edge detection)
       const eDown = wasd.E.isDown, fDown = wasd.F.isDown, bDown = wasd.B.isDown, spDown = wasd.SPACE.isDown;
       if (eDown && !ePrev) acaoInteragir();
       if (fDown && !fPrev) acaoComer();
@@ -489,27 +598,20 @@
         else virarNoite();
       }
 
-      // overlay de noite
       let alvoAlpha = 0;
-      if (ehNoite) {
-        alvoAlpha = 0.55;
-      } else {
-        // entardecer/amanhecer suave
+      if (ehNoite) alvoAlpha = 0.55;
+      else {
         const prog = cicloMs / DIA_MS;
         if (prog > 0.7) alvoAlpha = (prog - 0.7) / 0.3 * 0.3;
       }
       nightOverlay.fillAlpha += (alvoAlpha - nightOverlay.fillAlpha) * 0.05;
 
-      // spawn de monstros à noite
+      // monstros
       if (ehNoite && time > proxSpawn) {
         const max = 4 + dia;
-        if (monstros.countActive(true) < max) {
-          spawnMonstro();
-        }
+        if (monstros.countActive(true) < max) spawnMonstro();
         proxSpawn = time + SPAWN_MONSTRO_MS;
       }
-
-      // monstros perseguem player
       monstros.children.iterate(m => {
         if (!m || !m.active) return;
         const dxm = player.x - m.x;
@@ -521,7 +623,7 @@
         }
       });
 
-      // dica de interação (próximo de baú/árvore)
+      // dica
       const alvo = encontrarAlvoInteracao();
       if (alvo) {
         interactHint.x = alvo.x;
@@ -530,9 +632,65 @@
                              alvo.aberto ? 'já aberto' :
                              alvo.tipo === 'bau-dourado' ? 'E: abrir baú dourado' : 'E: abrir baú');
         interactHint.setVisible(true);
-      } else {
-        interactHint.setVisible(false);
+      } else interactHint.setVisible(false);
+
+      // cooldown da magia (re-render bag se acabou)
+      if (magiaProntoEm > 0 && time >= magiaProntoEm) {
+        const idx = inv.itens.findIndex(it => CATALOGO[it.key].tipo === 'magia');
+        magiaProntoEm = 0;
+        renderBag();
+      } else if (magiaProntoEm > 0) {
+        // atualiza só o texto do cooldown
+        const slot = document.querySelector('.bag .slot.magia');
+        if (slot) {
+          const cdEl = slot.querySelector('.cdtxt');
+          const restante = Math.max(0, Math.ceil((magiaProntoEm - time)/1000));
+          if (cdEl) cdEl.textContent = restante > 0 ? restante : '';
+        }
       }
+    }
+
+    function atualizarEquipamentosVisuais(time) {
+      const flip = player.flipX ? -1 : 1;
+      // capa atrás
+      if (inv.equipado.capa) {
+        const c = CATALOGO[inv.equipado.capa];
+        capaSprite.setText(c.emoji);
+        capaSprite.setVisible(true);
+        capaSprite.x = player.x - 4 * flip;
+        capaSprite.y = player.y + 4;
+      } else capaSprite.setVisible(false);
+
+      // chapéu na cabeça
+      if (inv.equipado.chapeu) {
+        const c = CATALOGO[inv.equipado.chapeu];
+        chapeuSprite.setText(c.emoji);
+        chapeuSprite.setVisible(true);
+        chapeuSprite.x = player.x;
+        chapeuSprite.y = player.y - 14;
+      } else chapeuSprite.setVisible(false);
+
+      // arma na mão
+      if (inv.equipado.arma) {
+        const a = CATALOGO[inv.equipado.arma];
+        if (!atacando) {
+          armaSprite.setText(a.emoji);
+          armaSprite.setVisible(true);
+          armaSprite.setRotation(0);
+          armaSprite.x = player.x + 11 * flip;
+          armaSprite.y = player.y + 4 + Math.sin(time/180)*1.2;
+          armaSprite.setScale(player.flipX ? -1 : 1, 1);
+        }
+      } else if (!atacando) armaSprite.setVisible(false);
+
+      // escudo do lado oposto
+      if (inv.equipado.escudo) {
+        const c = CATALOGO[inv.equipado.escudo];
+        escudoSprite.setText(c.emoji);
+        escudoSprite.setVisible(true);
+        escudoSprite.x = player.x - 11 * flip;
+        escudoSprite.y = player.y + 4;
+      } else escudoSprite.setVisible(false);
     }
 
     // ===== ações =====
@@ -545,74 +703,86 @@
         alvo.hpArvore -= 1;
         scene.tweens.add({ targets: alvo, scaleX: SCALE*1.15, scaleY: SCALE*0.85, duration: 80, yoyo: true });
         if (alvo.hpArvore <= 0) {
-          // dropa madeira
           inv.madeira += 2;
           somMadeira();
           mostrarToast('+2 🪵 madeira');
-          // efeito de queda
           scene.tweens.add({
             targets: alvo, alpha: 0, scaleY: 0,
             duration: 250, onComplete: () => alvo.destroy()
           });
+          atualizarHUD();
         }
       } else if (alvo.tipo === 'bau-facil' || alvo.tipo === 'bau-dourado') {
         if (alvo.aberto) return;
         alvo.aberto = true;
         somAbrirBau();
         scene.tweens.add({ targets: alvo, scaleY: SCALE*0.7, duration: 180, yoyo: true });
-        // sorteia recompensa
-        const dourado = alvo.tipo === 'bau-dourado';
-        const rolagem = Math.random();
-        let recompensa;
-        if (dourado) {
-          // dourado: arma legal + bônus
-          if (rolagem < 0.7) recompensa = { arma: 'Espada Mágica', forca: 5 };
-          else recompensa = { arma: 'Martelo Lendário', forca: 6 };
-          inv.arma = recompensa;
-          inv.comida += 3;
-          inv.madeira += 4;
-          mostrarToast('🌟 ' + recompensa.arma + ' + 3 🍎 + 4 🪵');
+        sortearRecompensa(alvo);
+      }
+    }
+
+    function sortearRecompensa(bau) {
+      const dourado = bau.tipo === 'bau-dourado';
+      const r = Math.random();
+      const dropsTexto = [];
+
+      if (dourado) {
+        // baú dourado: sempre item legal + bônus
+        // 18% magia de fogo!
+        if (r < 0.18) {
+          adicionarItem('magiaFogo'); dropsTexto.push('🔥 MAGIA DE FOGO!');
+        } else if (r < 0.45) {
+          const arma = Phaser.Math.RND.pick(['martelo','machado','espadaMag','lanca']);
+          adicionarItem(arma); dropsTexto.push('⚔️ ' + CATALOGO[arma].nome);
+        } else if (r < 0.75) {
+          const visu = Phaser.Math.RND.pick(['coroa','tiara','escudoOuro','capaVerm']);
+          adicionarItem(visu); dropsTexto.push('✨ ' + CATALOGO[visu].nome);
         } else {
-          // marrom: comida, madeira ou espada simples
-          if (rolagem < 0.4) {
-            inv.comida += 2;
-            mostrarToast('+2 🍎 comida');
-          } else if (rolagem < 0.7) {
-            inv.madeira += 3;
-            mostrarToast('+3 🪵 madeira');
-          } else if (rolagem < 0.95) {
-            // só dá espada se não tiver arma melhor
-            const novaArma = { arma: 'Espadinha', forca: 3 };
-            if (!inv.arma || inv.arma.forca < novaArma.forca) {
-              inv.arma = novaArma;
-              mostrarToast('⚔️ ' + novaArma.arma);
-            } else {
-              inv.comida += 2;
-              mostrarToast('+2 🍎 comida');
-            }
-          } else {
-            inv.vida = Math.min(VIDA_MAX, inv.vida + 3);
-            mostrarToast('+3 ❤️ vida');
-          }
+          const arma = Phaser.Math.RND.pick(['espada','machado','lanca']);
+          adicionarItem(arma); dropsTexto.push('⚔️ ' + CATALOGO[arma].nome);
         }
-        somPickup();
-        // efeito visual
-        const sparkle = scene.add.text(alvo.x, alvo.y, '✨', { fontSize: '24px' }).setOrigin(0.5).setDepth(30);
-        scene.tweens.add({ targets: sparkle, y: alvo.y-30, alpha: 0, duration: 700, onComplete: ()=>sparkle.destroy() });
-        atualizarHUD();
+        // bônus
+        inv.comida += 3; inv.madeira += 4;
+        dropsTexto.push('+3 🍎 +4 🪵');
+      } else {
+        // baú marrom: comum
+        if (r < 0.30) { inv.comida += 2; dropsTexto.push('+2 🍎 comida'); }
+        else if (r < 0.55) { inv.madeira += 3; dropsTexto.push('+3 🪵 madeira'); }
+        else if (r < 0.70) {
+          inv.vida = Math.min(VIDA_MAX, inv.vida + 3);
+          dropsTexto.push('+3 ❤️ vida');
+        } else if (r < 0.85) {
+          const arma = Phaser.Math.RND.pick(['espadinha','espada','varinha']);
+          adicionarItem(arma); dropsTexto.push('🗡️ ' + CATALOGO[arma].nome);
+        } else {
+          const visu = Phaser.Math.RND.pick(['chapeuBruxa','bone','laco','escudoAzul','capaAzul']);
+          adicionarItem(visu); dropsTexto.push('✨ ' + CATALOGO[visu].nome);
+        }
+      }
+      somPickup();
+      const sparkle = scene.add.text(bau.x, bau.y, '✨', { fontSize: '24px' }).setOrigin(0.5).setDepth(30);
+      scene.tweens.add({ targets: sparkle, y: bau.y-30, alpha: 0, duration: 700, onComplete: ()=>sparkle.destroy() });
+      mostrarToast(dropsTexto.join(' '));
+      atualizarHUD();
+      renderBag();
+    }
+
+    function adicionarItem(key) {
+      const item = { id: proxItemId++, key };
+      inv.itens.push(item);
+      // auto-equipa se o slot estiver vazio
+      const tipo = CATALOGO[key].tipo;
+      if (tipo === 'arma' || tipo === 'magia') {
+        if (!inv.equipado.arma) inv.equipado.arma = key;
+      } else if (!inv.equipado[tipo]) {
+        inv.equipado[tipo] = key;
       }
     }
 
     function acaoComer() {
       ensureAudio();
-      if (inv.comida <= 0) {
-        mostrarToast('Sem comida 🍎');
-        return;
-      }
-      if (inv.vida >= VIDA_MAX) {
-        mostrarToast('Vida cheia ❤️');
-        return;
-      }
+      if (inv.comida <= 0) { mostrarToast('Sem comida 🍎'); return; }
+      if (inv.vida >= VIDA_MAX) { mostrarToast('Vida cheia ❤️'); return; }
       inv.comida -= 1;
       inv.vida = Math.min(VIDA_MAX, inv.vida + 3);
       somComer();
@@ -624,26 +794,18 @@
 
     function acaoConstruir() {
       ensureAudio();
-      if (inv.madeira < 2) {
-        mostrarToast('Precisa 2 🪵');
-        return;
-      }
-      // posiciona parede a 1 tile na frente do jogador
+      if (inv.madeira < 2) { mostrarToast('Precisa 2 🪵'); return; }
       const ang = Math.atan2(player.body.velocity.y || 0.001, player.body.velocity.x || (player.flipX?-1:1));
       const dist = SIZE * 1.2;
       let px = player.x + Math.cos(ang)*dist;
       let py = player.y + Math.sin(ang)*dist;
-      // arredonda pra grade
       px = Math.round(px / SIZE) * SIZE;
       py = Math.round(py / SIZE) * SIZE;
-      // fora dos limites?
       if (px < SIZE || px > WORLD_W-SIZE || py < SIZE || py > WORLD_H-SIZE) return;
-      // já tem parede ali?
       let conflito = false;
       paredes.children.iterate(p => { if (p && Math.abs(p.x-px)<4 && Math.abs(p.y-py)<4) conflito = true; });
       if (conflito) return;
-      const p = paredes.create(px, py, 'town', T.cercaMeio).setScale(SCALE).refreshBody();
-      p.tipo = 'parede';
+      paredes.create(px, py, 'town', T.cercaMeio).setScale(SCALE).refreshBody().tipo = 'parede';
       inv.madeira -= 2;
       somConstruir();
       mostrarToast('🧱 parede construída');
@@ -652,22 +814,38 @@
 
     function acaoAtacar() {
       ensureAudio();
+      const armaKey = inv.equipado.arma;
+      const arma = armaKey ? CATALOGO[armaKey] : null;
+
+      // magia de fogo
+      if (arma && arma.tipo === 'magia') {
+        const t = scene.time.now;
+        if (t < magiaProntoEm) {
+          mostrarToast('Magia recarregando…');
+          return;
+        }
+        magiaProntoEm = t + MAGIA_COOLDOWN_MS;
+        dispararMagiaFogo();
+        renderBag();
+        return;
+      }
+
+      // ataque corpo a corpo
       somAtacar();
-      // efeito visual
-      const slash = scene.add.text(player.x + (player.flipX?-20:20), player.y,
-        '✦', { fontSize: '36px', color: '#ffeb6f' }).setOrigin(0.5).setDepth(20);
-      scene.tweens.add({ targets: slash, scale: 1.6, alpha: 0, duration: 250, onComplete: ()=>slash.destroy() });
-      // dano em monstros próximos
+      animarEspadada();
       const alcance = 50;
-      const forca = inv.arma ? inv.arma.forca : 1;
+      const forca = arma ? arma.forca : 1;
       monstros.children.iterate(m => {
         if (!m || !m.active) return;
         if (Phaser.Math.Distance.Between(player.x, player.y, m.x, m.y) < alcance) {
           m.hp = (m.hp ?? 3) - forca;
           somAcertar();
-          // feedback vermelho
           m.setTint(0xff3030);
           scene.time.delayedCall(120, () => { if (m.active) m.clearTint(); });
+          // empurrão
+          const dxm = m.x - player.x, dym = m.y - player.y;
+          const dm = Math.hypot(dxm,dym) || 1;
+          m.setVelocity(dxm/dm*200, dym/dm*200);
           if (m.hp <= 0) {
             const burst = scene.add.text(m.x, m.y, '💥', { fontSize: '28px' }).setOrigin(0.5).setDepth(30);
             scene.tweens.add({ targets: burst, alpha: 0, scale: 1.6, duration: 400, onComplete: ()=>burst.destroy() });
@@ -677,6 +855,112 @@
       });
     }
 
+    function animarEspadada() {
+      if (atacando) return;
+      atacando = true;
+      const flip = player.flipX ? -1 : 1;
+      const armaKey = inv.equipado.arma;
+      const emoji = armaKey ? CATALOGO[armaKey].emoji : '✊';
+      armaSprite.setText(emoji);
+      armaSprite.setVisible(true);
+      armaSprite.setScale(player.flipX ? -1.4 : 1.4, 1.4);
+
+      // ponto inicial: na mão
+      armaSprite.x = player.x + 11 * flip;
+      armaSprite.y = player.y + 4;
+      armaSprite.setRotation(-0.6 * flip);
+
+      // arco: gira de -0.6 até +1.5 (radianos)
+      scene.tweens.add({
+        targets: armaSprite,
+        rotation: 1.5 * flip,
+        x: player.x + 22 * flip,
+        duration: 220,
+        ease: 'Cubic.easeOut',
+        onComplete: () => {
+          atacando = false;
+          armaSprite.setRotation(0);
+          armaSprite.setScale(player.flipX ? -1 : 1, 1);
+        }
+      });
+
+      // efeito visual de slash (arco)
+      const slashG = scene.add.graphics().setDepth(20);
+      slashG.lineStyle(4, 0xffffff, 0.9);
+      slashG.beginPath();
+      slashG.arc(player.x, player.y, 26, -Math.PI/3, Math.PI/3, false);
+      slashG.strokePath();
+      slashG.setRotation(player.flipX ? Math.PI : 0);
+      scene.tweens.add({
+        targets: slashG, alpha: 0, duration: 220,
+        onComplete: () => slashG.destroy()
+      });
+    }
+
+    function dispararMagiaFogo() {
+      somMagia();
+      scene.cameras.main.shake(280, 0.018);
+      // círculo crescente de fogo
+      const g = scene.add.graphics().setDepth(15);
+      const obj = { r: 0, alpha: 1 };
+      scene.tweens.add({
+        targets: obj,
+        r: MAGIA_RAIO,
+        alpha: 0,
+        duration: 600,
+        ease: 'Cubic.easeOut',
+        onUpdate: () => {
+          g.clear();
+          // anel externo brilhante
+          g.fillStyle(0xffd84d, obj.alpha * 0.6);
+          g.fillCircle(player.x, player.y, obj.r);
+          g.fillStyle(0xff8030, obj.alpha * 0.7);
+          g.fillCircle(player.x, player.y, obj.r * 0.85);
+          g.fillStyle(0xff3030, obj.alpha * 0.6);
+          g.fillCircle(player.x, player.y, obj.r * 0.6);
+          g.lineStyle(5, 0xffffff, obj.alpha);
+          g.strokeCircle(player.x, player.y, obj.r);
+        },
+        onComplete: () => g.destroy()
+      });
+
+      // chamas em volta (vários emojis 🔥)
+      for (let i=0;i<14;i++){
+        const ang = (i/14) * Math.PI * 2;
+        const flame = scene.add.text(player.x, player.y, '🔥', { fontSize: '32px' }).setOrigin(0.5).setDepth(16);
+        scene.tweens.add({
+          targets: flame,
+          x: player.x + Math.cos(ang) * MAGIA_RAIO,
+          y: player.y + Math.sin(ang) * MAGIA_RAIO,
+          alpha: 0,
+          scale: 1.6,
+          duration: 600,
+          ease: 'Cubic.easeOut',
+          onComplete: () => flame.destroy()
+        });
+      }
+      // explosão central
+      const boom = scene.add.text(player.x, player.y, '💥', { fontSize: '40px' }).setOrigin(0.5).setDepth(17);
+      scene.tweens.add({ targets: boom, scale: 2, alpha: 0, duration: 400, onComplete: () => boom.destroy() });
+
+      // dano em todos os monstros no raio
+      const forca = CATALOGO.magiaFogo.forca;
+      monstros.children.iterate(m => {
+        if (!m || !m.active) return;
+        if (Phaser.Math.Distance.Between(player.x, player.y, m.x, m.y) < MAGIA_RAIO) {
+          m.hp = (m.hp ?? 3) - forca;
+          m.setTint(0xff3030);
+          scene.time.delayedCall(200, () => { if (m.active) m.clearTint(); });
+          if (m.hp <= 0) {
+            const burst = scene.add.text(m.x, m.y, '💥', { fontSize: '32px' }).setOrigin(0.5).setDepth(30);
+            scene.tweens.add({ targets: burst, alpha: 0, scale: 2, duration: 400, onComplete: ()=>burst.destroy() });
+            m.destroy();
+          }
+        }
+      });
+      mostrarToast('🔥 BOOOM!');
+    }
+
     function levarDano(player, monstro) {
       const t = scene.time.now;
       if (t < invulnAte) return;
@@ -684,16 +968,12 @@
       inv.vida -= 1;
       somDano();
       scene.cameras.main.shake(180, 0.012);
-      // pisca o player
       scene.tweens.add({ targets: player, alpha: 0.3, duration: 100, yoyo: true, repeat: 2 });
       atualizarHUD();
-      if (inv.vida <= 0) {
-        perder();
-      }
+      if (inv.vida <= 0) perder();
     }
 
     function spawnMonstro() {
-      // spawn nas bordas do mundo
       const lado = Phaser.Math.Between(0,3);
       let x, y;
       if (lado === 0) { x = Phaser.Math.Between(0, WORLD_W); y = 20; }
@@ -708,7 +988,6 @@
       m.hp = 3 + Math.floor(dia/2);
       m.velocidade = 50 + dia * 4;
       m.setCollideWorldBounds(true);
-      // wobble fofo
       scene.tweens.add({ targets: m, scaleX: SCALE*1.1, scaleY: SCALE*0.9, duration: 220, yoyo: true, repeat: -1 });
     }
 
@@ -717,23 +996,20 @@
       ehNoite = true;
       somNoite();
       mostrarToast('🌙 Noite ' + dia + ' — cuidado!');
-      document.getElementById('hudDiaItem').classList.add('noite');
-      document.getElementById('hudDiaItem').classList.add('alerta');
-      // muda pra lua
-      document.getElementById('hudDiaItem').innerHTML = '🌙 Noite <span id="hudDia">' + dia + '</span>/' + META_DIAS;
+      const el = document.getElementById('hudDiaItem');
+      el.classList.add('noite'); el.classList.add('alerta');
+      el.innerHTML = '🌙 Noite <span id="hudDia">' + dia + '</span>/' + META_DIAS;
     }
-
     function virarDia() {
       ehNoite = false;
       somDia();
-      // limpa monstros restantes
       monstros.children.iterate(m => { if (m) m.destroy(); });
       dia += 1;
       if (dia > META_DIAS) { vencer(); return; }
       mostrarToast('☀️ Amanheceu! Dia ' + dia);
-      document.getElementById('hudDiaItem').classList.remove('noite');
-      document.getElementById('hudDiaItem').classList.remove('alerta');
-      document.getElementById('hudDiaItem').innerHTML = '☀️ Dia <span id="hudDia">' + dia + '</span>/' + META_DIAS;
+      const el = document.getElementById('hudDiaItem');
+      el.classList.remove('noite'); el.classList.remove('alerta');
+      el.innerHTML = '☀️ Dia <span id="hudDia">' + dia + '</span>/' + META_DIAS;
     }
 
     // ===== util =====
@@ -753,7 +1029,58 @@
       document.getElementById('hudVida').textContent = inv.vida;
       document.getElementById('hudMadeira').textContent = inv.madeira;
       document.getElementById('hudComida').textContent = inv.comida;
-      document.getElementById('hudArma').textContent = inv.arma ? inv.arma.arma : 'Vazia';
+    }
+
+    function renderBag() {
+      const cont = document.getElementById('bagSlots');
+      cont.innerHTML = '';
+      if (inv.itens.length === 0) {
+        cont.innerHTML = '<div class="vazia">Vazia<br>abre os baús!</div>';
+        return;
+      }
+      // ordena: arma/magia primeiro, depois chapéu, escudo, capa
+      const ordem = { magia:0, arma:1, chapeu:2, escudo:3, capa:4 };
+      const ordenados = inv.itens.slice().sort((a,b) =>
+        (ordem[CATALOGO[a.key].tipo] ?? 9) - (ordem[CATALOGO[b.key].tipo] ?? 9)
+      );
+      ordenados.forEach(item => {
+        const def = CATALOGO[item.key];
+        const slot = document.createElement('div');
+        slot.className = 'slot';
+        if (def.raridade === 'lendario') slot.classList.add('magia');
+        else if (def.raridade === 'raro') slot.classList.add('raro');
+
+        // está equipado?
+        const slotTipo = (def.tipo === 'magia') ? 'arma' : def.tipo;
+        if (inv.equipado[slotTipo] === item.key) slot.classList.add('equipado');
+
+        // cooldown da magia
+        let cdHtml = '';
+        if (def.tipo === 'magia' && magiaProntoEm > 0 && scene && scene.time.now < magiaProntoEm) {
+          slot.classList.add('cooldown');
+          const restante = Math.ceil((magiaProntoEm - scene.time.now)/1000);
+          cdHtml = `<div class="cdtxt">${restante}</div>`;
+        }
+
+        slot.innerHTML = `<span class="emoji">${def.emoji}</span><div class="nome">${def.nome}</div>${cdHtml}`;
+        slot.onclick = () => clicarItem(item);
+        cont.appendChild(slot);
+      });
+    }
+
+    function clicarItem(item) {
+      ensureAudio();
+      const def = CATALOGO[item.key];
+      const slot = (def.tipo === 'magia') ? 'arma' : def.tipo;
+      // toggle: se já está equipado, desequipa
+      if (inv.equipado[slot] === item.key) {
+        inv.equipado[slot] = null;
+        somEquipar();
+      } else {
+        inv.equipado[slot] = item.key;
+        somEquipar();
+      }
+      renderBag();
     }
 
     function mostrarToast(txt) {
@@ -767,7 +1094,7 @@
     }
 
     function vencer() {
-      acabou = true; venceu = true;
+      acabou = true;
       somVitoria();
       document.getElementById('overlayTit').textContent = '🎉 Você venceu!';
       document.getElementById('overlayMsg').textContent = 'Sobreviveu 10 dias na floresta! Você é demais!';
