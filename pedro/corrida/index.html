@@ -6,11 +6,8 @@
   <title>Corrida</title>
   <style>
     html, body {
-      margin: 0;
-      padding: 0;
-      background: #1a1a2e;
-      overflow: hidden;
-      height: 100%;
+      margin: 0; padding: 0; background: #1a1a2e;
+      overflow: hidden; height: 100%;
       font-family: system-ui, sans-serif;
       touch-action: none;
     }
@@ -30,35 +27,25 @@
 
   <script>
     // ====== Tamanhos ======
-    const TELA_W = 800;
-    const TELA_H = 600;
-    const MUNDO_W = 2400;
-    const MUNDO_H = 1600;
+    const TELA_W = 800, TELA_H = 600;
+    const MUNDO_W = 2400, MUNDO_H = 1600;
+    const PISTA_X = 200, PISTA_Y = 200, PISTA_W = 2000, PISTA_H = 1200;
+    const ILHA_X = 600, ILHA_Y = 500, ILHA_W = 1200, ILHA_H = 600;
 
-    // ====== Pista ======
-    const PISTA_X = 200, PISTA_Y = 200;
-    const PISTA_W = 2000, PISTA_H = 1200;
-    const ILHA_X = 600, ILHA_Y = 500;
-    const ILHA_W = 1200, ILHA_H = 600;
-
-    // ====== Carro do jogador ======
-    const ACEL = 500;          // ganho de velocidade por segundo
-    const FRENAGEM = 700;      // perda quando aperta ré
-    const ATRITO = 250;        // perda quando não aperta nada
-    const VEL_MAX = 420;
-    const VEL_MAX_RE = 180;
-    const ROT_VEL = 3.2;       // rad/s
+    // ====== Carro ======
+    const ACEL = 500, FRENAGEM = 700, ATRITO = 250;
+    const VEL_MAX = 420, VEL_MAX_RE = 180;
+    const ROT_VEL = 3.2;
     const VEL_MIN_PRA_VIRAR = 30;
 
     // ====== Turbo ======
-    const VEL_MAX_TURBO = 820;     // disparada insana
+    const VEL_MAX_TURBO = 820;
     const ACEL_TURBO = 1400;
-    const TURBO_GASTO = 70;        // por segundo
-    const TURBO_REGEN = 30;        // por segundo
+    const TURBO_GASTO = 70;
+    const TURBO_REGEN = 30;
     const TURBO_MAX = 100;
 
     // ====== Oponentes ======
-    const VEL_OPONENTE = 360;
     const ACEL_OPONENTE = 450;
     const ROT_OPONENTE = 2.6;
 
@@ -68,8 +55,7 @@
     const config = {
       type: Phaser.AUTO,
       parent: "game",
-      width: TELA_W,
-      height: TELA_H,
+      width: TELA_W, height: TELA_H,
       backgroundColor: "#2d5a2d",
       scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
       physics: { default: "arcade", arcade: { gravity: { y: 0 }, debug: false } },
@@ -84,44 +70,33 @@
     let oponentes = [];
     let teclas, teclaEspaco;
     let estadoCorrida = "correndo";
-    let textoUI;
-    let barraTurboBg, barraTurboFill;
+    let textoUI, barraTurboFill;
     let posicaoFinalTexto = null;
     let botoes = { cima: false, baixo: false, esq: false, dir: false, turbo: false };
     let melhorVolta = parseFloat(localStorage.getItem("corrida_melhor_volta")) || null;
     let melhorTotal = parseFloat(localStorage.getItem("corrida_melhor_total")) || null;
-    let listaCones = []; // posições dos cones (pra IA desviar)
 
-    // Waypoints da pista (sentido horário) — usado pela IA dos oponentes
+    // Cenários
+    let cenarioAtual = 1;
+    let elementosCenario = [];     // visuais que mudam por cenário
+    let peixesHostis = [];          // peixes que paralisam (volta 3)
+    let animaisFundo = [];          // animais decorativos (volta 3)
+    let estrelas = [];              // decorativas (volta 2)
+    let sceneRef;                   // referência global pra spawn
+
+    // Waypoints da pista (sentido horário) — IA dos oponentes
     const WAYPOINTS = [
-      { x: 1700, y: 1250 },
-      { x: 2050, y: 1100 },
-      { x: 2050, y: 500 },
-      { x: 1700, y: 350 },
-      { x: 700, y: 350 },
-      { x: 350, y: 500 },
-      { x: 350, y: 1100 },
-      { x: 700, y: 1250 },
-      { x: 1200, y: 1250 }, // chegada
+      { x: 1700, y: 1250 }, { x: 2050, y: 1100 }, { x: 2050, y: 500 },
+      { x: 1700, y: 350 }, { x: 700, y: 350 }, { x: 350, y: 500 },
+      { x: 350, y: 1100 }, { x: 700, y: 1250 }, { x: 1200, y: 1250 },
     ];
 
     function create() {
+      sceneRef = this;
       this.physics.world.setBounds(0, 0, MUNDO_W, MUNDO_H);
       this.cameras.main.setBounds(0, 0, MUNDO_W, MUNDO_H);
 
-      // ===== Pista (visual) =====
-      const g = this.add.graphics();
-      g.fillStyle(0x3a3a3a, 1);
-      g.fillRect(PISTA_X, PISTA_Y, PISTA_W, PISTA_H);
-      g.fillStyle(0x2d5a2d, 1);
-      g.fillRect(ILHA_X, ILHA_Y, ILHA_W, ILHA_H);
-      g.lineStyle(6, 0xffffff, 1);
-      g.strokeRect(PISTA_X, PISTA_Y, PISTA_W, PISTA_H);
-      g.strokeRect(ILHA_X, ILHA_Y, ILHA_W, ILHA_H);
-      const cy1 = ILHA_Y + ILHA_H, cy2 = PISTA_Y + PISTA_H;
-      desenhaXadrez(g, 1180, cy1, 40, cy2 - cy1, 20);
-
-      // ===== Paredes =====
+      // ===== Paredes (físicas, sempre iguais) =====
       const paredes = this.physics.add.staticGroup();
       const e = 20;
       paredes.add(criarParede(this, PISTA_X + PISTA_W/2, PISTA_Y, PISTA_W, e));
@@ -130,35 +105,28 @@
       paredes.add(criarParede(this, PISTA_X + PISTA_W, PISTA_Y + PISTA_H/2, e, PISTA_H));
       paredes.add(criarParede(this, ILHA_X + ILHA_W/2, ILHA_Y + ILHA_H/2, ILHA_W, ILHA_H));
 
-      // ===== Cones (obstáculos) =====
-      const obstaculos = this.physics.add.staticGroup();
-      const cones = [
-        { x: 900, y: 1250 }, { x: 1500, y: 1250 },
-        { x: 350, y: 800 }, { x: 2100, y: 800 },
-        { x: 1000, y: 350 }, { x: 1500, y: 350 },
-      ];
-      cones.forEach(p => obstaculos.add(criarCone(this, p.x, p.y)));
-      listaCones = cones;
-
-      // ===== Texturas dos carros =====
+      // ===== Texturas =====
       criarTexturaCarro(this, "carroJogador", 0xff4f6f);
       criarTexturaCarro(this, "carroOponente1", 0x4f9bff);
       criarTexturaCarro(this, "carroOponente2", 0xfff04f);
       criarTexturaChama(this, "chama");
+      criarTexturaPeixe(this, "peixeHostil", 0xff2244);
+      criarTexturaPeixe(this, "peixeAmigo1", 0x4fdb9b);
+      criarTexturaPeixe(this, "peixeAmigo2", 0xfff04f);
+      criarTexturaPeixe(this, "peixeAmigo3", 0xff8800);
 
       // ===== Carro do jogador =====
       carro = this.physics.add.sprite(1100, 1250, "carroJogador");
       configurarCarro(carro);
-      carro.setDepth(2);
+      carro.setDepth(10);
       carro.dataSpeed = 0;
       carro.dataTurbo = TURBO_MAX;
       carro.dataVolta = 1;
       carro.dataPassouCheckpoint = false;
       carro.dataTerminou = false;
-      carro.dataNome = "Você";
-      carro.dataWp = 0; // só pra ranking de meio de corrida
+      carro.dataAtordoadoAte = 0;
 
-      // ===== Fogo do turbo (partículas) =====
+      // ===== Fogo do turbo =====
       emitterTurbo = this.add.particles(0, 0, "chama", {
         lifespan: 320,
         speed: { min: 60, max: 180 },
@@ -169,16 +137,17 @@
         frequency: 18,
         emitting: false,
       });
-      emitterTurbo.setDepth(1); // atrás do carro
+      emitterTurbo.setDepth(9);
 
       // ===== Oponentes =====
       const oponentesData = [
-        { x: 1100, y: 1300, key: "carroOponente1", nome: "Azul", velMax: 360, habilidade: 0.75 },
-        { x: 1050, y: 1200, key: "carroOponente2", nome: "Amarelo", velMax: 380, habilidade: 0.55 },
+        { x: 1100, y: 1300, key: "carroOponente1", nome: "Azul", velMax: 360 },
+        { x: 1050, y: 1200, key: "carroOponente2", nome: "Amarelo", velMax: 380 },
       ];
       oponentesData.forEach(d => {
         const op = this.physics.add.sprite(d.x, d.y, d.key);
         configurarCarro(op);
+        op.setDepth(10);
         op.dataSpeed = 0;
         op.dataVolta = 1;
         op.dataPassouCheckpoint = false;
@@ -186,9 +155,6 @@
         op.dataNome = d.nome;
         op.dataWp = 0;
         op.dataVelMax = d.velMax;
-        op.dataHabilidade = d.habilidade;
-        op.dataVeObstaculos = true;
-        op.dataProximaDecisao = 0;
         oponentes.push(op);
       });
 
@@ -196,9 +162,7 @@
       const todosCarros = [carro, ...oponentes];
       todosCarros.forEach(c => {
         this.physics.add.collider(c, paredes, baterEmAlgo);
-        this.physics.add.collider(c, obstaculos, baterEmAlgo);
       });
-      // Carros colidem entre si
       for (let i = 0; i < todosCarros.length; i++) {
         for (let j = i + 1; j < todosCarros.length; j++) {
           this.physics.add.collider(todosCarros[i], todosCarros[j], baterCarroCarro);
@@ -226,37 +190,36 @@
 
       // ===== UI =====
       textoUI = this.add.text(10, 10, "", {
-        fontSize: "18px",
-        color: "#ffffff",
-        backgroundColor: "rgba(0,0,0,0.5)",
-        padding: { x: 10, y: 6 },
+        fontSize: "18px", color: "#ffffff",
+        backgroundColor: "rgba(0,0,0,0.5)", padding: { x: 10, y: 6 },
       }).setScrollFactor(0).setDepth(100);
 
-      // Barra de turbo
       const barraY = 170, barraX = 10, barraW = 200, barraH = 18;
       this.add.text(barraX, barraY - 22, "TURBO (espaço)", {
         fontSize: "14px", color: "#ffffff",
         backgroundColor: "rgba(0,0,0,0.5)", padding: { x: 6, y: 2 },
       }).setScrollFactor(0).setDepth(100);
-      barraTurboBg = this.add.rectangle(barraX, barraY, barraW, barraH, 0x000000, 0.5)
+      this.add.rectangle(barraX, barraY, barraW, barraH, 0x000000, 0.5)
         .setOrigin(0, 0).setScrollFactor(0).setDepth(100).setStrokeStyle(2, 0xffffff);
       barraTurboFill = this.add.rectangle(barraX + 2, barraY + 2, barraW - 4, barraH - 4, 0x4fdb9b)
         .setOrigin(0, 0).setScrollFactor(0).setDepth(101);
 
-      // Botões touch
       criarBotoesTouch(this);
 
       // Cronômetros
       carro.dataTempoInicioVolta = this.time.now;
       carro.dataTempoInicioCorrida = this.time.now;
+
+      // ===== Aplica cenário inicial =====
+      aplicarCenario(this, 1);
     }
 
     function configurarCarro(c) {
       c.setSize(40, 24);
       c.setBounce(0.15);
       c.setCollideWorldBounds(true);
-      c.setMaxVelocity(2000); // controlamos manualmente
-      c.setDrag(0); // sem drag automático
+      c.setMaxVelocity(2000);
+      c.setDrag(0);
     }
 
     function update(_, deltaMs) {
@@ -266,32 +229,36 @@
         return;
       }
       const dt = deltaMs / 1000;
-
-      // ===== JOGADOR =====
       atualizarJogador(this, dt);
-
-      // ===== OPONENTES =====
-      oponentes.forEach(op => atualizarOponente(op, dt, this.time.now));
-
-      // ===== UI =====
+      oponentes.forEach(op => atualizarOponente(op, dt));
+      atualizarPeixesHostis(this, dt);
+      atualizarAnimaisFundo(dt);
+      piscarEstrelas(this);
       atualizarUI(this);
-
-      // ===== Verifica fim =====
-      if (carro.dataTerminou && !posicaoFinalTexto) {
-        terminarCorrida(this);
-      }
+      if (carro.dataTerminou && !posicaoFinalTexto) terminarCorrida(this);
     }
 
     function atualizarJogador(scene, dt) {
+      // Se atordoado: não responde a controles
+      const atordoado = scene.time.now < carro.dataAtordoadoAte;
+      if (atordoado) {
+        carro.dataSpeed = Math.max(0, carro.dataSpeed - ATRITO * 2 * dt);
+        carro.body.velocity.x = Math.cos(carro.rotation) * carro.dataSpeed;
+        carro.body.velocity.y = Math.sin(carro.rotation) * carro.dataSpeed;
+        carro.setTint(0xaaaaff); // efeito visual de atordoado
+        emitterTurbo.emitting = false;
+        return;
+      } else {
+        carro.clearTint();
+      }
+
       const acelera = teclas.up.isDown || botoes.cima;
       const reFreio = teclas.down.isDown || botoes.baixo;
       const viraEsq = teclas.left.isDown || botoes.esq;
       const viraDir = teclas.right.isDown || botoes.dir;
       const turbo = (teclaEspaco.isDown || botoes.turbo) && carro.dataTurbo > 0;
 
-      // Velocidade alvo / aceleração
-      let velMaxAtual = VEL_MAX;
-      let acelAtual = ACEL;
+      let velMaxAtual = VEL_MAX, acelAtual = ACEL;
       if (turbo) {
         velMaxAtual = VEL_MAX_TURBO;
         acelAtual = ACEL_TURBO;
@@ -305,22 +272,18 @@
       } else if (reFreio) {
         carro.dataSpeed = Math.max(carro.dataSpeed - FRENAGEM * dt, -VEL_MAX_RE);
       } else {
-        // atrito que puxa pra zero
         if (carro.dataSpeed > 0) carro.dataSpeed = Math.max(0, carro.dataSpeed - ATRITO * dt);
         else if (carro.dataSpeed < 0) carro.dataSpeed = Math.min(0, carro.dataSpeed + ATRITO * dt);
       }
 
-      // Rotação (só vira se tá em movimento)
       if (Math.abs(carro.dataSpeed) > VEL_MIN_PRA_VIRAR) {
         if (viraEsq) carro.rotation -= ROT_VEL * dt;
         if (viraDir) carro.rotation += ROT_VEL * dt;
       }
 
-      // Aplica velocidade NA DIREÇÃO do carro (sem deslizamento)
       carro.body.velocity.x = Math.cos(carro.rotation) * carro.dataSpeed;
       carro.body.velocity.y = Math.sin(carro.rotation) * carro.dataSpeed;
 
-      // Fogo do turbo: posiciona atrás do carro e emite só com turbo ativo
       const angTras = carro.rotation + Math.PI;
       emitterTurbo.setPosition(
         carro.x + Math.cos(angTras) * 24,
@@ -329,7 +292,7 @@
       emitterTurbo.emitting = turbo;
     }
 
-    function atualizarOponente(op, dt, now) {
+    function atualizarOponente(op, dt) {
       if (op.dataTerminou) {
         op.body.velocity.x = 0;
         op.body.velocity.y = 0;
@@ -339,25 +302,9 @@
       const dx = wp.x - op.x;
       const dy = wp.y - op.y;
       const dist = Math.hypot(dx, dy);
+      if (dist < 90) op.dataWp = (op.dataWp + 1) % WAYPOINTS.length;
 
-      if (dist < 90) {
-        op.dataWp = (op.dataWp + 1) % WAYPOINTS.length;
-      }
-
-      // Ângulo alvo (em direção ao waypoint)
-      let alvo = Math.atan2(dy, dx);
-
-      // ===== Desvio de cones — IA "vê" obstáculos com chance baseada em habilidade =====
-      if (now > op.dataProximaDecisao) {
-        op.dataVeObstaculos = Math.random() < op.dataHabilidade;
-        op.dataProximaDecisao = now + 400 + Math.random() * 700;
-      }
-      if (op.dataVeObstaculos) {
-        const desvio = calcularDesvio(op);
-        if (desvio !== null) alvo = desvio;
-      }
-
-      // Gira gradualmente em direção ao alvo
+      const alvo = Math.atan2(dy, dx);
       let diff = alvo - op.rotation;
       while (diff > Math.PI) diff -= 2 * Math.PI;
       while (diff < -Math.PI) diff += 2 * Math.PI;
@@ -365,46 +312,19 @@
       if (Math.abs(diff) < passo) op.rotation = alvo;
       else op.rotation += Math.sign(diff) * passo;
 
-      // Acelera
       op.dataSpeed = Math.min(op.dataSpeed + ACEL_OPONENTE * dt, op.dataVelMax);
       op.body.velocity.x = Math.cos(op.rotation) * op.dataSpeed;
       op.body.velocity.y = Math.sin(op.rotation) * op.dataSpeed;
-    }
-
-    function calcularDesvio(op) {
-      // Procura o cone mais próximo "à frente" do oponente
-      const RAIO = 160;
-      const ANG_VISAO = Math.PI / 3; // 60° de cada lado
-      let coneAlvo = null;
-      let menorDist = Infinity;
-      for (const c of listaCones) {
-        const cdx = c.x - op.x;
-        const cdy = c.y - op.y;
-        const d = Math.hypot(cdx, cdy);
-        if (d > RAIO) continue;
-        let angCone = Math.atan2(cdy, cdx);
-        let diff = angCone - op.rotation;
-        while (diff > Math.PI) diff -= 2 * Math.PI;
-        while (diff < -Math.PI) diff += 2 * Math.PI;
-        if (Math.abs(diff) > ANG_VISAO) continue;
-        if (d < menorDist) {
-          menorDist = d;
-          coneAlvo = { dx: cdx, dy: cdy, diff };
-        }
-      }
-      if (!coneAlvo) return null;
-      // Vira pro lado oposto do cone — quanto mais perto, mais forte o desvio
-      const intensidade = 1 - menorDist / 160; // 0..1
-      const desloc = (Math.PI / 3) * intensidade; // até 60°
-      return op.rotation - Math.sign(coneAlvo.diff) * desloc;
     }
 
     function atualizarUI(scene) {
       const tVolta = (scene.time.now - carro.dataTempoInicioVolta) / 1000;
       const tTotal = (scene.time.now - carro.dataTempoInicioCorrida) / 1000;
       const posicao = calcularPosicao();
+      const nomeCenario = cenarioAtual === 1 ? "🏁 Pista" : cenarioAtual === 2 ? "🌌 Espaço" : "🌊 Oceano";
 
       textoUI.setText(
+        `${nomeCenario}\n` +
         `Posição: ${posicao}º / ${oponentes.length + 1}\n` +
         `Volta: ${Math.min(carro.dataVolta, TOTAL_VOLTAS)} / ${TOTAL_VOLTAS}\n` +
         `Tempo da volta: ${tVolta.toFixed(2)}s\n` +
@@ -413,10 +333,8 @@
         `Melhor corrida: ${melhorTotal ? melhorTotal.toFixed(2) + "s" : "—"}`
       );
 
-      // Atualiza barra de turbo
       const w = (carro.dataTurbo / TURBO_MAX) * 196;
       barraTurboFill.width = Math.max(0, w);
-      // Cor: verde quando cheio, amarelo médio, vermelho baixo
       let cor = 0x4fdb9b;
       if (carro.dataTurbo < 50) cor = 0xfff04f;
       if (carro.dataTurbo < 20) cor = 0xff4f6f;
@@ -424,18 +342,15 @@
     }
 
     function calcularPosicao() {
-      // Score = volta * 100 + waypoint atual (estimativa de progresso na volta)
       const todos = [carro, ...oponentes];
       const score = c => {
         const wp = c === carro ? estimarWaypointJogador() : c.dataWp;
         return c.dataVolta * 100 + wp;
       };
-      const ordenados = [...todos].sort((a, b) => score(b) - score(a));
-      return ordenados.indexOf(carro) + 1;
+      const ord = [...todos].sort((a, b) => score(b) - score(a));
+      return ord.indexOf(carro) + 1;
     }
-
     function estimarWaypointJogador() {
-      // Acha o waypoint mais "à frente" do jogador (próximo na ordem)
       let melhor = 0, menorDist = Infinity;
       for (let i = 0; i < WAYPOINTS.length; i++) {
         const w = WAYPOINTS[i];
@@ -445,16 +360,9 @@
       return melhor;
     }
 
-    // ===== Colisões =====
-    function baterEmAlgo(c) {
-      c.dataSpeed *= 0.4;
-    }
-    function baterCarroCarro(a, b) {
-      a.dataSpeed *= 0.6;
-      b.dataSpeed *= 0.6;
-    }
+    function baterEmAlgo(c) { c.dataSpeed *= 0.4; }
+    function baterCarroCarro(a, b) { a.dataSpeed *= 0.6; b.dataSpeed *= 0.6; }
 
-    // ===== Lap detection =====
     function passarLinhaChegada(scene, c) {
       if (c.dataTerminou) return;
       if (!c.dataPassouCheckpoint) return;
@@ -472,6 +380,14 @@
       c.dataVolta++;
       if (c.dataVolta > TOTAL_VOLTAS) {
         c.dataTerminou = true;
+        return;
+      }
+
+      // Trocar cenário (só pra jogador, e só se for ele que tá dando a volta)
+      if (c === carro) {
+        cenarioAtual = c.dataVolta;
+        scene.cameras.main.flash(400, 255, 255, 255);
+        scene.time.delayedCall(50, () => aplicarCenario(scene, cenarioAtual));
       }
     }
 
@@ -479,14 +395,12 @@
       estadoCorrida = "fim";
       const tTotal = (scene.time.now - carro.dataTempoInicioCorrida) / 1000;
       const posFinal = calcularPosicao();
-
       let novoRecorde = false;
       if (posFinal === 1 && (melhorTotal === null || tTotal < melhorTotal)) {
         melhorTotal = tTotal;
         localStorage.setItem("corrida_melhor_total", melhorTotal);
         novoRecorde = true;
       }
-
       const medalhas = ["🥇", "🥈", "🥉"];
       const titulo = posFinal === 1
         ? (novoRecorde ? "🏆 NOVO RECORDE! 🏆" : "🥇 VITÓRIA! 🥇")
@@ -505,22 +419,235 @@
       ).setOrigin(0.5).setScrollFactor(0).setDepth(200);
     }
 
-    // ===== Helpers visuais =====
+    // ============================================
+    // ============= CENÁRIOS =====================
+    // ============================================
+
+    function aplicarCenario(scene, n) {
+      // Limpa tudo do cenário anterior
+      elementosCenario.forEach(el => el.destroy());
+      elementosCenario = [];
+      peixesHostis.forEach(p => p.destroy());
+      peixesHostis = [];
+      animaisFundo.forEach(a => a.destroy());
+      animaisFundo = [];
+      estrelas.forEach(e => e.destroy());
+      estrelas = [];
+
+      if (n === 1) cenarioPista(scene);
+      else if (n === 2) cenarioEspaco(scene);
+      else if (n === 3) cenarioOceano(scene);
+    }
+
+    function cenarioPista(scene) {
+      scene.cameras.main.setBackgroundColor("#2d5a2d");
+      const g = scene.add.graphics();
+      g.setDepth(0);
+      g.fillStyle(0x3a3a3a, 1);
+      g.fillRect(PISTA_X, PISTA_Y, PISTA_W, PISTA_H);
+      g.fillStyle(0x2d5a2d, 1);
+      g.fillRect(ILHA_X, ILHA_Y, ILHA_W, ILHA_H);
+      g.lineStyle(6, 0xffffff, 1);
+      g.strokeRect(PISTA_X, PISTA_Y, PISTA_W, PISTA_H);
+      g.strokeRect(ILHA_X, ILHA_Y, ILHA_W, ILHA_H);
+      desenhaXadrez(g, 1180, ILHA_Y + ILHA_H, 40, PISTA_Y + PISTA_H - (ILHA_Y + ILHA_H), 20);
+      elementosCenario.push(g);
+    }
+
+    function cenarioEspaco(scene) {
+      scene.cameras.main.setBackgroundColor("#0a0a2e");
+      // Estrelas piscando no fundo (em todo o mundo, não só na grama)
+      for (let i = 0; i < 250; i++) {
+        const x = Phaser.Math.Between(0, MUNDO_W);
+        const y = Phaser.Math.Between(0, MUNDO_H);
+        const tam = Phaser.Math.FloatBetween(0.5, 2);
+        const e = scene.add.circle(x, y, tam, 0xffffff, 1);
+        e.setDepth(0);
+        e.dataPiscar = Phaser.Math.FloatBetween(0.4, 1);
+        e.dataPiscoOffset = Math.random() * Math.PI * 2;
+        estrelas.push(e);
+      }
+
+      const g = scene.add.graphics();
+      g.setDepth(1);
+      // Pista: roxo neon
+      g.fillStyle(0x2a1f4a, 1);
+      g.fillRect(PISTA_X, PISTA_Y, PISTA_W, PISTA_H);
+      g.fillStyle(0x0a0a2e, 1);
+      g.fillRect(ILHA_X, ILHA_Y, ILHA_W, ILHA_H);
+      // Bordas roxas brilhantes
+      g.lineStyle(6, 0xc24fff, 1);
+      g.strokeRect(PISTA_X, PISTA_Y, PISTA_W, PISTA_H);
+      g.strokeRect(ILHA_X, ILHA_Y, ILHA_W, ILHA_H);
+      // Linha de chegada
+      desenhaXadrez(g, 1180, ILHA_Y + ILHA_H, 40, PISTA_Y + PISTA_H - (ILHA_Y + ILHA_H), 20);
+      // Estrelinhas decorativas dentro da pista
+      for (let i = 0; i < 40; i++) {
+        const x = PISTA_X + Math.random() * PISTA_W;
+        const y = PISTA_Y + Math.random() * PISTA_H;
+        // só na faixa da pista (não na ilha)
+        if (x > ILHA_X && x < ILHA_X + ILHA_W && y > ILHA_Y && y < ILHA_Y + ILHA_H) continue;
+        g.fillStyle(0xfff04f, 0.6);
+        g.fillCircle(x, y, 1.5);
+      }
+      elementosCenario.push(g);
+    }
+
+    function cenarioOceano(scene) {
+      scene.cameras.main.setBackgroundColor("#0d3a5e");
+      const g = scene.add.graphics();
+      g.setDepth(1);
+      // Pista areia clara
+      g.fillStyle(0xddc88a, 1);
+      g.fillRect(PISTA_X, PISTA_Y, PISTA_W, PISTA_H);
+      // "Oceano" no meio (a ilha vira um pedaço de mar)
+      g.fillStyle(0x0d3a5e, 1);
+      g.fillRect(ILHA_X, ILHA_Y, ILHA_W, ILHA_H);
+      // Bordas coral
+      g.lineStyle(6, 0xff8866, 1);
+      g.strokeRect(PISTA_X, PISTA_Y, PISTA_W, PISTA_H);
+      g.strokeRect(ILHA_X, ILHA_Y, ILHA_W, ILHA_H);
+      desenhaXadrez(g, 1180, ILHA_Y + ILHA_H, 40, PISTA_Y + PISTA_H - (ILHA_Y + ILHA_H), 20);
+
+      // Bolhas no fundo (decorativas)
+      for (let i = 0; i < 60; i++) {
+        const x = Math.random() * MUNDO_W;
+        const y = Math.random() * MUNDO_H;
+        g.fillStyle(0xffffff, 0.15);
+        g.fillCircle(x, y, Phaser.Math.Between(2, 6));
+      }
+      elementosCenario.push(g);
+
+      // Animais marinhos no fundo (decorativos, sem colisão)
+      for (let i = 0; i < 8; i++) {
+        spawnAnimalFundo(scene);
+      }
+
+      // Spawn periódico de peixes hostis na pista
+      const evento = scene.time.addEvent({
+        delay: 1800,
+        loop: true,
+        callback: () => {
+          if (cenarioAtual === 3 && estadoCorrida === "correndo") spawnPeixeHostil(scene);
+        },
+      });
+      elementosCenario.push({ destroy: () => evento.remove() });
+
+      // Spawna 2 peixes logo de cara
+      spawnPeixeHostil(scene);
+      spawnPeixeHostil(scene);
+    }
+
+    function spawnAnimalFundo(scene) {
+      // Peixe colorido nadando no "oceano" central
+      const cores = ["peixeAmigo1", "peixeAmigo2", "peixeAmigo3"];
+      const key = cores[Math.floor(Math.random() * cores.length)];
+      const x = ILHA_X + Math.random() * ILHA_W;
+      const y = ILHA_Y + Math.random() * ILHA_H;
+      const peixe = scene.add.image(x, y, key);
+      peixe.setDepth(2);
+      peixe.setScale(0.7);
+      peixe.dataVx = Phaser.Math.FloatBetween(-50, 50);
+      peixe.dataVy = Phaser.Math.FloatBetween(-20, 20);
+      if (peixe.dataVx < 0) peixe.setFlipX(true);
+      animaisFundo.push(peixe);
+    }
+
+    function spawnPeixeHostil(scene) {
+      // Aparece numa posição aleatória DENTRO da faixa da pista
+      let x, y;
+      do {
+        x = PISTA_X + 60 + Math.random() * (PISTA_W - 120);
+        y = PISTA_Y + 60 + Math.random() * (PISTA_H - 120);
+      } while (x > ILHA_X && x < ILHA_X + ILHA_W && y > ILHA_Y && y < ILHA_Y + ILHA_H);
+
+      const peixe = scene.physics.add.sprite(x, y, "peixeHostil");
+      peixe.setDepth(5);
+      peixe.setScale(1.0);
+      // Movimento aleatório
+      const ang = Math.random() * Math.PI * 2;
+      const vel = Phaser.Math.Between(40, 90);
+      peixe.setVelocity(Math.cos(ang) * vel, Math.sin(ang) * vel);
+      peixe.rotation = ang;
+      peixe.body.setAllowGravity(false);
+
+      // Auto-destrói depois de 6s
+      sceneRef.time.delayedCall(6000, () => {
+        if (peixe.active) {
+          const idx = peixesHostis.indexOf(peixe);
+          if (idx >= 0) peixesHostis.splice(idx, 1);
+          peixe.destroy();
+        }
+      });
+
+      // Overlap com jogador → atordoa
+      scene.physics.add.overlap(carro, peixe, () => {
+        if (sceneRef.time.now < carro.dataAtordoadoAte) return; // já atordoado
+        carro.dataAtordoadoAte = sceneRef.time.now + 500;
+        scene.cameras.main.shake(200, 0.01);
+        peixe.destroy();
+        const idx = peixesHostis.indexOf(peixe);
+        if (idx >= 0) peixesHostis.splice(idx, 1);
+      });
+
+      peixesHostis.push(peixe);
+    }
+
+    function atualizarPeixesHostis(scene, dt) {
+      // Faz peixe quicar nas bordas da pista
+      peixesHostis.forEach(p => {
+        if (!p.active) return;
+        if (p.x < PISTA_X + 30 || p.x > PISTA_X + PISTA_W - 30) {
+          p.body.velocity.x *= -1;
+          p.rotation = Math.atan2(p.body.velocity.y, p.body.velocity.x);
+        }
+        if (p.y < PISTA_Y + 30 || p.y > PISTA_Y + PISTA_H - 30) {
+          p.body.velocity.y *= -1;
+          p.rotation = Math.atan2(p.body.velocity.y, p.body.velocity.x);
+        }
+        // Se entrou na ilha, repele
+        if (p.x > ILHA_X && p.x < ILHA_X + ILHA_W && p.y > ILHA_Y && p.y < ILHA_Y + ILHA_H) {
+          const cx = ILHA_X + ILHA_W/2, cy = ILHA_Y + ILHA_H/2;
+          const ang = Math.atan2(p.y - cy, p.x - cx);
+          p.body.velocity.x = Math.cos(ang) * 60;
+          p.body.velocity.y = Math.sin(ang) * 60;
+          p.rotation = ang;
+        }
+      });
+    }
+
+    function atualizarAnimaisFundo(dt) {
+      animaisFundo.forEach(p => {
+        p.x += p.dataVx * dt;
+        p.y += p.dataVy * dt;
+        // Mantém dentro do oceano central, quica nas bordas
+        if (p.x < ILHA_X + 20 || p.x > ILHA_X + ILHA_W - 20) {
+          p.dataVx *= -1;
+          p.setFlipX(p.dataVx < 0);
+        }
+        if (p.y < ILHA_Y + 20 || p.y > ILHA_Y + ILHA_H - 20) {
+          p.dataVy *= -1;
+        }
+      });
+    }
+
+    function piscarEstrelas(scene) {
+      if (estrelas.length === 0) return;
+      const t = scene.time.now / 400;
+      estrelas.forEach(e => {
+        const v = (Math.sin(t + e.dataPiscoOffset) + 1) / 2;
+        e.alpha = e.dataPiscar * (0.4 + 0.6 * v);
+      });
+    }
+
+    // ============================================
+    // ============= HELPERS VISUAIS ==============
+    // ============================================
+
     function criarParede(scene, x, y, w, h) {
       const r = scene.add.rectangle(x, y, w, h, 0xffffff, 0);
       scene.physics.add.existing(r, true);
       return r;
-    }
-
-    function criarCone(scene, x, y) {
-      const g = scene.add.graphics();
-      g.fillStyle(0xff8800, 1);
-      g.fillTriangle(x - 14, y + 14, x + 14, y + 14, x, y - 14);
-      g.lineStyle(2, 0xffffff);
-      g.strokeTriangle(x - 14, y + 14, x + 14, y + 14, x, y - 14);
-      const hit = scene.add.rectangle(x, y, 24, 24, 0xff8800, 0);
-      scene.physics.add.existing(hit, true);
-      return hit;
     }
 
     function criarTexturaCarro(scene, key, cor) {
@@ -539,12 +666,28 @@
     }
 
     function criarTexturaChama(scene, key) {
-      // Círculo branco com gradiente — a cor vem do "tint" das partículas
       const r = 16;
       const g = scene.add.graphics();
       g.fillStyle(0xffffff, 1);
       g.fillCircle(r, r, r);
       g.generateTexture(key, r * 2, r * 2);
+      g.destroy();
+    }
+
+    function criarTexturaPeixe(scene, key, cor) {
+      const w = 36, h = 20;
+      const g = scene.add.graphics();
+      // corpo
+      g.fillStyle(cor, 1);
+      g.fillEllipse(w/2 - 4, h/2, 24, 14);
+      // cauda
+      g.fillTriangle(w - 12, h/2, w, 2, w, h - 2);
+      // olho
+      g.fillStyle(0xffffff, 1);
+      g.fillCircle(8, h/2 - 1, 3);
+      g.fillStyle(0x000000, 1);
+      g.fillCircle(8, h/2 - 1, 1.5);
+      g.generateTexture(key, w, h);
       g.destroy();
     }
 
@@ -563,41 +706,24 @@
     function criarBotoesTouch(scene) {
       const temTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
       if (!temTouch) return;
-
-      const op = 0.35;
-      const t = 60;
-      const m = 16;
-
-      const esq = scene.add.circle(m + t, TELA_H - m - t, t, 0xffffff, op)
-        .setScrollFactor(0).setDepth(100).setInteractive();
-      const dir = scene.add.circle(m + t * 3 + 10, TELA_H - m - t, t, 0xffffff, op)
-        .setScrollFactor(0).setDepth(100).setInteractive();
-      const cima = scene.add.circle(TELA_W - m - t * 3 - 10, TELA_H - m - t, t, 0xff4f6f, op)
-        .setScrollFactor(0).setDepth(100).setInteractive();
-      const baixo = scene.add.circle(TELA_W - m - t, TELA_H - m - t, t, 0x4f9bff, op)
-        .setScrollFactor(0).setDepth(100).setInteractive();
-      // Botão turbo, em cima do acelerador
-      const turbo = scene.add.circle(TELA_W - m - t * 2 - 5, TELA_H - m - t * 2 - 30, t * 0.7, 0x4fdb9b, 0.6)
-        .setScrollFactor(0).setDepth(100).setInteractive();
-
+      const op = 0.35, t = 60, m = 16;
+      const esq = scene.add.circle(m + t, TELA_H - m - t, t, 0xffffff, op).setScrollFactor(0).setDepth(100).setInteractive();
+      const dir = scene.add.circle(m + t * 3 + 10, TELA_H - m - t, t, 0xffffff, op).setScrollFactor(0).setDepth(100).setInteractive();
+      const cima = scene.add.circle(TELA_W - m - t * 3 - 10, TELA_H - m - t, t, 0xff4f6f, op).setScrollFactor(0).setDepth(100).setInteractive();
+      const baixo = scene.add.circle(TELA_W - m - t, TELA_H - m - t, t, 0x4f9bff, op).setScrollFactor(0).setDepth(100).setInteractive();
+      const turbo = scene.add.circle(TELA_W - m - t * 2 - 5, TELA_H - m - t * 2 - 30, t * 0.7, 0x4fdb9b, 0.6).setScrollFactor(0).setDepth(100).setInteractive();
       const e = { fontSize: "28px", color: "#000" };
       scene.add.text(esq.x, esq.y, "◀", e).setOrigin(0.5).setScrollFactor(0).setDepth(101);
       scene.add.text(dir.x, dir.y, "▶", e).setOrigin(0.5).setScrollFactor(0).setDepth(101);
       scene.add.text(cima.x, cima.y, "▲", e).setOrigin(0.5).setScrollFactor(0).setDepth(101);
       scene.add.text(baixo.x, baixo.y, "▼", e).setOrigin(0.5).setScrollFactor(0).setDepth(101);
-      scene.add.text(turbo.x, turbo.y, "🚀", { fontSize: "24px" })
-        .setOrigin(0.5).setScrollFactor(0).setDepth(101);
-
-      const segura = (botao, key) => {
-        botao.on("pointerdown", () => botoes[key] = true);
-        botao.on("pointerup", () => botoes[key] = false);
-        botao.on("pointerout", () => botoes[key] = false);
+      scene.add.text(turbo.x, turbo.y, "🚀", { fontSize: "24px" }).setOrigin(0.5).setScrollFactor(0).setDepth(101);
+      const segura = (b, k) => {
+        b.on("pointerdown", () => botoes[k] = true);
+        b.on("pointerup", () => botoes[k] = false);
+        b.on("pointerout", () => botoes[k] = false);
       };
-      segura(esq, "esq");
-      segura(dir, "dir");
-      segura(cima, "cima");
-      segura(baixo, "baixo");
-      segura(turbo, "turbo");
+      segura(esq, "esq"); segura(dir, "dir"); segura(cima, "cima"); segura(baixo, "baixo"); segura(turbo, "turbo");
     }
   </script>
 </body>
