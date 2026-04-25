@@ -6,6 +6,17 @@
 
 import type * as Party from "partykit/server";
 
+type Equipado = {
+  veiculo: string | null;
+  capa: string | null;
+  chapeu: string | null;
+  rosto: string | null;
+  arma: string | null;
+  escudo: string | null;
+  pet: string | null;
+  petItem: string | null;
+};
+
 type Jogador = {
   id: string;
   nome: string;
@@ -17,8 +28,28 @@ type Jogador = {
   vx: number;         // pra interpolação no cliente
   vy: number;
   flipX: boolean;
+  equipado: Equipado;
   ultimoInput: number; // ms epoch — pra detectar idle
 };
+
+const EQUIPADO_VAZIO: Equipado = {
+  veiculo: null, capa: null, chapeu: null, rosto: null,
+  arma: null, escudo: null, pet: null, petItem: null,
+};
+
+function sanitizaEquipado(e: any): Equipado {
+  const limpa = (v: any) => (typeof v === 'string' && v.length > 0 && v.length < 32) ? v : null;
+  return {
+    veiculo: limpa(e?.veiculo),
+    capa: limpa(e?.capa),
+    chapeu: limpa(e?.chapeu),
+    rosto: limpa(e?.rosto),
+    arma: limpa(e?.arma),
+    escudo: limpa(e?.escudo),
+    pet: limpa(e?.pet),
+    petItem: limpa(e?.petItem),
+  };
+}
 
 type MsgIdentificar = {
   tipo: "identificar";
@@ -35,6 +66,7 @@ type MsgMover = {
   vx: number;
   vy: number;
   flipX: boolean;
+  equipado?: Equipado;
 };
 
 type MsgEntrada = MsgIdentificar | MsgMover;
@@ -63,6 +95,7 @@ export default class FlorestaServer implements Party.Server {
       vx: 0,
       vy: 0,
       flipX: false,
+      equipado: { ...EQUIPADO_VAZIO },
       ultimoInput: Date.now(),
     };
     this.jogadores.set(conn.id, novo);
@@ -101,6 +134,7 @@ export default class FlorestaServer implements Party.Server {
         j.vx = Number(data.vx) || 0;
         j.vy = Number(data.vy) || 0;
         j.flipX = !!data.flipX;
+        if (data.equipado) j.equipado = sanitizaEquipado(data.equipado);
         j.ultimoInput = Date.now();
       }
     }

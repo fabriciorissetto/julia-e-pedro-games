@@ -2220,50 +2220,218 @@
           sprite.ehSprite = false;
         }
         sprite.setDepth(9);
+
+        // corpo + pernas (asset Kenney) — escondidos por padrão, ligados em renderizarRemoto
+        const corpoSprite = scene.add.image(dados.x, dados.y + 9, 'body').setScale(0.55).setDepth(8).setVisible(false);
+        const pernaEsq = scene.add.image(dados.x - 4, dados.y + 16, 'leg').setScale(0.5).setOrigin(0.5, 0).setDepth(7).setVisible(false);
+        const pernaDir = scene.add.image(dados.x + 4, dados.y + 16, 'leg').setScale(0.5).setOrigin(0.5, 0).setDepth(7).setVisible(false);
+        pernaEsq.setFlipX(true);
+
+        // adornos via emoji-text
+        const mk = (size, depth) => scene.add.text(0, 0, '', { fontSize: size + 'px' }).setOrigin(0.5).setDepth(depth).setVisible(false);
+        const veiculoSprite = mk(20, 7);
+        const capaSprite = mk(16, 8);
+        const chapeuSprite = mk(15, 10);
+        const rostoSprite = mk(11, 10);
+        const armaSprite = scene.add.text(0, 0, '', { fontSize: '16px' }).setOrigin(0.5, 0.5).setDepth(10).setVisible(false);
+        const escudoSprite = mk(14, 10);
+        const petSprite = mk(20, 8);
+        const petAcessorioSprite = mk(12, 9);
+
         const nomeText = scene.add.text(dados.x, dados.y - 30, dados.nome || '', {
           fontSize: '12px', color: '#fff', fontStyle: 'bold',
           backgroundColor: '#0008', padding: { x: 4, y: 1 },
           fontFamily: 'Comic Sans MS, Trebuchet MS, cursive'
         }).setOrigin(0.5, 1).setDepth(11);
+
         obj = {
           sprite, nomeText,
+          corpoSprite, pernaEsq, pernaDir,
+          veiculoSprite, capaSprite, chapeuSprite, rostoSprite,
+          armaSprite, escudoSprite, petSprite, petAcessorioSprite,
+          petPos: null,
           alvoX: dados.x, alvoY: dados.y,
+          vx: dados.vx || 0, vy: dados.vy || 0,
           flipX: !!dados.flipX,
           nome: dados.nome || '',
           ehSprite: sprite.ehSprite,
+          spriteFrame: typeof dados.spriteFrame === 'number' ? dados.spriteFrame : null,
+          equipado: dados.equipado || {},
         };
         outrosJogadores.set(dados.id, obj);
       }
       obj.alvoX = Number.isFinite(dados.x) ? dados.x : obj.alvoX;
       obj.alvoY = Number.isFinite(dados.y) ? dados.y : obj.alvoY;
+      obj.vx = Number.isFinite(dados.vx) ? dados.vx : 0;
+      obj.vy = Number.isFinite(dados.vy) ? dados.vy : 0;
       obj.flipX = !!dados.flipX;
+      obj.equipado = dados.equipado || {};
       if (dados.nome && dados.nome !== obj.nome) {
         obj.nome = dados.nome;
         obj.nomeText.setText(dados.nome);
+      }
+      // troca de skin em tempo real (raro, mas ok)
+      if (obj.ehSprite && typeof dados.spriteFrame === 'number' && dados.spriteFrame !== obj.spriteFrame) {
+        try { obj.sprite.setFrame(dados.spriteFrame); obj.spriteFrame = dados.spriteFrame; } catch {}
       }
     }
 
     function destruirOutroJogador(id) {
       const obj = outrosJogadores.get(id);
       if (!obj) return;
-      try { obj.sprite.destroy(); } catch {}
-      try { obj.nomeText.destroy(); } catch {}
+      const chaves = [
+        'sprite','nomeText','corpoSprite','pernaEsq','pernaDir',
+        'veiculoSprite','capaSprite','chapeuSprite','rostoSprite',
+        'armaSprite','escudoSprite','petSprite','petAcessorioSprite'
+      ];
+      chaves.forEach(k => { try { if (obj[k]) obj[k].destroy(); } catch {} });
       outrosJogadores.delete(id);
     }
 
+    // Posiciona corpo+pernas+equipamentos do jogador remoto (espelha atualizarEquipamentosVisuais)
+    function renderizarRemoto(obj, time) {
+      const px = obj.sprite.x;
+      const py = obj.sprite.y;
+      const flip = obj.flipX ? -1 : 1;
+      const eq = obj.equipado || {};
+
+      // corpo + pernas (só se NÃO tem veículo)
+      const semVeic = !eq.veiculo;
+      if (semVeic) {
+        obj.corpoSprite.setVisible(true);
+        obj.pernaEsq.setVisible(true);
+        obj.pernaDir.setVisible(true);
+        obj.corpoSprite.x = px;
+        obj.corpoSprite.y = py + 9;
+        obj.corpoSprite.setFlipX(obj.flipX);
+        const andando = Math.abs(obj.vx) > 5 || Math.abs(obj.vy) > 5;
+        const fase = time / 110;
+        obj.pernaEsq.x = px - 4; obj.pernaEsq.y = py + 16;
+        obj.pernaEsq.setRotation(andando ? Math.sin(fase) * 0.45 : 0);
+        obj.pernaDir.x = px + 4; obj.pernaDir.y = py + 16;
+        obj.pernaDir.setRotation(andando ? Math.sin(fase + Math.PI) * 0.45 : 0);
+      } else {
+        obj.corpoSprite.setVisible(false);
+        obj.pernaEsq.setVisible(false);
+        obj.pernaDir.setVisible(false);
+      }
+
+      const cat = (k) => (k && CATALOGO[k]) ? CATALOGO[k] : null;
+
+      // veículo
+      const veic = cat(eq.veiculo);
+      if (veic) {
+        obj.veiculoSprite.setText(veic.emoji);
+        obj.veiculoSprite.setVisible(true);
+        if (veic.aereo) {
+          obj.veiculoSprite.setFontSize('38px');
+          obj.veiculoSprite.x = px;
+          obj.veiculoSprite.y = py + 4 + Math.sin(time/280)*3;
+        } else {
+          obj.veiculoSprite.setFontSize('20px');
+          obj.veiculoSprite.x = px;
+          obj.veiculoSprite.y = py + 18;
+        }
+        obj.veiculoSprite.setScale(obj.flipX ? -1 : 1, 1);
+      } else obj.veiculoSprite.setVisible(false);
+
+      // capa
+      const cp = cat(eq.capa);
+      if (cp) {
+        obj.capaSprite.setText(cp.emoji);
+        obj.capaSprite.setVisible(true);
+        obj.capaSprite.x = px - 8 * flip;
+        obj.capaSprite.y = py + 2;
+      } else obj.capaSprite.setVisible(false);
+
+      // chapéu
+      const ch = cat(eq.chapeu);
+      if (ch) {
+        obj.chapeuSprite.setText(ch.emoji);
+        obj.chapeuSprite.setVisible(true);
+        obj.chapeuSprite.x = px;
+        obj.chapeuSprite.y = py - 17;
+      } else obj.chapeuSprite.setVisible(false);
+
+      // rosto
+      const ro = cat(eq.rosto);
+      if (ro) {
+        obj.rostoSprite.setText(ro.emoji);
+        obj.rostoSprite.setVisible(true);
+        obj.rostoSprite.x = px;
+        obj.rostoSprite.y = py - 8;
+      } else obj.rostoSprite.setVisible(false);
+
+      // arma
+      const ar = cat(eq.arma);
+      if (ar) {
+        obj.armaSprite.setText(ar.emoji);
+        obj.armaSprite.setVisible(true);
+        obj.armaSprite.setRotation(0);
+        obj.armaSprite.x = px + 14 * flip;
+        obj.armaSprite.y = py + 6 + Math.sin(time/180)*1.2;
+        obj.armaSprite.setScale(obj.flipX ? -1 : 1, 1);
+      } else obj.armaSprite.setVisible(false);
+
+      // escudo
+      const es = cat(eq.escudo);
+      if (es) {
+        obj.escudoSprite.setText(es.emoji);
+        obj.escudoSprite.setVisible(true);
+        obj.escudoSprite.x = px - 14 * flip;
+        obj.escudoSprite.y = py + 6;
+      } else obj.escudoSprite.setVisible(false);
+
+      // pet com follow suave
+      const pet = cat(eq.pet);
+      if (pet) {
+        obj.petSprite.setText(pet.emoji);
+        obj.petSprite.setVisible(true);
+        const alvoX = px - 30 * flip;
+        const alvoY = py + 14;
+        if (!obj.petPos) obj.petPos = { x: alvoX, y: alvoY };
+        obj.petPos.x += (alvoX - obj.petPos.x) * 0.08;
+        obj.petPos.y += (alvoY - obj.petPos.y) * 0.08;
+        obj.petSprite.x = obj.petPos.x;
+        obj.petSprite.y = obj.petPos.y + Math.sin(time/200)*2;
+
+        const acc = cat(eq.petItem);
+        if (acc) {
+          obj.petAcessorioSprite.setText(acc.emoji);
+          obj.petAcessorioSprite.setVisible(true);
+          obj.petAcessorioSprite.x = obj.petSprite.x;
+          obj.petAcessorioSprite.y = obj.petSprite.y - 14;
+        } else obj.petAcessorioSprite.setVisible(false);
+      } else {
+        obj.petSprite.setVisible(false);
+        obj.petAcessorioSprite.setVisible(false);
+      }
+    }
+
     function tickMultiplayer(time) {
-      if (!ws || ws.readyState !== WebSocket.OPEN || !player) return;
-      if (time - ultimoEnvioMs < ENVIO_INTERVALO_MS) return;
-      ultimoEnvioMs = time;
-      ws.send(JSON.stringify({
-        tipo: 'mover',
-        x: player.x,
-        y: player.y,
-        vx: player.body ? player.body.velocity.x : 0,
-        vy: player.body ? player.body.velocity.y : 0,
-        flipX: !!player.flipX,
-      }));
-      // interpola sprites dos outros suavemente
+      if (!ws || !player) return;
+      if (ws.readyState === WebSocket.OPEN && time - ultimoEnvioMs >= ENVIO_INTERVALO_MS) {
+        ultimoEnvioMs = time;
+        ws.send(JSON.stringify({
+          tipo: 'mover',
+          x: player.x,
+          y: player.y,
+          vx: player.body ? player.body.velocity.x : 0,
+          vy: player.body ? player.body.velocity.y : 0,
+          flipX: !!player.flipX,
+          equipado: {
+            veiculo: inv.equipado.veiculo || null,
+            capa: inv.equipado.capa || null,
+            chapeu: inv.equipado.chapeu || null,
+            rosto: inv.equipado.rosto || null,
+            arma: inv.equipado.arma || null,
+            escudo: inv.equipado.escudo || null,
+            pet: inv.equipado.pet || null,
+            petItem: inv.equipado.petItem || null,
+          },
+        }));
+      }
+      // interpola e renderiza adornos sempre (mesmo sem ter enviado)
       const lerp = 0.28;
       outrosJogadores.forEach(obj => {
         const s = obj.sprite;
@@ -2272,6 +2440,7 @@
         if (obj.ehSprite && typeof s.setFlipX === 'function') s.setFlipX(obj.flipX);
         obj.nomeText.x = s.x;
         obj.nomeText.y = s.y - 30;
+        renderizarRemoto(obj, time);
       });
     }
 
