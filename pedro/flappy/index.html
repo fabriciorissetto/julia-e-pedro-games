@@ -1112,7 +1112,7 @@
     // ============================================
     function mostrarLoja(scene) {
       estado = "loja";
-      if (telaLoja) telaLoja.destroy();
+      if (telaLoja) fecharLoja(scene);
       telaLoja = scene.add.container(0, 0).setDepth(30);
 
       const fundo = scene.add.rectangle(TELA_W / 2, TELA_H / 2, TELA_W, TELA_H, 0x000000, 0.7);
@@ -1150,9 +1150,46 @@
       criarAba("👕 SKINS", "skins", TELA_W / 2 - 75, abaLojaAtual === "skins");
       criarAba("⚡ HABILIDADES", "habilidades", TELA_W / 2 + 75, abaLojaAtual === "habilidades");
 
+      // ===== Viewport scrollável =====
+      const viewportY = 115;
+      const viewportH = TELA_H - viewportY - 60;
+      const mask = scene.make.graphics({ x: 0, y: 0, add: false });
+      mask.fillStyle(0xffffff);
+      mask.fillRect(0, viewportY, TELA_W, viewportH);
+      const scrollable = scene.add.container(0, 0);
+      scrollable.setMask(mask.createGeometryMask());
+      telaLoja.add(scrollable);
+      telaLoja.dataScrollable = scrollable;
+      telaLoja.dataScrollY = 0;
+      telaLoja.dataScrollMax = 0;
+
       // ===== Conteúdo conforme aba =====
-      if (abaLojaAtual === "skins") renderSkinsLoja(scene);
-      else renderHabilidadesLoja(scene);
+      if (abaLojaAtual === "skins") renderSkinsLoja(scene, scrollable);
+      else renderHabilidadesLoja(scene, scrollable);
+
+      // === Scroll: mouse wheel + drag ===
+      const aplicarScroll = (dy) => {
+        telaLoja.dataScrollY = Phaser.Math.Clamp(telaLoja.dataScrollY + dy, -telaLoja.dataScrollMax, 0);
+        scrollable.y = telaLoja.dataScrollY;
+      };
+      const wheelHandler = (e) => {
+        if (!telaLoja) return;
+        // dy positivo = roda pra baixo → scroll pra baixo (subtrai do y)
+        aplicarScroll(-e.deltaY);
+        e.preventDefault();
+      };
+      window.addEventListener("wheel", wheelHandler, { passive: false });
+      telaLoja.dataWheelHandler = wheelHandler;
+
+      // Drag (mobile/touch)
+      let arrastando = false, ultY = 0;
+      const lojaPdown = (p) => { if (telaLoja && p.y > viewportY && p.y < viewportY + viewportH) { arrastando = true; ultY = p.y; } };
+      const lojaPmove = (p) => { if (arrastando && telaLoja) { aplicarScroll(p.y - ultY); ultY = p.y; } };
+      const lojaPup = () => { arrastando = false; };
+      scene.input.on("pointerdown", lojaPdown);
+      scene.input.on("pointermove", lojaPmove);
+      scene.input.on("pointerup", lojaPup);
+      telaLoja.dataInputHandlers = { down: lojaPdown, move: lojaPmove, up: lojaPup };
 
       // Botão voltar
       const btnVoltar = scene.add.rectangle(TELA_W / 2, TELA_H - 30, 160, 38, 0x4f9bff, 1)
@@ -1162,8 +1199,7 @@
       }).setOrigin(0.5);
       btnVoltar.on("pointerdown", () => {
         scene.sound.play("ponto", { volume: 0.4 });
-        telaLoja.destroy();
-        telaLoja = null;
+        fecharLoja(scene);
         aplicarSkinNoBird(scene);
         mostrarMenu(scene);
       });
@@ -1171,7 +1207,22 @@
       telaLoja.add(txtVoltar);
     }
 
-    function renderSkinsLoja(scene) {
+    function fecharLoja(scene) {
+      if (!telaLoja) return;
+      if (telaLoja.dataWheelHandler) {
+        window.removeEventListener("wheel", telaLoja.dataWheelHandler);
+      }
+      if (telaLoja.dataInputHandlers) {
+        const h = telaLoja.dataInputHandlers;
+        scene.input.off("pointerdown", h.down);
+        scene.input.off("pointermove", h.move);
+        scene.input.off("pointerup", h.up);
+      }
+      telaLoja.destroy();
+      telaLoja = null;
+    }
+
+    function renderSkinsLoja(scene, scrollable) {
       const startY = 135;
       const itemH = 60;
       const desbloqueadas = carregarSkinsDesbloqueadas();
@@ -1182,19 +1233,19 @@
         const y = startY + i * itemH;
         const card = scene.add.rectangle(TELA_W / 2, y, 370, itemH - 8, 0x222244, 0.95)
           .setStrokeStyle(2, 0xffffff);
-        telaLoja.add(card);
+        scrollable.add(card);
 
         const baseS = getSkinBase(s);
         const ic = scene.add.sprite(TELA_W / 2 - 150, y, `skin_${baseS.slug}`);
         ic.setScale((s.escala || baseS.escala) * 0.7);
         if (baseS.frames > 1) ic.play(`anim_${baseS.slug}`);
         if (s.tint) ic.setTint(s.tint);
-        telaLoja.add(ic);
+        scrollable.add(ic);
 
         const txtNome = scene.add.text(TELA_W / 2 - 100, y - 8, s.nome, {
           fontSize: "14px", color: "#ffffff", fontStyle: "bold",
         }).setOrigin(0, 0.5);
-        telaLoja.add(txtNome);
+        scrollable.add(txtNome);
 
         const possui = skinsCompradas.includes(s.slug);
         const equipada = skinAtual === s.slug;
@@ -1206,7 +1257,7 @@
         const txtStatus = scene.add.text(TELA_W / 2 + 110, y, textoStatus, {
           fontSize: "14px", color: corStatus, fontStyle: "bold",
         }).setOrigin(0.5);
-        telaLoja.add(txtStatus);
+        scrollable.add(txtStatus);
 
         card.setInteractive();
         card.on("pointerdown", () => {
@@ -1215,7 +1266,6 @@
             skinAtual = s.slug;
             salvarSkinAtual(skinAtual);
             scene.sound.play("comprar", { volume: 0.5 });
-            telaLoja.destroy(); telaLoja = null;
             mostrarLoja(scene);
           } else if (pontosTotal >= s.custo) {
             pontosTotal -= s.custo;
@@ -1225,7 +1275,6 @@
             skinAtual = s.slug;
             salvarSkinAtual(skinAtual);
             scene.sound.play("comprar", { volume: 0.6 });
-            telaLoja.destroy(); telaLoja = null;
             mostrarLoja(scene);
           } else {
             scene.sound.play("erro", { volume: 0.5 });
@@ -1233,32 +1282,36 @@
           }
         });
       });
+      // Calcula scrollMax
+      const totalH = startY + compraveis.length * itemH + 20;
+      const viewportH = TELA_H - 115 - 60;
+      telaLoja.dataScrollMax = Math.max(0, totalH - 115 - viewportH);
     }
 
-    function renderHabilidadesLoja(scene) {
+    function renderHabilidadesLoja(scene, scrollable) {
       const startY = 145;
       const itemH = 100;
       HABILIDADES.forEach((h, i) => {
         const y = startY + i * itemH;
         const card = scene.add.rectangle(TELA_W / 2, y, 370, itemH - 12, 0x2a2a4f, 0.95)
           .setStrokeStyle(2, 0xfff04f);
-        telaLoja.add(card);
+        scrollable.add(card);
 
         const txtIcone = scene.add.text(TELA_W / 2 - 150, y, "💥", {
           fontSize: "32px",
         }).setOrigin(0.5);
-        telaLoja.add(txtIcone);
+        scrollable.add(txtIcone);
 
         const txtNome = scene.add.text(TELA_W / 2 - 100, y - 22, h.nome, {
           fontSize: "16px", color: "#fff04f", fontStyle: "bold",
         }).setOrigin(0, 0.5);
-        telaLoja.add(txtNome);
+        scrollable.add(txtNome);
 
         const txtDesc = scene.add.text(TELA_W / 2 - 100, y + 8, h.descricao, {
           fontSize: "11px", color: "#ffffff",
           wordWrap: { width: 240 },
         }).setOrigin(0, 0.5);
-        telaLoja.add(txtDesc);
+        scrollable.add(txtDesc);
 
         const possui = temHabilidade(h.slug);
         let textoStatus, corStatus;
@@ -1268,7 +1321,7 @@
         const txtStatus = scene.add.text(TELA_W / 2 + 110, y - 25, textoStatus, {
           fontSize: "14px", color: corStatus, fontStyle: "bold",
         }).setOrigin(0.5);
-        telaLoja.add(txtStatus);
+        scrollable.add(txtStatus);
 
         if (!possui) {
           card.setInteractive();
@@ -1280,7 +1333,6 @@
               habs.push(h.slug);
               salvarHabilidades(habs);
               scene.sound.play("comprar", { volume: 0.6 });
-              telaLoja.destroy(); telaLoja = null;
               mostrarLoja(scene);
             } else {
               scene.sound.play("erro", { volume: 0.5 });
@@ -1289,6 +1341,9 @@
           });
         }
       });
+      const totalH = startY + HABILIDADES.length * itemH + 20;
+      const viewportH = TELA_H - 115 - 60;
+      telaLoja.dataScrollMax = Math.max(0, totalH - 115 - viewportH);
     }
 
     // ============================================
