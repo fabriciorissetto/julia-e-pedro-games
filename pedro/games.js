@@ -27,4 +27,11 @@ window.GAMES = [
     color: "#4fa8db",
     description: "Passa pelos canos sem bater"
   },
+  {
+    slug: "silence",
+    title: "[FPS] silence",
+    emoji: "🔫",
+    color: "#9b4fff",
+    description: "Arena 10 jogadores. Skins, loja, power-ups."
+  },
 ];

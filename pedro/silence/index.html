@@ -1,0 +1,1515 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<title>[FPS] silence</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: #0a0e14;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+    color: #e6f1ff;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #game { position: absolute; inset: 0; }
+
+  .overlay {
+    position: fixed; inset: 0;
+    background: linear-gradient(180deg, #0a0e14 0%, #0f1825 100%);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    overflow-y: auto;
+    z-index: 10;
+  }
+  .overlay.show { display: flex; }
+
+  .title {
+    font-size: clamp(32px, 6vw, 56px);
+    font-weight: 900;
+    letter-spacing: 4px;
+    color: #4f9bff;
+    text-shadow: 0 0 20px rgba(79,155,255,0.6);
+    margin: 20px 0 10px;
+  }
+  .subtitle {
+    font-size: clamp(14px, 2.5vw, 18px);
+    color: #8aa2c2;
+    margin-bottom: 20px;
+  }
+
+  .btn {
+    background: linear-gradient(135deg, #4f9bff, #2d7ad6);
+    color: white;
+    border: none;
+    padding: 14px 28px;
+    border-radius: 12px;
+    font-size: 18px;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 1px;
+    box-shadow: 0 4px 14px rgba(79,155,255,0.3);
+    transition: transform 0.1s, box-shadow 0.1s;
+    margin: 6px;
+  }
+  .btn:active { transform: scale(0.96); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn.green { background: linear-gradient(135deg, #4fdb9b, #2da973); }
+  .btn.red   { background: linear-gradient(135deg, #ff4f6f, #d62d4d); }
+  .btn.purple{ background: linear-gradient(135deg, #9b4fff, #722dd6); }
+  .btn.gray  { background: linear-gradient(135deg, #4a5468, #2d3447); }
+
+  /* ------- Pre-game (nickname + skin) ------- */
+  .input-nick {
+    background: #1a2230;
+    border: 2px solid #4f9bff;
+    color: white;
+    padding: 14px;
+    font-size: 22px;
+    border-radius: 10px;
+    text-align: center;
+    width: 280px;
+    max-width: 90vw;
+    letter-spacing: 2px;
+    margin: 10px;
+  }
+  .input-nick:focus { outline: none; border-color: #4fdb9b; }
+
+  .skins-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+    gap: 8px;
+    width: 100%;
+    max-width: 720px;
+    margin: 14px 0;
+  }
+  .skin-cell {
+    aspect-ratio: 1;
+    background: #1a2230;
+    border: 3px solid transparent;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 36px;
+    cursor: pointer;
+    transition: transform 0.1s, border-color 0.1s;
+    position: relative;
+  }
+  .skin-cell:hover { transform: scale(1.05); }
+  .skin-cell.selected { border-color: #4fdb9b; box-shadow: 0 0 14px rgba(79,219,155,0.5); }
+  .skin-cell.locked { opacity: 0.35; cursor: not-allowed; }
+  .skin-cell .lock-tag {
+    position: absolute; bottom: 2px; right: 4px;
+    font-size: 10px; background: #000a; padding: 2px 4px; border-radius: 4px;
+    color: #ffd84f;
+  }
+
+  .preview-card {
+    background: #131b29;
+    padding: 16px 24px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin: 8px 0;
+    border: 1px solid #2d3447;
+  }
+  .preview-emoji {
+    font-size: 48px;
+    width: 64px; height: 64px;
+    display: flex; align-items: center; justify-content: center;
+    background: #4f9bff33;
+    border-radius: 50%;
+  }
+  .preview-nick {
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+
+  /* ------- Main menu ------- */
+  .menu-stats {
+    display: flex; gap: 14px; flex-wrap: wrap;
+    justify-content: center;
+    margin: 16px 0;
+  }
+  .stat-pill {
+    background: #131b29;
+    padding: 10px 18px;
+    border-radius: 999px;
+    font-size: 16px;
+    border: 1px solid #2d3447;
+  }
+  .stat-pill.lvl { cursor: pointer; border-color: #ffd84f; color: #ffd84f; }
+  .stat-pill .label { color: #8aa2c2; margin-right: 6px; font-size: 13px; }
+  .stat-pill .value { font-weight: 700; }
+
+  .menu-buttons { display: flex; flex-direction: column; gap: 8px; margin-top: 20px; }
+
+  /* ------- Shop / Powerups / Levels ------- */
+  .tabs { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; justify-content: center; }
+  .tab {
+    background: #1a2230;
+    color: #8aa2c2;
+    padding: 10px 18px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    border: 1px solid #2d3447;
+  }
+  .tab.active { background: #4f9bff; color: white; border-color: #4f9bff; }
+
+  .item-card {
+    background: #131b29;
+    border: 1px solid #2d3447;
+    padding: 14px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin: 8px 0;
+    width: 100%;
+    max-width: 520px;
+  }
+  .item-icon {
+    font-size: 38px;
+    width: 56px; height: 56px;
+    display: flex; align-items: center; justify-content: center;
+    background: #0a0e14;
+    border-radius: 10px;
+    flex-shrink: 0;
+  }
+  .item-info { flex: 1; }
+  .item-name { font-size: 18px; font-weight: 700; }
+  .item-desc { font-size: 13px; color: #8aa2c2; margin-top: 3px; }
+  .item-cost { font-size: 14px; color: #ffd84f; margin-top: 4px; font-weight: 700; }
+
+  .level-row {
+    background: #131b29;
+    border: 1px solid #2d3447;
+    padding: 12px 14px;
+    border-radius: 10px;
+    display: flex; align-items: center; gap: 12px;
+    margin: 5px 0;
+    width: 100%;
+    max-width: 520px;
+  }
+  .level-row.unlocked { border-color: #4fdb9b; }
+  .level-row.current  { border-color: #ffd84f; background: #1c2230; }
+  .level-row .lvl-num {
+    width: 44px; height: 44px;
+    background: #0a0e14;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 18px;
+    flex-shrink: 0;
+  }
+  .level-row .lvl-reward { flex: 1; font-size: 15px; }
+  .level-row .lvl-status { font-size: 13px; color: #8aa2c2; }
+
+  /* ------- HUD ------- */
+  #ui-hud {
+    position: fixed; inset: 0;
+    pointer-events: none;
+    z-index: 5;
+    display: none;
+  }
+  #ui-hud.show { display: block; }
+  .hud-top-left {
+    position: absolute; top: 12px; left: 12px;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .hud-pill {
+    background: #0a0e14cc;
+    border: 1px solid #2d3447;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 14px;
+    color: #e6f1ff;
+  }
+  .hud-pill .label { color: #8aa2c2; margin-right: 6px; font-size: 12px; }
+  .hp-bar {
+    width: 200px; height: 14px;
+    background: #2d3447;
+    border-radius: 7px;
+    overflow: hidden;
+    margin-top: 4px;
+  }
+  .hp-bar > div {
+    height: 100%; background: #4fdb9b;
+    transition: width 0.1s, background 0.2s;
+  }
+
+  #ui-killfeed {
+    position: fixed;
+    top: 12px; left: 50%;
+    transform: translateX(-50%);
+    z-index: 6;
+    pointer-events: none;
+    display: flex; flex-direction: column;
+    gap: 4px;
+    align-items: center;
+  }
+  .kill-msg {
+    background: #0a0e14e0;
+    border: 1px solid #4f9bff;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 14px;
+    animation: kill-fade 4s forwards;
+  }
+  @keyframes kill-fade {
+    0% { opacity: 0; transform: translateY(-8px); }
+    8% { opacity: 1; transform: translateY(0); }
+    80% { opacity: 1; }
+    100% { opacity: 0; transform: translateY(-4px); }
+  }
+
+  /* ------- Mobile controls ------- */
+  #ui-mobile {
+    position: fixed; inset: 0;
+    pointer-events: none;
+    z-index: 6;
+    display: none;
+  }
+  #ui-mobile.show { display: block; }
+
+  .joystick {
+    position: absolute;
+    bottom: 24px; left: 24px;
+    width: 130px; height: 130px;
+    background: #0a0e1480;
+    border: 2px solid #4f9bff80;
+    border-radius: 50%;
+    pointer-events: auto;
+  }
+  .joystick .knob {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 50px; height: 50px;
+    background: #4f9bff;
+    border-radius: 50%;
+    pointer-events: none;
+  }
+
+  .mob-btn {
+    position: absolute;
+    width: 70px; height: 70px;
+    background: #0a0e14cc;
+    border: 2px solid #4f9bff;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column;
+    font-weight: 700;
+    font-size: 12px;
+    pointer-events: auto;
+    color: white;
+  }
+  .mob-btn .icon { font-size: 22px; }
+  .mob-btn:disabled, .mob-btn.cd {
+    opacity: 0.5; border-color: #4a5468;
+  }
+  .mob-btn .count { font-size: 10px; color: #ffd84f; }
+  .mob-fire   { bottom: 30px;  right: 30px; width: 90px; height: 90px; background: #ff4f6f; border-color: #ff4f6f; }
+  .mob-shield { bottom: 130px; right: 30px; }
+  .mob-mirror { bottom: 30px;  right: 130px; }
+  .mob-dash   { bottom: 130px; right: 130px; background: #4fdb9b; border-color: #4fdb9b; }
+
+  /* ------- Results ------- */
+  .results-card {
+    background: #131b29;
+    border: 1px solid #2d3447;
+    border-radius: 16px;
+    padding: 24px;
+    width: 100%; max-width: 480px;
+    margin-top: 20px;
+  }
+  .results-row {
+    display: flex; justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid #2d3447;
+    font-size: 16px;
+  }
+  .results-row:last-child { border-bottom: none; }
+  .results-row .v { font-weight: 700; color: #4fdb9b; }
+
+  .scoreboard-row {
+    display: flex; align-items: center; gap: 10px;
+    background: #131b29;
+    padding: 8px 12px;
+    border-radius: 8px;
+    margin: 3px 0;
+    border-left: 3px solid #2d3447;
+  }
+  .scoreboard-row.you { border-left-color: #4fdb9b; }
+  .scoreboard-row .e { font-size: 22px; }
+  .scoreboard-row .n { flex: 1; font-weight: 600; }
+  .scoreboard-row .k { color: #ffd84f; font-weight: 700; }
+
+  .top-bar {
+    width: 100%; max-width: 720px;
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 0 8px;
+    margin-bottom: 10px;
+  }
+
+  .small { font-size: 13px; color: #8aa2c2; }
+
+  .toast {
+    position: fixed;
+    bottom: 30px; left: 50%; transform: translateX(-50%);
+    background: #131b29;
+    border: 1px solid #4f9bff;
+    padding: 10px 18px;
+    border-radius: 10px;
+    z-index: 100;
+    animation: toast-fade 2.4s forwards;
+  }
+  @keyframes toast-fade {
+    0% { opacity: 0; transform: translate(-50%, 8px); }
+    10%, 90% { opacity: 1; transform: translate(-50%, 0); }
+    100% { opacity: 0; }
+  }
+</style>
+</head>
+<body>
+
+<div id="game"></div>
+
+<!-- HUD em jogo -->
+<div id="ui-hud">
+  <div class="hud-top-left">
+    <div class="hud-pill"><span class="label">HP</span><span id="hud-hp">100</span>
+      <div class="hp-bar"><div id="hud-hp-fill" style="width:100%"></div></div>
+    </div>
+    <div class="hud-pill"><span class="label">Arma</span><span id="hud-weapon">Pistola</span></div>
+    <div class="hud-pill"><span class="label">Kills</span><span id="hud-kills">0</span> / <span id="hud-alive">10</span></div>
+  </div>
+</div>
+
+<div id="ui-killfeed"></div>
+
+<!-- Controles mobile -->
+<div id="ui-mobile">
+  <div id="joystick" class="joystick"><div class="knob"></div></div>
+  <button class="mob-btn mob-fire"   id="mob-fire"><span class="icon">🔫</span></button>
+  <button class="mob-btn mob-shield" id="mob-shield"><span class="icon">🛡️</span><span class="count" id="mob-shield-c">0</span></button>
+  <button class="mob-btn mob-mirror" id="mob-mirror"><span class="icon">🪞</span><span class="count" id="mob-mirror-c">0</span></button>
+  <button class="mob-btn mob-dash"   id="mob-dash"><span class="icon">💨</span><span class="count" id="mob-dash-c">3s</span></button>
+</div>
+
+<!-- Tela: Pre-game (nickname + skin) -->
+<div id="ui-pre-game" class="overlay">
+  <div class="title">[FPS] silence</div>
+  <div class="subtitle">Escolhe seu nick e seu personagem</div>
+
+  <div class="preview-card">
+    <div class="preview-emoji" id="preview-emoji">🥷</div>
+    <div>
+      <div class="preview-nick" id="preview-nick">SEU_NICK</div>
+      <div class="small">É assim que você vai aparecer no jogo</div>
+    </div>
+  </div>
+
+  <input class="input-nick" id="nick-input" maxlength="20" placeholder="seu nick (3-20 letras)" />
+
+  <div class="small" style="margin-bottom:8px;">Toca num personagem pra escolher · 🔒 desbloqueia subindo de nível</div>
+  <div class="skins-grid" id="skins-grid"></div>
+
+  <button class="btn green" id="btn-confirm-pregame">Salvar e ir pro menu</button>
+</div>
+
+<!-- Tela: Menu principal -->
+<div id="ui-menu" class="overlay">
+  <div class="title">[FPS] silence</div>
+
+  <div class="preview-card">
+    <div class="preview-emoji" id="menu-skin-emoji">🥷</div>
+    <div>
+      <div class="preview-nick" id="menu-nick">PEDRO</div>
+      <div class="small" id="menu-weapon-info">Arma: Pistola</div>
+    </div>
+  </div>
+
+  <div class="menu-stats">
+    <div class="stat-pill lvl" id="menu-level"><span class="label">Nível</span><span class="value" id="menu-level-v">1</span></div>
+    <div class="stat-pill"><span class="label">Pontos</span><span class="value" id="menu-points">0</span></div>
+    <div class="stat-pill"><span class="label">Kills totais</span><span class="value" id="menu-totalkills">0</span></div>
+  </div>
+
+  <div class="menu-buttons">
+    <button class="btn green"  id="btn-play">▶ JOGAR</button>
+    <button class="btn"        id="btn-shop">🛒 Loja de armas</button>
+    <button class="btn purple" id="btn-powerups">⚡ Power-ups</button>
+    <button class="btn gray"   id="btn-edit-profile">✏️ Mudar nick / skin</button>
+  </div>
+</div>
+
+<!-- Tela: Loja -->
+<div id="ui-shop" class="overlay">
+  <div class="top-bar">
+    <button class="btn gray" id="shop-back">⬅ Voltar</button>
+    <div class="stat-pill"><span class="label">Pontos</span><span class="value" id="shop-points">0</span></div>
+  </div>
+  <div class="title" style="font-size:30px;">Loja de Armas</div>
+  <div class="subtitle">Compra com pontos. Skins de arma vêm de subir de nível.</div>
+  <div id="shop-list"></div>
+</div>
+
+<!-- Tela: Power-ups -->
+<div id="ui-powerups" class="overlay">
+  <div class="top-bar">
+    <button class="btn gray" id="pwr-back">⬅ Voltar</button>
+    <div class="stat-pill"><span class="label">Pontos</span><span class="value" id="pwr-points">0</span></div>
+  </div>
+  <div class="title" style="font-size:30px;">Power-ups</div>
+  <div class="subtitle">Você compra e equipa antes da partida. Usa no jogo com B / N / V (ou os botões no celular).</div>
+  <div id="pwr-list"></div>
+</div>
+
+<!-- Tela: Recompensas de nível -->
+<div id="ui-levels" class="overlay">
+  <div class="top-bar">
+    <button class="btn gray" id="lvl-back">⬅ Voltar</button>
+    <div class="stat-pill"><span class="label">Nível</span><span class="value" id="lvl-current">1</span></div>
+  </div>
+  <div class="title" style="font-size:30px;">Recompensas</div>
+  <div class="subtitle">A cada 5 kills você sobe 1 nível e desbloqueia uma skin.</div>
+  <div id="lvl-list"></div>
+</div>
+
+<!-- Tela: Resultados -->
+<div id="ui-results" class="overlay">
+  <div class="title" id="results-title">Fim de partida</div>
+  <div class="results-card">
+    <div class="results-row"><span>Suas kills</span><span class="v" id="r-kills">0</span></div>
+    <div class="results-row"><span>Pontos ganhos</span><span class="v" id="r-points">0</span></div>
+    <div class="results-row"><span>Nível</span><span class="v" id="r-level">1</span></div>
+    <div class="results-row"><span>Total acumulado</span><span class="v" id="r-total">0</span></div>
+  </div>
+  <div style="margin:14px 0; width: 100%; max-width:480px;">
+    <div class="small" style="margin-bottom:6px;">Placar da partida</div>
+    <div id="r-scoreboard"></div>
+  </div>
+  <div style="display:flex; gap:8px;">
+    <button class="btn gray" id="r-menu">Menu</button>
+    <button class="btn green" id="r-again">Jogar de novo</button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+<script>
+'use strict';
+
+// =====================================================================
+// CONFIGURAÇÃO DO JOGO
+// =====================================================================
+
+// 50 skins (emojis) — cada uma é um personagem único
+const SKINS = [
+  '🥷','🤖','👽','👻','💀','🧟','🧛','🦸','🦹','🧙',
+  '🐱','🐶','🦊','🐻','🐼','🐯','🐸','🐵','🐰','🦄',
+  '🐺','🐲','🦖','🦕','🐙','🦑','🦐','🦀','🐠','🦈',
+  '🐳','🦓','🦒','🐘','🦏','🦛','🐗','🐃','🦬','🦌',
+  '🍕','🌭','🍔','🍟','🍩','🍪','🌮','🍦','🍓','🥑'
+];
+
+// Armas — pistola é grátis, resto se compra
+const WEAPONS = {
+  pistol:   { name: 'Pistola',    icon: '🔫', dmg: 25, rate: 320, speed: 600, spread: 0.04, cost: 0,    desc: 'Padrão. Sólida.' },
+  smg:      { name: 'SMG',        icon: '🔪', dmg: 14, rate: 90,  speed: 700, spread: 0.10, cost: 200,  desc: 'Cadência muito rápida.' },
+  shotgun:  { name: 'Escopeta',   icon: '💥', dmg: 16, rate: 700, speed: 550, spread: 0.20, cost: 350,  desc: 'Atira 5 chumbinhos.', pellets: 5 },
+  rifle:    { name: 'Rifle',      icon: '🎯', dmg: 45, rate: 600, speed: 800, spread: 0.02, cost: 500,  desc: 'Precisão e dano.' },
+  sniper:   { name: 'Sniper',     icon: '🔭', dmg: 100, rate: 1300, speed: 1100, spread: 0.0, cost: 800, desc: 'Mata em 1 tiro.' },
+  minigun:  { name: 'Minigun',    icon: '⚙️', dmg: 11, rate: 55,  speed: 750, spread: 0.13, cost: 1500, desc: 'Cospe balas sem parar.' },
+};
+
+// Power-ups
+const POWERUPS = {
+  shield: { name: 'Escudo',  icon: '🛡️', cost: 50, uses: 3,        desc: 'Bloqueia 1 tiro. 3 usos por partida. Tecla B.' },
+  mirror: { name: 'Espelho', icon: '🪞', cost: 70, uses: 2,        desc: 'Quem te acertar morre. 2 usos por partida. Tecla N.' },
+  dash:   { name: 'Dash',    icon: '💨', cost: 10, uses: Infinity, desc: 'Esquiva rápida. Cooldown 3s. Tecla V (ou Espaço).' },
+};
+
+// Configurações da partida
+const ARENA_W = 1800;
+const ARENA_H = 1200;
+const TOTAL_PLAYERS = 10;     // 1 humano + 9 bots
+const PLAYER_SPEED = 220;
+const BOT_SPEED = 180;
+const PLAYER_HP = 100;
+const RESPAWN_DISABLED = true; // FFA até morrer; última pessoa de pé vence
+const POINTS_PER_KILL = 25;
+const KILLS_PER_LEVEL = 5;
+
+// Nomes pros bots (pra parecer outros jogadores)
+const BOT_NAMES = [
+  'Sombra','Trovao','Phantom','Lince','Vortex','Golem','Falcao','Vipera','Onix','Krypto',
+  'Zenit','Magnus','Zaron','Nyx','Astra','Orion','Yago','Kael','Drix','Volk',
+  'Renji','Tora','Dax','Brisa','Cinza','Atlas','Mirage','Glacial','Lumen','Gron'
+];
+
+// =====================================================================
+// ESTADO PERSISTENTE (localStorage)
+// =====================================================================
+const STATE_KEY = 'silence_state_v1';
+
+function defaultState() {
+  return {
+    nickname: '',
+    skinId: 0,
+    points: 0,
+    level: 1,
+    totalKills: 0,
+    ownedWeapons: ['pistol'],
+    selectedWeapon: 'pistol',
+    ownedSkins: [0],            // skins desbloqueadas (1ª livre, resto vem do nível)
+    boughtPowerups: { shield: 0, mirror: 0, dash: 0 }, // qtd comprada (consome ao jogar)
+  };
+}
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STATE_KEY);
+    if (!raw) return defaultState();
+    return Object.assign(defaultState(), JSON.parse(raw));
+  } catch (e) { return defaultState(); }
+}
+function saveState() { localStorage.setItem(STATE_KEY, JSON.stringify(state)); }
+let state = loadState();
+
+// Skins desbloqueadas pelo nível: (nível - 1) primeiras a partir da #1
+function unlockedSkinsForLevel(level) {
+  const set = new Set([0]);
+  for (let lvl = 2; lvl <= level && lvl - 1 < SKINS.length; lvl++) {
+    set.add(lvl - 1);
+  }
+  // junta com as já salvas
+  for (const s of state.ownedSkins) set.add(s);
+  return set;
+}
+
+// =====================================================================
+// HELPERS DE UI
+// =====================================================================
+const $ = (id) => document.getElementById(id);
+function showOverlay(name) {
+  for (const ov of document.querySelectorAll('.overlay')) ov.classList.remove('show');
+  if (name) $('ui-' + name).classList.add('show');
+}
+function toast(msg) {
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2400);
+}
+
+function isMobile() {
+  return ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+}
+
+// =====================================================================
+// TELA: PRE-GAME (nickname + skin)
+// =====================================================================
+function renderPreGame() {
+  $('nick-input').value = state.nickname || '';
+  updatePreview();
+
+  const grid = $('skins-grid');
+  grid.innerHTML = '';
+  const unlocked = unlockedSkinsForLevel(state.level);
+
+  SKINS.forEach((emoji, i) => {
+    const cell = document.createElement('div');
+    cell.className = 'skin-cell';
+    cell.textContent = emoji;
+    if (i === state.skinId) cell.classList.add('selected');
+    if (!unlocked.has(i)) {
+      cell.classList.add('locked');
+      const tag = document.createElement('div');
+      tag.className = 'lock-tag';
+      tag.textContent = 'lvl ' + (i + 1);
+      cell.appendChild(tag);
+    } else {
+      cell.onclick = () => {
+        state.skinId = i;
+        renderPreGame();
+      };
+    }
+    grid.appendChild(cell);
+  });
+}
+function updatePreview() {
+  const nick = ($('nick-input').value || '').trim().toUpperCase();
+  $('preview-nick').textContent = nick.length >= 1 ? nick : 'SEU_NICK';
+  $('preview-emoji').textContent = SKINS[state.skinId];
+}
+$('nick-input').addEventListener('input', updatePreview);
+
+$('btn-confirm-pregame').onclick = () => {
+  const v = ($('nick-input').value || '').trim();
+  if (v.length < 3 || v.length > 20) {
+    toast('Nick precisa ter de 3 a 20 letras.');
+    return;
+  }
+  state.nickname = v.toUpperCase();
+  saveState();
+  showMenu();
+};
+
+// =====================================================================
+// TELA: MENU PRINCIPAL
+// =====================================================================
+function showMenu() {
+  $('menu-skin-emoji').textContent = SKINS[state.skinId];
+  $('menu-nick').textContent = state.nickname;
+  $('menu-weapon-info').textContent = 'Arma: ' + WEAPONS[state.selectedWeapon].name + ' ' + WEAPONS[state.selectedWeapon].icon;
+  $('menu-level-v').textContent = state.level;
+  $('menu-points').textContent = state.points;
+  $('menu-totalkills').textContent = state.totalKills;
+  showOverlay('menu');
+}
+$('btn-play').onclick = () => startMatch();
+$('btn-shop').onclick = () => showShop();
+$('btn-powerups').onclick = () => showPowerups();
+$('btn-edit-profile').onclick = () => { renderPreGame(); showOverlay('pre-game'); };
+$('menu-level').onclick = () => showLevels();
+
+// =====================================================================
+// TELA: LOJA DE ARMAS
+// =====================================================================
+function showShop() {
+  $('shop-points').textContent = state.points;
+  const list = $('shop-list');
+  list.innerHTML = '';
+  for (const id in WEAPONS) {
+    const w = WEAPONS[id];
+    const owned = state.ownedWeapons.includes(id);
+    const equipped = state.selectedWeapon === id;
+    const card = document.createElement('div');
+    card.className = 'item-card';
+    card.innerHTML = `
+      <div class="item-icon">${w.icon}</div>
+      <div class="item-info">
+        <div class="item-name">${w.name}</div>
+        <div class="item-desc">${w.desc}</div>
+        <div class="item-desc">Dano ${w.dmg} · Cadência ${w.rate}ms ${w.pellets ? '· '+w.pellets+' chumbinhos' : ''}</div>
+        ${!owned ? `<div class="item-cost">${w.cost} pontos</div>` : ''}
+      </div>
+    `;
+    const btn = document.createElement('button');
+    btn.className = 'btn ' + (equipped ? 'green' : (owned ? '' : 'purple'));
+    btn.textContent = equipped ? 'Equipada' : (owned ? 'Equipar' : 'Comprar');
+    btn.disabled = equipped || (!owned && state.points < w.cost);
+    btn.onclick = () => {
+      if (owned) {
+        state.selectedWeapon = id;
+        saveState();
+        showShop();
+      } else {
+        if (state.points < w.cost) return;
+        state.points -= w.cost;
+        state.ownedWeapons.push(id);
+        state.selectedWeapon = id;
+        saveState();
+        toast(`Comprou ${w.name}!`);
+        showShop();
+      }
+    };
+    card.appendChild(btn);
+    list.appendChild(card);
+  }
+}
+$('shop-back').onclick = showMenu;
+
+// =====================================================================
+// TELA: POWER-UPS
+// =====================================================================
+function showPowerups() {
+  $('pwr-points').textContent = state.points;
+  const list = $('pwr-list');
+  list.innerHTML = '';
+  for (const id in POWERUPS) {
+    const p = POWERUPS[id];
+    const owned = state.boughtPowerups[id] || 0;
+    const card = document.createElement('div');
+    card.className = 'item-card';
+    card.innerHTML = `
+      <div class="item-icon">${p.icon}</div>
+      <div class="item-info">
+        <div class="item-name">${p.name}</div>
+        <div class="item-desc">${p.desc}</div>
+        <div class="item-desc">Você tem: <b>${owned}</b> ${owned === 1 ? 'unidade' : 'unidades'}</div>
+        <div class="item-cost">${p.cost} pontos</div>
+      </div>
+    `;
+    const btn = document.createElement('button');
+    btn.className = 'btn purple';
+    btn.textContent = 'Comprar 1';
+    btn.disabled = state.points < p.cost;
+    btn.onclick = () => {
+      if (state.points < p.cost) return;
+      state.points -= p.cost;
+      state.boughtPowerups[id] = (state.boughtPowerups[id] || 0) + 1;
+      saveState();
+      toast(`Comprou ${p.name}!`);
+      showPowerups();
+    };
+    card.appendChild(btn);
+    list.appendChild(card);
+  }
+}
+$('pwr-back').onclick = showMenu;
+
+// =====================================================================
+// TELA: NÍVEIS
+// =====================================================================
+function showLevels() {
+  $('lvl-current').textContent = state.level;
+  const list = $('lvl-list');
+  list.innerHTML = '';
+  for (let lvl = 1; lvl <= SKINS.length; lvl++) {
+    const skinIdx = lvl - 1;
+    const unlocked = lvl <= state.level;
+    const isCurrent = lvl === state.level;
+    const row = document.createElement('div');
+    row.className = 'level-row' + (unlocked ? ' unlocked' : '') + (isCurrent ? ' current' : '');
+    row.innerHTML = `
+      <div class="lvl-num">${lvl}</div>
+      <div style="font-size:30px;">${SKINS[skinIdx]}</div>
+      <div class="lvl-reward">Skin desbloqueada</div>
+      <div class="lvl-status">${unlocked ? '✓ Desbloqueada' : '🔒 Trancada'}</div>
+    `;
+    list.appendChild(row);
+  }
+}
+$('lvl-back').onclick = showMenu;
+
+// =====================================================================
+// MATCHMAKING (placeholder pra multiplayer real no futuro)
+// =====================================================================
+// Por enquanto, sempre 9 bots. Mas a função já existe pra plugar
+// jogadores reais quando a infra de WebSocket existir. A regra que o
+// Pedro pediu (priorizar humanos) seria: se tem fila de jogadores
+// esperando, junta com eles; senão, abre uma sala nova com bots.
+function buildLobby(humanNick, humanSkin) {
+  const players = [];
+  // jogador humano sempre slot 0
+  players.push({ id: 'P0', nick: humanNick, skinId: humanSkin, isBot: false });
+  // resto: bots com nicks aleatórios
+  const usedNames = new Set([humanNick]);
+  const usedSkins = new Set([humanSkin]);
+  for (let i = 1; i < TOTAL_PLAYERS; i++) {
+    let name;
+    do { name = BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)] + (Math.random() < 0.4 ? Math.floor(Math.random()*99) : ''); }
+    while (usedNames.has(name));
+    usedNames.add(name);
+    let skin;
+    do { skin = Math.floor(Math.random() * SKINS.length); }
+    while (usedSkins.has(skin));
+    usedSkins.add(skin);
+    players.push({ id: 'B' + i, nick: name.toUpperCase(), skinId: skin, isBot: true });
+  }
+  return players;
+}
+
+// =====================================================================
+// PARTIDA (Phaser scene)
+// =====================================================================
+let game = null;
+let scene = null;     // referência viva
+let matchData = null; // { players, kills, etc }
+
+function startMatch() {
+  const players = buildLobby(state.nickname, state.skinId);
+
+  matchData = {
+    players,
+    kills: 0,
+    powerups: {
+      shield: state.boughtPowerups.shield || 0,
+      mirror: state.boughtPowerups.mirror || 0,
+      dash:   state.boughtPowerups.dash   || 0,
+    },
+    weapon: state.selectedWeapon,
+    finished: false,
+  };
+
+  showOverlay(null);
+  $('ui-hud').classList.add('show');
+  if (isMobile()) $('ui-mobile').classList.add('show');
+
+  // limpa kill feed
+  $('ui-killfeed').innerHTML = '';
+
+  if (game) {
+    game.destroy(true);
+    game = null;
+  }
+  game = new Phaser.Game({
+    type: Phaser.AUTO,
+    parent: 'game',
+    width: window.innerWidth,
+    height: window.innerHeight,
+    backgroundColor: '#0a0e14',
+    physics: { default: 'arcade', arcade: { gravity: { y: 0 } } },
+    scene: { create: createScene, update: updateScene },
+    scale: { mode: Phaser.Scale.RESIZE },
+  });
+}
+
+function endMatch(reason) {
+  if (matchData.finished) return;
+  matchData.finished = true;
+
+  // pontuação
+  const earned = matchData.kills * POINTS_PER_KILL;
+  state.points += earned;
+  state.totalKills += matchData.kills;
+  // sobe de nível a cada KILLS_PER_LEVEL kills totais
+  const newLevel = Math.max(1, Math.floor(state.totalKills / KILLS_PER_LEVEL) + 1);
+  if (newLevel > state.level) {
+    // desbloqueia novas skins
+    for (let lvl = state.level + 1; lvl <= newLevel; lvl++) {
+      const skinIdx = lvl - 1;
+      if (skinIdx < SKINS.length && !state.ownedSkins.includes(skinIdx)) {
+        state.ownedSkins.push(skinIdx);
+      }
+    }
+    state.level = newLevel;
+  }
+  // consome power-ups usados (calculado durante a partida)
+  state.boughtPowerups.shield = Math.max(0, (state.boughtPowerups.shield || 0) - (matchData.usedShield || 0));
+  state.boughtPowerups.mirror = Math.max(0, (state.boughtPowerups.mirror || 0) - (matchData.usedMirror || 0));
+  // dash não consome (uso infinito)
+  saveState();
+
+  // tela de resultados
+  $('ui-hud').classList.remove('show');
+  $('ui-mobile').classList.remove('show');
+  $('r-kills').textContent = matchData.kills;
+  $('r-points').textContent = '+' + earned;
+  $('r-level').textContent = state.level;
+  $('r-total').textContent = state.points;
+  $('results-title').textContent = reason === 'win' ? '🏆 Você venceu!' : reason === 'lose' ? 'Você morreu' : 'Fim de partida';
+
+  // scoreboard
+  const sb = $('r-scoreboard');
+  sb.innerHTML = '';
+  const ranked = matchData.players.slice().sort((a,b) => (b.killsInMatch||0) - (a.killsInMatch||0));
+  for (const p of ranked) {
+    const row = document.createElement('div');
+    row.className = 'scoreboard-row' + (p.isBot ? '' : ' you');
+    row.innerHTML = `
+      <div class="e">${SKINS[p.skinId]}</div>
+      <div class="n">${p.nick}${p.isBot ? '' : ' (você)'}</div>
+      <div class="k">${p.killsInMatch || 0} kills</div>
+    `;
+    sb.appendChild(row);
+  }
+
+  showOverlay('results');
+
+  // limpa o phaser (mas só depois de mostrar a tela)
+  setTimeout(() => {
+    if (game) { game.destroy(true); game = null; }
+  }, 100);
+}
+
+$('r-menu').onclick = showMenu;
+$('r-again').onclick = startMatch;
+
+// =====================================================================
+// PHASER SCENE
+// =====================================================================
+
+function createScene() {
+  scene = this;
+  scene.gameOver = false;
+  scene.wallsGroup = this.physics.add.staticGroup();
+  scene.bullets = this.physics.add.group();
+  scene.entities = []; // todos jogadores (humano + bots)
+  scene.lastShotTime = 0;
+  scene.dashCooldown = 0;
+  scene.shieldActive = false;
+  scene.mirrorActive = false;
+  scene.input.mouse.disableContextMenu();
+
+  // Background — grade chão
+  const g = this.add.graphics();
+  g.fillStyle(0x0e1420, 1);
+  g.fillRect(0, 0, ARENA_W, ARENA_H);
+  g.lineStyle(1, 0x1c2638, 1);
+  for (let x = 0; x <= ARENA_W; x += 80) g.lineBetween(x, 0, x, ARENA_H);
+  for (let y = 0; y <= ARENA_H; y += 80) g.lineBetween(0, y, ARENA_W, y);
+
+  // Bordas
+  buildWall(this, 0, 0, ARENA_W, 24);
+  buildWall(this, 0, ARENA_H - 24, ARENA_W, 24);
+  buildWall(this, 0, 0, 24, ARENA_H);
+  buildWall(this, ARENA_W - 24, 0, 24, ARENA_H);
+
+  // Cobertura aleatória (caixotes)
+  Phaser.Math.RND.sow([12345]);
+  const rng = (max) => Math.floor(Math.random() * max);
+  for (let i = 0; i < 24; i++) {
+    const w = 60 + rng(80);
+    const h = 60 + rng(80);
+    const x = 80 + rng(ARENA_W - w - 160);
+    const y = 80 + rng(ARENA_H - h - 160);
+    buildWall(this, x, y, w, h);
+  }
+
+  // Cria entidades (humano + bots)
+  for (let i = 0; i < matchData.players.length; i++) {
+    const p = matchData.players[i];
+    const pos = randomSpawn(this);
+    const ent = createEntity(this, p, pos.x, pos.y);
+    scene.entities.push(ent);
+    if (!p.isBot) {
+      scene.player = ent;
+      this.cameras.main.startFollow(ent.gameObj, true, 0.1, 0.1);
+      this.cameras.main.setBounds(0, 0, ARENA_W, ARENA_H);
+    }
+    p.killsInMatch = 0;
+    p.alive = true;
+  }
+
+  // Entrada teclado
+  scene.cursors = this.input.keyboard.createCursorKeys();
+  scene.keys = this.input.keyboard.addKeys({
+    W: Phaser.Input.Keyboard.KeyCodes.W,
+    A: Phaser.Input.Keyboard.KeyCodes.A,
+    S: Phaser.Input.Keyboard.KeyCodes.S,
+    D: Phaser.Input.Keyboard.KeyCodes.D,
+    B: Phaser.Input.Keyboard.KeyCodes.B,
+    N: Phaser.Input.Keyboard.KeyCodes.N,
+    V: Phaser.Input.Keyboard.KeyCodes.V,
+    SPACE: Phaser.Input.Keyboard.KeyCodes.SPACE,
+  });
+
+  // Mouse: aim + atirar
+  scene.input.on('pointerdown', (pointer) => {
+    if (scene.gameOver) return;
+    if (pointer.leftButtonDown()) scene.firingHeld = true;
+    fireFromPlayer(scene, pointer.worldX, pointer.worldY);
+  });
+  scene.input.on('pointerup',   () => { scene.firingHeld = false; });
+  scene.input.on('pointermove', (pointer) => {
+    scene.aimWorldX = pointer.worldX;
+    scene.aimWorldY = pointer.worldY;
+  });
+
+  // Power-ups por tecla
+  scene.input.keyboard.on('keydown-B', () => activateShield(scene));
+  scene.input.keyboard.on('keydown-N', () => activateMirror(scene));
+  scene.input.keyboard.on('keydown-V', () => activateDash(scene));
+  scene.input.keyboard.on('keydown-SPACE', () => activateDash(scene));
+
+  // Mobile: joystick + botões
+  setupMobileControls(scene);
+
+  // Atualiza HUD inicial
+  refreshHUD();
+
+  // Mostra contagem inicial
+  killFeedAdd(`Que comece a partida! ${TOTAL_PLAYERS} jogadores na arena.`);
+}
+
+function buildWall(scn, x, y, w, h) {
+  const r = scn.add.rectangle(x + w/2, y + h/2, w, h, 0x2d3447);
+  r.setStrokeStyle(2, 0x4a5468);
+  scn.physics.add.existing(r, true);
+  scn.wallsGroup.add(r);
+  return r;
+}
+
+function randomSpawn(scn) {
+  // tenta achar um lugar livre de paredes
+  for (let tries = 0; tries < 60; tries++) {
+    const x = 80 + Math.random() * (ARENA_W - 160);
+    const y = 80 + Math.random() * (ARENA_H - 160);
+    let blocked = false;
+    scn.wallsGroup.children.each((w) => {
+      const b = w.getBounds();
+      if (Phaser.Geom.Rectangle.Contains(b, x, y)) blocked = true;
+      if (Math.abs(x - w.x) < 50 + (b.width/2) && Math.abs(y - w.y) < 50 + (b.height/2)) blocked = true;
+    });
+    if (!blocked) return { x, y };
+  }
+  return { x: ARENA_W / 2, y: ARENA_H / 2 };
+}
+
+function createEntity(scn, playerData, x, y) {
+  const container = scn.add.container(x, y);
+  // sombra
+  const shadow = scn.add.ellipse(0, 6, 38, 12, 0x000000, 0.4);
+  // corpo (círculo + emoji em cima)
+  const body = scn.add.circle(0, 0, 22, playerData.isBot ? 0x4a5468 : 0x4f9bff);
+  body.setStrokeStyle(3, playerData.isBot ? 0x8aa2c2 : 0x4fdb9b);
+  const emoji = scn.add.text(0, 0, SKINS[playerData.skinId], { fontSize: '28px' }).setOrigin(0.5);
+  // nick em cima — proporcional à skin
+  const nick = scn.add.text(0, -38, playerData.nick, {
+    fontSize: '13px',
+    fontStyle: 'bold',
+    color: playerData.isBot ? '#ffffff' : '#4fdb9b',
+    stroke: '#000000',
+    strokeThickness: 4,
+  }).setOrigin(0.5);
+  // hp bar
+  const hpBg = scn.add.rectangle(0, -26, 40, 5, 0x2d3447);
+  const hpBar = scn.add.rectangle(-20, -26, 40, 5, 0x4fdb9b).setOrigin(0, 0.5);
+
+  container.add([shadow, body, emoji, nick, hpBg, hpBar]);
+
+  scn.physics.add.existing(container);
+  container.body.setCircle(22, -22, -22);
+  container.body.setCollideWorldBounds(true);
+  scn.physics.add.collider(container, scn.wallsGroup);
+
+  return {
+    data: playerData,
+    gameObj: container,
+    body, emoji, nick, hpBar,
+    hp: PLAYER_HP,
+    maxHp: PLAYER_HP,
+    aimAngle: 0,
+    lastShot: 0,
+    botMoveTarget: null,
+    botShootTimer: 0,
+    botStrafeDir: Math.random() < 0.5 ? 1 : -1,
+  };
+}
+
+// ----- Atirar -----
+function fireFromPlayer(scn, tx, ty) {
+  if (scn.gameOver || !scn.player || !scn.player.data.alive) return;
+  const w = WEAPONS[matchData.weapon];
+  const now = scn.time.now;
+  if (now - scn.player.lastShot < w.rate) return;
+  scn.player.lastShot = now;
+  fireFrom(scn, scn.player, tx, ty, w);
+}
+
+function fireFrom(scn, ent, tx, ty, weapon) {
+  const angle = Phaser.Math.Angle.Between(ent.gameObj.x, ent.gameObj.y, tx, ty);
+  const pellets = weapon.pellets || 1;
+  for (let i = 0; i < pellets; i++) {
+    const a = angle + (Math.random() - 0.5) * weapon.spread * (pellets > 1 ? 2 : 1);
+    spawnBullet(scn, ent, a, weapon);
+  }
+  // Flash de tiro
+  const flash = scn.add.circle(ent.gameObj.x + Math.cos(angle)*30, ent.gameObj.y + Math.sin(angle)*30, 8, 0xffd84f, 1);
+  scn.tweens.add({ targets: flash, alpha: 0, scale: 0.3, duration: 100, onComplete: () => flash.destroy() });
+}
+
+function spawnBullet(scn, owner, angle, weapon) {
+  const startX = owner.gameObj.x + Math.cos(angle) * 30;
+  const startY = owner.gameObj.y + Math.sin(angle) * 30;
+  const ownerIsHuman = !owner.data.isBot;
+  const color = ownerIsHuman ? 0xffd84f : 0xff4f6f;
+  const b = scn.add.rectangle(startX, startY, 10, 4, color);
+  b.setRotation(angle);
+  scn.physics.add.existing(b);
+  b.body.setVelocity(Math.cos(angle) * weapon.speed, Math.sin(angle) * weapon.speed);
+  b.ownerEnt = owner;
+  b.weaponDmg = weapon.dmg;
+  b.bornAt = scn.time.now;
+  scn.bullets.add(b);
+  // colide com paredes
+  scn.physics.add.collider(b, scn.wallsGroup, () => b.destroy());
+}
+
+// ----- HP / morte -----
+function damageEntity(scn, target, dmg, attacker) {
+  if (!target.data.alive) return;
+
+  // Espelho: se a vítima é o humano e tem mirror ativo, o atacante morre
+  if (!target.data.isBot && scn.mirrorActive) {
+    scn.mirrorActive = false;
+    if (attacker && attacker.data.alive) {
+      killEntity(scn, attacker, target);
+      flashText(scn, target, 'ESPELHO!', 0xff4f6f);
+    }
+    return;
+  }
+  // Escudo: se a vítima é o humano e tem shield ativo, ignora um tiro
+  if (!target.data.isBot && scn.shieldActive) {
+    scn.shieldActive = false;
+    flashText(scn, target, 'BLOQUEADO!', 0x4fdb9b);
+    return;
+  }
+
+  target.hp -= dmg;
+  // hit flash
+  scn.tweens.add({
+    targets: target.body,
+    alpha: 0.3,
+    duration: 60,
+    yoyo: true,
+  });
+  if (target.hp <= 0) {
+    killEntity(scn, target, attacker);
+  } else {
+    target.hpBar.width = (target.hp / target.maxHp) * 40;
+    target.hpBar.fillColor = target.hp / target.maxHp > 0.5 ? 0x4fdb9b : (target.hp / target.maxHp > 0.25 ? 0xffd84f : 0xff4f6f);
+  }
+  if (!target.data.isBot) refreshHUD();
+}
+
+function killEntity(scn, target, attacker) {
+  if (!target.data.alive) return;
+  target.data.alive = false;
+  target.hp = 0;
+  // Explosão
+  const ex = scn.add.circle(target.gameObj.x, target.gameObj.y, 20, 0xff4f6f, 0.8);
+  scn.tweens.add({ targets: ex, scale: 3, alpha: 0, duration: 400, onComplete: () => ex.destroy() });
+  // Esconde o jogador
+  target.gameObj.setVisible(false);
+  if (target.gameObj.body) target.gameObj.body.enable = false;
+
+  // Conta a kill
+  if (attacker && attacker.data) {
+    attacker.data.killsInMatch = (attacker.data.killsInMatch || 0) + 1;
+    if (!attacker.data.isBot) {
+      matchData.kills = attacker.data.killsInMatch;
+    }
+    killFeedAdd(`<b>${attacker.data.nick}</b> matou <b>${target.data.nick}</b>`);
+  } else {
+    killFeedAdd(`<b>${target.data.nick}</b> caiu`);
+  }
+
+  // Verifica fim
+  const aliveEnts = scn.entities.filter(e => e.data.alive);
+  if (!scn.player.data.alive) {
+    setTimeout(() => endMatch('lose'), 1200);
+    scn.gameOver = true;
+  } else if (aliveEnts.length === 1 && aliveEnts[0] === scn.player) {
+    setTimeout(() => endMatch('win'), 1200);
+    scn.gameOver = true;
+  }
+  refreshHUD();
+}
+
+function flashText(scn, target, text, color) {
+  const t = scn.add.text(target.gameObj.x, target.gameObj.y - 50, text, {
+    fontSize: '18px', fontStyle: 'bold', color: '#ffffff',
+    stroke: '#000000', strokeThickness: 4,
+  }).setOrigin(0.5);
+  t.setTint && t.setTint(color);
+  scn.tweens.add({ targets: t, y: t.y - 30, alpha: 0, duration: 800, onComplete: () => t.destroy() });
+}
+
+// ----- Power-ups -----
+function activateShield(scn) {
+  if (scn.gameOver || !scn.player.data.alive) return;
+  if ((matchData.usedShield || 0) >= matchData.powerups.shield) {
+    toast('Sem escudos! Compra mais na loja.');
+    return;
+  }
+  if (scn.shieldActive) return;
+  matchData.usedShield = (matchData.usedShield || 0) + 1;
+  scn.shieldActive = true;
+  flashText(scn, scn.player, 'ESCUDO ATIVO', 0x4fdb9b);
+  // Anel visual
+  const ring = scn.add.circle(0, 0, 30, 0x4fdb9b, 0.0);
+  ring.setStrokeStyle(3, 0x4fdb9b, 0.8);
+  scn.player.gameObj.add(ring);
+  scn.player.shieldRing = ring;
+  // se acabar a partida ou perder o shield, remover
+  const checkRing = setInterval(() => {
+    if (!scn.shieldActive || scn.gameOver) {
+      if (ring && ring.destroy) ring.destroy();
+      clearInterval(checkRing);
+    }
+  }, 100);
+  refreshMobileButtons();
+}
+function activateMirror(scn) {
+  if (scn.gameOver || !scn.player.data.alive) return;
+  if ((matchData.usedMirror || 0) >= matchData.powerups.mirror) {
+    toast('Sem espelhos! Compra mais na loja.');
+    return;
+  }
+  if (scn.mirrorActive) return;
+  matchData.usedMirror = (matchData.usedMirror || 0) + 1;
+  scn.mirrorActive = true;
+  flashText(scn, scn.player, 'ESPELHO ATIVO', 0xff4f6f);
+  const ring = scn.add.circle(0, 0, 32, 0xff4f6f, 0.0);
+  ring.setStrokeStyle(3, 0xff4f6f, 0.8);
+  scn.player.gameObj.add(ring);
+  const checkRing = setInterval(() => {
+    if (!scn.mirrorActive || scn.gameOver) {
+      if (ring && ring.destroy) ring.destroy();
+      clearInterval(checkRing);
+    }
+  }, 100);
+  refreshMobileButtons();
+}
+function activateDash(scn) {
+  if (scn.gameOver || !scn.player.data.alive) return;
+  if (scn.dashCooldown > scn.time.now) return;
+  scn.dashCooldown = scn.time.now + 3000;
+  // empurrão na direção do movimento (ou da mira)
+  const ent = scn.player;
+  let dx = 0, dy = 0;
+  if (scn.cursors.left.isDown || scn.keys.A.isDown)  dx = -1;
+  if (scn.cursors.right.isDown || scn.keys.D.isDown) dx = 1;
+  if (scn.cursors.up.isDown || scn.keys.W.isDown)    dy = -1;
+  if (scn.cursors.down.isDown || scn.keys.S.isDown)  dy = 1;
+  if (scn.joyDX !== undefined) { dx = scn.joyDX; dy = scn.joyDY; }
+  if (dx === 0 && dy === 0) {
+    // dash pra mira
+    const a = ent.aimAngle;
+    dx = Math.cos(a); dy = Math.sin(a);
+  }
+  const len = Math.hypot(dx, dy) || 1;
+  ent.gameObj.body.setVelocity(dx/len * 800, dy/len * 800);
+  // efeito visual
+  const trail = scn.add.circle(ent.gameObj.x, ent.gameObj.y, 26, 0x4fdb9b, 0.5);
+  scn.tweens.add({ targets: trail, scale: 2, alpha: 0, duration: 350, onComplete: () => trail.destroy() });
+  flashText(scn, ent, 'DASH!', 0x4fdb9b);
+  refreshMobileButtons();
+}
+
+// ----- Kill feed -----
+function killFeedAdd(html) {
+  const el = document.createElement('div');
+  el.className = 'kill-msg';
+  el.innerHTML = html;
+  $('ui-killfeed').appendChild(el);
+  setTimeout(() => el.remove(), 4200);
+}
+
+// ----- HUD -----
+function refreshHUD() {
+  if (!scene || !scene.player) return;
+  const hp = Math.max(0, scene.player.hp | 0);
+  $('hud-hp').textContent = hp;
+  $('hud-hp-fill').style.width = (hp / scene.player.maxHp * 100) + '%';
+  $('hud-hp-fill').style.background = hp / scene.player.maxHp > 0.5 ? '#4fdb9b' :
+                                       hp / scene.player.maxHp > 0.25 ? '#ffd84f' : '#ff4f6f';
+  $('hud-weapon').textContent = WEAPONS[matchData.weapon].name + ' ' + WEAPONS[matchData.weapon].icon;
+  $('hud-kills').textContent = matchData.kills || 0;
+  const alive = scene.entities ? scene.entities.filter(e => e.data.alive).length : TOTAL_PLAYERS;
+  $('hud-alive').textContent = alive;
+  refreshMobileButtons();
+}
+
+function refreshMobileButtons() {
+  if (!matchData) return;
+  const remShield = (matchData.powerups.shield || 0) - (matchData.usedShield || 0);
+  const remMirror = (matchData.powerups.mirror || 0) - (matchData.usedMirror || 0);
+  $('mob-shield-c').textContent = remShield;
+  $('mob-mirror-c').textContent = remMirror;
+  $('mob-shield').classList.toggle('cd', remShield <= 0);
+  $('mob-mirror').classList.toggle('cd', remMirror <= 0);
+  if (scene && scene.dashCooldown && scene.dashCooldown > scene.time.now) {
+    const sec = Math.ceil((scene.dashCooldown - scene.time.now) / 1000);
+    $('mob-dash-c').textContent = sec + 's';
+    $('mob-dash').classList.add('cd');
+  } else {
+    $('mob-dash-c').textContent = 'OK';
+    if ($('mob-dash')) $('mob-dash').classList.remove('cd');
+  }
+}
+
+// ----- Mobile controls -----
+function setupMobileControls(scn) {
+  const joy = $('joystick');
+  let joyActive = false;
+  let joyStart = { x: 0, y: 0 };
+  scn.joyDX = 0; scn.joyDY = 0;
+  const knob = joy.querySelector('.knob');
+
+  function joyStartH(e) {
+    e.preventDefault();
+    const t = e.touches ? e.touches[0] : e;
+    joyActive = true;
+    const r = joy.getBoundingClientRect();
+    joyStart = { x: r.left + r.width/2, y: r.top + r.height/2 };
+  }
+  function joyMoveH(e) {
+    if (!joyActive) return;
+    const t = e.touches ? e.touches[0] : e;
+    let dx = t.clientX - joyStart.x;
+    let dy = t.clientY - joyStart.y;
+    const max = 50;
+    const len = Math.hypot(dx, dy);
+    if (len > max) { dx = dx/len*max; dy = dy/len*max; }
+    knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+    scn.joyDX = dx / max; scn.joyDY = dy / max;
+  }
+  function joyEndH() {
+    joyActive = false;
+    knob.style.transform = 'translate(-50%, -50%)';
+    scn.joyDX = 0; scn.joyDY = 0;
+  }
+  joy.addEventListener('touchstart', joyStartH, { passive: false });
+  joy.addEventListener('touchmove', joyMoveH, { passive: false });
+  joy.addEventListener('touchend', joyEndH);
+  joy.addEventListener('mousedown', joyStartH);
+  document.addEventListener('mousemove', joyMoveH);
+  document.addEventListener('mouseup', joyEndH);
+
+  // Botões
+  $('mob-fire').ontouchstart = (e) => { e.preventDefault(); scn.mobileFiring = true; };
+  $('mob-fire').ontouchend   = () => { scn.mobileFiring = false; };
+  $('mob-fire').onmousedown  = () => { scn.mobileFiring = true; };
+  $('mob-fire').onmouseup    = () => { scn.mobileFiring = false; };
+  $('mob-shield').onclick = () => activateShield(scn);
+  $('mob-mirror').onclick = () => activateMirror(scn);
+  $('mob-dash').onclick   = () => activateDash(scn);
+}
+
+// =====================================================================
+// UPDATE LOOP
+// =====================================================================
+function updateScene(time, delta) {
+  if (!scene || scene.gameOver) return;
+
+  // Movimento humano
+  if (scene.player && scene.player.data.alive) {
+    let vx = 0, vy = 0;
+    if (scene.cursors.left.isDown || scene.keys.A.isDown)  vx = -1;
+    if (scene.cursors.right.isDown || scene.keys.D.isDown) vx = 1;
+    if (scene.cursors.up.isDown || scene.keys.W.isDown)    vy = -1;
+    if (scene.cursors.down.isDown || scene.keys.S.isDown)  vy = 1;
+    if (scene.joyDX || scene.joyDY) { vx = scene.joyDX; vy = scene.joyDY; }
+    const len = Math.hypot(vx, vy);
+    if (len > 0) {
+      const nvx = vx / len, nvy = vy / len;
+      // se não está em dash recente
+      if (time > scene.dashCooldown - 2700) {
+        scene.player.gameObj.body.setVelocity(nvx * PLAYER_SPEED, nvy * PLAYER_SPEED);
+      }
+    } else if (time > scene.dashCooldown - 2700) {
+      scene.player.gameObj.body.setVelocity(0, 0);
+    }
+    // Aim do humano: mouse → ângulo
+    if (scene.aimWorldX !== undefined) {
+      scene.player.aimAngle = Phaser.Math.Angle.Between(
+        scene.player.gameObj.x, scene.player.gameObj.y,
+        scene.aimWorldX, scene.aimWorldY
+      );
+    } else if (isMobile()) {
+      // mira automática no inimigo mais próximo no mobile
+      const target = nearestAliveEnemy(scene, scene.player);
+      if (target) {
+        scene.player.aimAngle = Phaser.Math.Angle.Between(
+          scene.player.gameObj.x, scene.player.gameObj.y,
+          target.gameObj.x, target.gameObj.y
+        );
+      }
+    }
+    // tiro segurado
+    if (scene.firingHeld && scene.aimWorldX !== undefined) {
+      fireFromPlayer(scene, scene.aimWorldX, scene.aimWorldY);
+    }
+    if (scene.mobileFiring) {
+      const target = nearestAliveEnemy(scene, scene.player);
+      if (target) fireFromPlayer(scene, target.gameObj.x, target.gameObj.y);
+    }
+  }
+
+  // Bots
+  for (const ent of scene.entities) {
+    if (!ent.data.isBot || !ent.data.alive) continue;
+    updateBot(scene, ent, time, delta);
+  }
+
+  // Bullets: colisão com entidades
+  scene.bullets.children.iterate((b) => {
+    if (!b || !b.active) return;
+    // tempo de vida
+    if (time - b.bornAt > 2000) { b.destroy(); return; }
+    for (const ent of scene.entities) {
+      if (!ent.data.alive) continue;
+      if (ent === b.ownerEnt) continue;
+      const dx = ent.gameObj.x - b.x;
+      const dy = ent.gameObj.y - b.y;
+      if (dx*dx + dy*dy < 22*22) {
+        damageEntity(scene, ent, b.weaponDmg, b.ownerEnt);
+        b.destroy();
+        return;
+      }
+    }
+  });
+
+  refreshHUD();
+}
+
+function nearestAliveEnemy(scn, ent) {
+  let best = null, bestD = Infinity;
+  for (const e of scn.entities) {
+    if (e === ent || !e.data.alive) continue;
+    const d = Phaser.Math.Distance.Between(ent.gameObj.x, ent.gameObj.y, e.gameObj.x, e.gameObj.y);
+    if (d < bestD) { bestD = d; best = e; }
+  }
+  return best;
+}
+
+function updateBot(scn, ent, time, delta) {
+  const target = nearestAliveEnemy(scn, ent);
+  if (!target) {
+    ent.gameObj.body.setVelocity(0,0);
+    return;
+  }
+  const dist = Phaser.Math.Distance.Between(ent.gameObj.x, ent.gameObj.y, target.gameObj.x, target.gameObj.y);
+
+  // Movimento: aproxima até ~280, depois faz strafing
+  const ang = Phaser.Math.Angle.Between(ent.gameObj.x, ent.gameObj.y, target.gameObj.x, target.gameObj.y);
+  ent.aimAngle = ang;
+  if (Math.random() < 0.005) ent.botStrafeDir *= -1;
+
+  let vx, vy;
+  if (dist > 320) {
+    vx = Math.cos(ang); vy = Math.sin(ang);
+  } else if (dist < 200) {
+    vx = -Math.cos(ang); vy = -Math.sin(ang);
+  } else {
+    // strafe perpendicular
+    vx = Math.cos(ang + Math.PI/2) * ent.botStrafeDir;
+    vy = Math.sin(ang + Math.PI/2) * ent.botStrafeDir;
+  }
+  ent.gameObj.body.setVelocity(vx * BOT_SPEED, vy * BOT_SPEED);
+
+  // Atira: bot usa pistol — variação de cadência
+  ent.botShootTimer = (ent.botShootTimer || 0) + delta;
+  const fireDelay = 600 + Math.random() * 700;
+  if (ent.botShootTimer > fireDelay && dist < 600) {
+    ent.botShootTimer = 0;
+    const w = WEAPONS.pistol;
+    if (time - ent.lastShot > w.rate) {
+      ent.lastShot = time;
+      // adiciona um pouco de erro de mira nos bots
+      const errAng = ang + (Math.random() - 0.5) * 0.18;
+      const fakeTx = ent.gameObj.x + Math.cos(errAng) * 1000;
+      const fakeTy = ent.gameObj.y + Math.sin(errAng) * 1000;
+      fireFrom(scn, ent, fakeTx, fakeTy, w);
+    }
+  }
+}
+
+// =====================================================================
+// INICIALIZAÇÃO
+// =====================================================================
+function boot() {
+  // Primeira vez: precisa nick
+  if (!state.nickname || state.nickname.length < 3) {
+    renderPreGame();
+    showOverlay('pre-game');
+  } else {
+    showMenu();
+  }
+}
+boot();
+</script>
+</body>
+</html>
