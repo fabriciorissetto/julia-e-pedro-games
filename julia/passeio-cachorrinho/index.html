@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Passeio com o Cachorrinho</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      background: linear-gradient(180deg, #ffd16f 0%, #ff6fb5 100%);
+      font-family: 'Comic Sans MS', 'Trebuchet MS', cursive;
+      touch-action: none;
+    }
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #game {
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    }
+    .voltar {
+      position: fixed;
+      top: 12px;
+      left: 12px;
+      background: white;
+      padding: 8px 16px;
+      border-radius: 20px;
+      text-decoration: none;
+      color: #b56fff;
+      font-weight: bold;
+      font-size: 18px;
+      z-index: 10;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    }
+  </style>
+</head>
+<body>
+  <a href="../" class="voltar">← Voltar</a>
+  <div id="game"></div>
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+  <script>
+    // sons simples sem precisar de arquivos
+    let audioCtx = null;
+    function ensureAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+    }
+    function beep(freq, dur, type = 'sine', vol = 0.15) {
+      if (!audioCtx) return;
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.connect(g); g.connect(audioCtx.destination);
+      o.type = type;
+      o.frequency.setValueAtTime(freq, audioCtx.currentTime);
+      g.gain.setValueAtTime(vol, audioCtx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + dur);
+      o.start();
+      o.stop(audioCtx.currentTime + dur);
+    }
+    function plim() { beep(880, 0.12); setTimeout(() => beep(1320, 0.15), 70); }
+    function ai() { beep(200, 0.35, 'sawtooth', 0.18); }
+
+    const LARGURA = 480;
+    const ALTURA = 720;
+
+    let boneca, cachorro, coleira;
+    let obstaculos, flores;
+    let teclas;
+    let pontos = 0;
+    let pontosTexto, aiTexto;
+    let invencivel = false;
+    let dedoX = null;
+    let ultimoObstaculo = 0;
+    let ultimaFlor = 0;
+    let tufos = [];
+    let listras = [];
+
+    const config = {
+      type: Phaser.AUTO,
+      width: LARGURA,
+      height: ALTURA,
+      parent: 'game',
+      backgroundColor: '#88dd66',
+      physics: { default: 'arcade', arcade: { debug: false } },
+      scale: {
+        mode: Phaser.Scale.FIT,
+        autoCenter: Phaser.Scale.CENTER_BOTH
+      },
+      scene: { create, update }
+    };
+
+    new Phaser.Game(config);
+
+    function create() {
+      // estradinha de terra
+      const g = this.add.graphics();
+      g.fillStyle(0xc9a77a);
+      g.fillRect(80, 0, 320, ALTURA);
+
+      // grama nas bordas
+      g.fillStyle(0x66bb44);
+      g.fillRect(0, 0, 80, ALTURA);
+      g.fillRect(400, 0, 80, ALTURA);
+
+      // bordas mais escuras da estradinha
+      g.fillStyle(0xa88656);
+      g.fillRect(80, 0, 6, ALTURA);
+      g.fillRect(394, 0, 6, ALTURA);
+
+      // tufinhos de grama (passam rolando)
+      for (let i = 0; i < 30; i++) {
+        const lado = Math.random() < 0.5 ? 0 : 1;
+        const x = lado === 0 ? Phaser.Math.Between(8, 70) : Phaser.Math.Between(410, 472);
+        const y = Phaser.Math.Between(0, ALTURA);
+        const cor = Math.random() < 0.3 ? 0x4a8a2a : 0x55a338;
+        const tufo = this.add.circle(x, y, Phaser.Math.Between(4, 9), cor);
+        tufos.push(tufo);
+      }
+
+      // listrinhas brancas no meio da estradinha
+      for (let i = 0; i < 8; i++) {
+        const listra = this.add.rectangle(240, i * 100, 5, 35, 0xffffff, 0.55);
+        listras.push(listra);
+      }
+
+      // boneca e cachorrinho
+      boneca = this.add.text(180, 600, '👧', { fontSize: '64px' }).setOrigin(0.5);
+      cachorro = this.add.text(280, 600, '🐕', { fontSize: '56px' }).setOrigin(0.5);
+      this.physics.add.existing(boneca);
+      this.physics.add.existing(cachorro);
+      boneca.body.setSize(45, 50).setOffset(boneca.width / 2 - 22, boneca.height / 2 - 25);
+      cachorro.body.setSize(45, 40).setOffset(cachorro.width / 2 - 22, cachorro.height / 2 - 20);
+
+      coleira = this.add.graphics();
+      coleira.setDepth(1);
+
+      obstaculos = this.physics.add.group();
+      flores = this.physics.add.group();
+
+      teclas = this.input.keyboard.createCursorKeys();
+
+      this.input.on('pointerdown', (p) => { ensureAudio(); dedoX = p.worldX; });
+      this.input.on('pointermove', (p) => { if (p.isDown) dedoX = p.worldX; });
+      this.input.on('pointerup', () => { dedoX = null; });
+      this.input.keyboard.on('keydown', () => ensureAudio());
+
+      pontosTexto = this.add.text(LARGURA - 16, 16, '🌸 0', {
+        fontSize: '36px', color: '#ffffff', fontStyle: 'bold',
+        stroke: '#b56fff', strokeThickness: 5
+      }).setOrigin(1, 0).setDepth(10);
+
+      aiTexto = this.add.text(LARGURA / 2, ALTURA / 2, '', {
+        fontSize: '96px', color: '#ff3377', fontStyle: 'bold',
+        stroke: '#ffffff', strokeThickness: 8
+      }).setOrigin(0.5).setDepth(10);
+
+      // dica curta no comecinho
+      const dica = this.add.text(LARGURA / 2, 80, 'Desvia das pedras\ne da lama!', {
+        fontSize: '28px', color: '#ffffff', fontStyle: 'bold', align: 'center',
+        stroke: '#b56fff', strokeThickness: 5
+      }).setOrigin(0.5).setDepth(10);
+      this.tweens.add({
+        targets: dica, alpha: 0, delay: 2500, duration: 800,
+        onComplete: () => dica.destroy()
+      });
+    }
+
+    function update(tempo, delta) {
+      const velocidade = 3.2;
+
+      // grama rolando
+      tufos.forEach(t => {
+        t.y += velocidade;
+        if (t.y > ALTURA + 10) {
+          t.y = -10;
+          const lado = Math.random() < 0.5 ? 0 : 1;
+          t.x = lado === 0 ? Phaser.Math.Between(8, 70) : Phaser.Math.Between(410, 472);
+        }
+      });
+      listras.forEach(l => {
+        l.y += velocidade;
+        if (l.y > ALTURA + 20) l.y = -30;
+      });
+
+      // movimento da boneca
+      let alvoX = boneca.x;
+      if (teclas.left.isDown) alvoX -= 5;
+      if (teclas.right.isDown) alvoX += 5;
+      if (dedoX !== null) {
+        alvoX = Phaser.Math.Linear(boneca.x, dedoX - 50, 0.18);
+      }
+      alvoX = Phaser.Math.Clamp(alvoX, 110, 290);
+      boneca.x = alvoX;
+
+      // cachorrinho segue do lado
+      const alvoCachorroX = Phaser.Math.Clamp(boneca.x + 95, 130, 370);
+      cachorro.x = Phaser.Math.Linear(cachorro.x, alvoCachorroX, 0.22);
+
+      // balancinho fofo
+      boneca.y = 600 + Math.sin(tempo / 110) * 4;
+      cachorro.y = 600 + Math.sin(tempo / 110 + 1) * 4;
+
+      // coleira (linha rosa entre eles)
+      coleira.clear();
+      coleira.lineStyle(4, 0xff66cc, 1);
+      const x1 = boneca.x + 18;
+      const y1 = boneca.y - 4;
+      const x2 = cachorro.x - 18;
+      const y2 = cachorro.y - 8;
+      // curva suave da coleira
+      const meioX = (x1 + x2) / 2;
+      const meioY = (y1 + y2) / 2 + 8;
+      coleira.beginPath();
+      coleira.moveTo(x1, y1);
+      coleira.quadraticCurveTo(meioX, meioY, x2, y2);
+      coleira.strokePath();
+
+      // nascer obstáculos
+      if (tempo - ultimoObstaculo > 850) {
+        ultimoObstaculo = tempo;
+        const x = Phaser.Math.Between(120, 360);
+        const ehPedra = Math.random() < 0.55;
+        if (ehPedra) {
+          const pedra = this.add.text(x, -40, '🪨', { fontSize: '56px' }).setOrigin(0.5);
+          this.physics.add.existing(pedra);
+          pedra.body.setSize(40, 38);
+          pedra.tipo = 'pedra';
+          obstaculos.add(pedra);
+        } else {
+          // poça de lama (elipse marrom)
+          const lama = this.add.ellipse(x, -40, 80, 36, 0x6b3e1a);
+          const reflexo = this.add.ellipse(x - 14, -46, 26, 10, 0x8a5a2a);
+          this.physics.add.existing(lama);
+          lama.body.setSize(70, 28);
+          lama.tipo = 'lama';
+          lama.reflexo = reflexo;
+          obstaculos.add(lama);
+        }
+      }
+
+      // nascer florzinhas
+      if (tempo - ultimaFlor > 1400) {
+        ultimaFlor = tempo;
+        const x = Phaser.Math.Between(120, 360);
+        const emojiFlor = Math.random() < 0.5 ? '🌸' : '⭐';
+        const flor = this.add.text(x, -40, emojiFlor, { fontSize: '42px' }).setOrigin(0.5);
+        this.physics.add.existing(flor);
+        flor.body.setSize(34, 34);
+        flores.add(flor);
+        // brilho que gira
+        this.tweens.add({
+          targets: flor, angle: 360, duration: 2000, repeat: -1
+        });
+      }
+
+      // mover e limpar
+      obstaculos.children.iterate((o) => {
+        if (!o) return;
+        o.y += velocidade;
+        if (o.reflexo) o.reflexo.y = o.y - 6;
+        if (o.y > ALTURA + 50) {
+          if (o.reflexo) o.reflexo.destroy();
+          o.destroy();
+        }
+      });
+      flores.children.iterate((f) => {
+        if (!f) return;
+        f.y += velocidade;
+        if (f.y > ALTURA + 50) f.destroy();
+      });
+
+      // colisões
+      if (!invencivel) {
+        obstaculos.children.iterate((o) => {
+          if (!o) return;
+          if (encostou(boneca, o, 38) || encostou(cachorro, o, 38)) {
+            tomarAi.call(this);
+            if (o.reflexo) o.reflexo.destroy();
+            o.destroy();
+          }
+        });
+      }
+      flores.children.iterate((f) => {
+        if (!f) return;
+        if (encostou(boneca, f, 34) || encostou(cachorro, f, 34)) {
+          pontos += 1;
+          pontosTexto.setText('🌸 ' + pontos);
+          plim();
+          // brilhinho rapidinho
+          const brilho = this.add.text(f.x, f.y, '+1', {
+            fontSize: '32px', color: '#fff', fontStyle: 'bold',
+            stroke: '#ff66cc', strokeThickness: 4
+          }).setOrigin(0.5);
+          this.tweens.add({
+            targets: brilho, y: brilho.y - 40, alpha: 0,
+            duration: 600, onComplete: () => brilho.destroy()
+          });
+          f.destroy();
+        }
+      });
+    }
+
+    function encostou(a, b, raio) {
+      const dx = a.x - b.x;
+      const dy = a.y - b.y;
+      return Math.abs(dx) < raio && Math.abs(dy) < raio;
+    }
+
+    function tomarAi() {
+      invencivel = true;
+      ai();
+      aiTexto.setText('Ai!');
+      this.cameras.main.shake(220, 0.012);
+      boneca.setAlpha(0.45);
+      cachorro.setAlpha(0.45);
+      this.tweens.add({
+        targets: aiTexto, scale: { from: 0.4, to: 1.2 },
+        duration: 250, yoyo: false
+      });
+      this.time.delayedCall(900, () => {
+        aiTexto.setText('');
+        aiTexto.setScale(1);
+        boneca.setAlpha(1);
+        cachorro.setAlpha(1);
+        invencivel = false;
+      });
+    }
+  </script>
+</body>
+</html>
