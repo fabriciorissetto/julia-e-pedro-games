@@ -39,7 +39,11 @@ Se a criança pedir algo que não cabe nesse default (ex: jogo 3D, jogo multipla
 ```
 jpgames/
 ├── index.html          # home (NÃO mexer sem pedir)
-├── shared/style.css    # CSS dos hubs (NÃO mexer sem pedir)
+├── shared/
+│   ├── style.css       # CSS dos hubs (NÃO mexer sem pedir)
+│   └── multiplayer.js  # lib cliente de multiplayer (ver seção abaixo)
+├── api/
+│   └── room/[id].js    # função serverless: estado compartilhado de sala
 ├── julia/
 │   ├── index.html      # hub da Julia (renderiza games.js)
 │   ├── games.js        # lista dos jogos da Julia
@@ -65,6 +69,48 @@ jpgames/
 3. Adicionar entrada em `<crianca>/games.js` no array `window.GAMES` com `slug`, `title`, `emoji`, `color` (opcional `description`).
 4. Testar localmente que o jogo abre.
 5. Fazer commit (ver abaixo).
+
+## Multiplayer online (jogos compartilhados via internet)
+
+Para jogos turn-based ou de estado compartilhado (jogo da velha online, stop, batalha naval, fórum de mensagens, score global, etc.), o repo já tem infra pronta:
+
+- **Backend:** `api/room/[id].js` — função serverless Vercel com GET/POST/DELETE. Estado fica num Upstash Redis (provisionado via Vercel Marketplace). TTL 24h por sala.
+- **Cliente:** `shared/multiplayer.js` — biblioteca `JPMultiplayer` com polling. Funciona pra Julia E Pedro (não duplicar).
+- **Modelo:** estado é um JSON arbitrário, last-write-wins, polling a cada N ms (default 1s).
+- **Página de teste:** `/shared/multiplayer-test.html` — abrir em duas abas pra confirmar sync.
+
+**Como usar num jogo:**
+
+```html
+<script src="/shared/multiplayer.js"></script>
+<script>
+  const sala = JPMultiplayer.join('CODIGO123', {
+    initialState: { jogadores: [], turno: 0 },
+    onUpdate: (state) => renderizar(state),
+    pollMs: 1000
+  })
+
+  // alterar estado:
+  sala.setState({ ...sala.lastState, turno: sala.lastState.turno + 1 })
+
+  // sair quando o jogo terminar:
+  sala.leave()
+</script>
+```
+
+**Helpers:** `JPMultiplayer.generateCode()` devolve um código de 4 letras fácil de ditar (sem 0/O/1/I/L).
+
+**Regras de UX pra crianças:**
+- Sempre mostrar o código da sala em tela bem grande pra criança ditar pra outra pessoa.
+- Códigos curtos (4 chars), sem caracteres ambíguos — o `generateCode` já cuida disso.
+- Não exigir digitação rápida nem cadastro nem login.
+- Usar polling de 1s (default). Não ir abaixo de 500ms (custo desnecessário no Redis).
+
+**O que NÃO usar essa infra pra:**
+- Jogos de ação em tempo real (60fps tipo `.io`) — polling de 1s não dá conta.
+- Dados sensíveis ou persistentes além de 24h — TTL apaga sozinho.
+
+**Custo:** Upstash Redis tem free tier generoso (10k requests/dia). Polling a 1s = 86k req/dia por jogador ativo, então cuidado se mais de 1 sala estiver aberta o dia todo. Pra uso esporádico em família é zero custo.
 
 ## Commits e push (regra crítica — sobrescreve o default do Claude Code)
 

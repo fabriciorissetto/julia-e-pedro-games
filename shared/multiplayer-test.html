@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Teste Multiplayer · jpgames</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+      max-width: 560px;
+      margin: 24px auto;
+      padding: 16px;
+      color: #1a1a2e;
+    }
+    h1 { font-size: 1.4rem; }
+    p { line-height: 1.5; }
+    code { background: #eee; padding: 2px 6px; border-radius: 4px; }
+    .bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 12px 0; }
+    input { padding: 8px 12px; font-size: 1rem; border: 1px solid #aaa; border-radius: 6px; width: 140px; text-transform: uppercase; }
+    button { padding: 8px 14px; font-size: 1rem; border: 0; border-radius: 6px; background: #4f9bff; color: white; cursor: pointer; }
+    button.minus { background: #ff6f6f; }
+    button.danger { background: #888; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .counter { font-size: 3rem; text-align: center; padding: 16px; background: #f4f4fa; border-radius: 8px; margin: 16px 0; }
+    .meta { font-size: 0.85rem; color: #666; }
+    .log { font-family: ui-monospace, monospace; font-size: 0.8rem; background: #111; color: #0f0; padding: 8px; border-radius: 6px; height: 140px; overflow-y: auto; }
+  </style>
+</head>
+<body>
+  <h1>🧪 Teste de Multiplayer</h1>
+  <p>
+    Página de diagnóstico do <code>JPMultiplayer</code>. Abra esta URL em duas
+    abas (ou em dois navegadores diferentes), entre na mesma sala, e veja o
+    contador sincronizar.
+  </p>
+
+  <div class="bar">
+    <label>Sala: <input id="roomInput" placeholder="EX: TEST" maxlength="32" /></label>
+    <button id="joinBtn">Entrar</button>
+    <button id="randomBtn" class="danger">Sala aleatória</button>
+  </div>
+
+  <div id="game" hidden>
+    <p class="meta">Conectado na sala <code id="roomLabel"></code></p>
+    <div class="counter" id="counter">—</div>
+    <div class="bar">
+      <button id="plus">+1</button>
+      <button id="minus" class="minus">−1</button>
+      <button id="reset" class="danger">Zerar</button>
+      <button id="leave" class="danger">Sair</button>
+    </div>
+    <p class="meta" id="versionLabel">versão: —</p>
+  </div>
+
+  <div class="log" id="log"></div>
+
+  <script src="/shared/multiplayer.js"></script>
+  <script>
+    const $ = (id) => document.getElementById(id)
+    const log = (msg) => {
+      const line = document.createElement('div')
+      line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`
+      $('log').appendChild(line)
+      $('log').scrollTop = $('log').scrollHeight
+    }
+
+    let sala = null
+
+    function entrar(roomId) {
+      if (sala) sala.leave()
+      try {
+        sala = JPMultiplayer.join(roomId, {
+          initialState: { contador: 0 },
+          pollMs: 1000,
+          onUpdate: (state, meta) => {
+            $('counter').textContent = state.contador
+            $('versionLabel').textContent = `versão: ${meta.version} · atualizado: ${new Date(meta.updatedAt).toLocaleTimeString()}`
+            log(`update v${meta.version}: contador=${state.contador}`)
+          },
+          onError: (err) => log(`ERRO: ${err.message}`)
+        })
+        $('roomLabel').textContent = sala.roomId
+        $('game').hidden = false
+        log(`entrou na sala ${sala.roomId}`)
+      } catch (err) {
+        log(`ERRO ao entrar: ${err.message}`)
+      }
+    }
+
+    $('joinBtn').addEventListener('click', () => {
+      const id = $('roomInput').value.trim()
+      if (id) entrar(id)
+    })
+
+    $('randomBtn').addEventListener('click', () => {
+      const id = JPMultiplayer.generateCode()
+      $('roomInput').value = id
+      entrar(id)
+    })
+
+    $('plus').addEventListener('click', async () => {
+      const atual = sala.lastState?.contador ?? 0
+      await sala.setState({ contador: atual + 1 })
+    })
+
+    $('minus').addEventListener('click', async () => {
+      const atual = sala.lastState?.contador ?? 0
+      await sala.setState({ contador: atual - 1 })
+    })
+
+    $('reset').addEventListener('click', async () => {
+      await sala.setState({ contador: 0 })
+    })
+
+    $('leave').addEventListener('click', () => {
+      if (sala) {
+        sala.leave()
+        log(`saiu da sala ${sala.roomId}`)
+        sala = null
+        $('game').hidden = true
+      }
+    })
+  </script>
+</body>
+</html>

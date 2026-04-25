@@ -1,0 +1,9 @@
+{
+  "name": "jpgames",
+  "private": true,
+  "type": "module",
+  "description": "Hub de jogos da família. APIs serverless usam @upstash/redis. Front-end é estático (HTML + Phaser via CDN).",
+  "dependencies": {
+    "@upstash/redis": "^1.34.3"
+  }
+}
