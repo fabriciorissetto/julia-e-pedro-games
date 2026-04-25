@@ -74,6 +74,23 @@
     .hud .item.alerta { animation: piscar 0.6s infinite; }
     @keyframes piscar { 0%,100% { transform: scale(1);} 50% { transform: scale(1.1); background: #ffe5e5; } }
 
+    /* minimapa no canto inferior esquerdo */
+    #minimapaWrap {
+      position: fixed; bottom: 50px; left: 12px;
+      background: rgba(255,255,255,0.85);
+      border: 3px solid #2d6e1a;
+      border-radius: 14px;
+      padding: 4px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+      z-index: 35;
+      pointer-events: none;
+    }
+    #minimapa { display: block; border-radius: 10px; image-rendering: pixelated; }
+    @media (max-width: 500px) {
+      #minimapaWrap { bottom: 100px; }
+      #minimapa { width: 110px; height: 110px; }
+    }
+
     .controles {
       position: fixed; bottom: 8px; left: 50%;
       transform: translateX(-50%);
@@ -455,6 +472,10 @@
 
   <div class="controles" id="controles">
     Setas/WAD = mover · S = correr · M = cortar · A = abrir baú · E = comer · B = construir · ESPAÇO = atacar
+  </div>
+
+  <div id="minimapaWrap" title="Mapa">
+    <canvas id="minimapa" width="160" height="160"></canvas>
   </div>
 
   <div class="bag" id="bag">
@@ -930,6 +951,7 @@
         atualizarHUD();
         renderBag();
         jogoIniciado = true;
+        conectarMultiplayer();
       } else {
         montarTelaInicio();
       }
@@ -1136,6 +1158,7 @@
 
       // sincroniza com outros jogadores
       tickMultiplayer(time);
+      desenharMinimapa();
 
       // movimento
       let dx = 0, dy = 0;
@@ -2442,6 +2465,55 @@
         obj.nomeText.y = s.y - 30;
         renderizarRemoto(obj, time);
       });
+    }
+
+    function desenharMinimapa() {
+      const cv = document.getElementById('minimapa');
+      if (!cv || !player) return;
+      const ctx = cv.getContext('2d');
+      const W = cv.width, H = cv.height;
+      // fundo verde clarinho
+      ctx.fillStyle = '#cfe9b4';
+      ctx.fillRect(0, 0, W, H);
+      // borda interna mostrando o mundo
+      ctx.strokeStyle = '#2d6e1a';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(1, 1, W-2, H-2);
+      const sx = W / WORLD_W;
+      const sy = H / WORLD_H;
+      // outros jogadores (vermelho com nome em cima)
+      ctx.font = 'bold 10px Comic Sans MS, Trebuchet MS, cursive';
+      ctx.textAlign = 'center';
+      outrosJogadores.forEach(obj => {
+        const x = obj.sprite.x * sx;
+        const y = obj.sprite.y * sy;
+        ctx.fillStyle = '#e83a5a';
+        ctx.beginPath();
+        ctx.arc(x, y, 5, 0, Math.PI*2);
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        if (obj.nome) {
+          ctx.fillStyle = '#fff';
+          ctx.strokeStyle = '#000';
+          ctx.lineWidth = 3;
+          ctx.strokeText(obj.nome, x, y - 7);
+          ctx.fillText(obj.nome, x, y - 7);
+        }
+      });
+      // eu (azul, pisca um pouquinho)
+      const meX = player.x * sx;
+      const meY = player.y * sy;
+      const t = (Date.now() % 1000) / 1000;
+      const r = 5 + Math.sin(t * Math.PI*2) * 1.2;
+      ctx.fillStyle = '#2a8aff';
+      ctx.beginPath();
+      ctx.arc(meX, meY, r, 0, Math.PI*2);
+      ctx.fill();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
     }
 
     // ===== game =====
