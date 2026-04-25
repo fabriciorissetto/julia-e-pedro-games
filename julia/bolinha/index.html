@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Bolinha Pulinhos</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: #1a0033;
+      height: 100%;
+      font-family: 'Comic Sans MS', cursive, sans-serif;
+      touch-action: none;
+    }
+    #voltar {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      padding: 10px 18px;
+      background: #ff6fb5;
+      color: white;
+      border: none;
+      border-radius: 24px;
+      font-size: 18px;
+      cursor: pointer;
+      z-index: 100;
+      text-decoration: none;
+      font-weight: bold;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.4);
+    }
+    #game { width: 100vw; height: 100vh; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+</head>
+<body>
+  <a href="../index.html" id="voltar">← Voltar</a>
+  <div id="game"></div>
+  <script>
+    const GAME_W = 1280;
+    const GAME_H = 720;
+    const PAREDE_LARG = 70;
+    const CHAO_ALT = 50;
+
+    let bolinha, cursors, scoreText, score = 0;
+    let movEsq = false, movDir = false;
+    let audioCtx = null;
+    let estrelinhasFundo = [];
+    let trailGroup;
+    let scene;
+    let podeOuvirChao = true;
+
+    const config = {
+      type: Phaser.AUTO,
+      parent: 'game',
+      width: GAME_W,
+      height: GAME_H,
+      scale: {
+        mode: Phaser.Scale.FIT,
+        autoCenter: Phaser.Scale.CENTER_BOTH
+      },
+      backgroundColor: '#2a0044',
+      physics: {
+        default: 'arcade',
+        arcade: { gravity: { y: 1100 }, debug: false }
+      },
+      scene: { preload, create, update }
+    };
+
+    function preload() {}
+
+    function create() {
+      scene = this;
+
+      // Fundo com gradient
+      const fundo = this.add.graphics();
+      fundo.fillGradientStyle(0xff6fb5, 0xb56fff, 0x6fb5ff, 0xffd16f, 1);
+      fundo.fillRect(0, 0, GAME_W, GAME_H);
+
+      // Estrelinhas brilhando no fundo
+      for (let i = 0; i < 40; i++) {
+        const estr = this.add.text(
+          Math.random() * GAME_W,
+          Math.random() * (GAME_H - 100),
+          '✨',
+          { fontSize: (12 + Math.random() * 22) + 'px' }
+        );
+        estr.setAlpha(0.3 + Math.random() * 0.5);
+        estrelinhasFundo.push(estr);
+        // pisca pisca
+        this.tweens.add({
+          targets: estr,
+          alpha: 0.1,
+          duration: 800 + Math.random() * 1200,
+          yoyo: true,
+          repeat: -1
+        });
+      }
+
+      // Nuvenzinhas decorativas
+      for (let i = 0; i < 5; i++) {
+        const nuvem = this.add.text(
+          Math.random() * GAME_W,
+          50 + Math.random() * 200,
+          '☁️',
+          { fontSize: (40 + Math.random() * 30) + 'px' }
+        );
+        nuvem.setAlpha(0.7);
+      }
+
+      // Paredes laterais (rosa pink)
+      const paredeEsq = this.add.rectangle(PAREDE_LARG/2, GAME_H/2, PAREDE_LARG, GAME_H, 0xff1493);
+      paredeEsq.setStrokeStyle(4, 0xffffff);
+      this.physics.add.existing(paredeEsq, true);
+
+      const paredeDir = this.add.rectangle(GAME_W - PAREDE_LARG/2, GAME_H/2, PAREDE_LARG, GAME_H, 0xff1493);
+      paredeDir.setStrokeStyle(4, 0xffffff);
+      this.physics.add.existing(paredeDir, true);
+
+      // Decoração nas paredes (corações)
+      for (let y = 50; y < GAME_H - 50; y += 80) {
+        this.add.text(PAREDE_LARG/2, y, '💖', { fontSize: '24px' }).setOrigin(0.5);
+        this.add.text(GAME_W - PAREDE_LARG/2, y, '💖', { fontSize: '24px' }).setOrigin(0.5);
+      }
+
+      // Chão (roxo brilhante)
+      const chao = this.add.rectangle(GAME_W/2, GAME_H - CHAO_ALT/2, GAME_W, CHAO_ALT, 0xb56fff);
+      chao.setStrokeStyle(4, 0xffffff);
+      this.physics.add.existing(chao, true);
+
+      // Trail da bolinha (rastro)
+      trailGroup = this.add.group();
+
+      // BOLINHA — círculo rosa com cara feliz
+      const bx = GAME_W / 2;
+      const by = GAME_H - 200;
+      bolinha = this.add.container(bx, by);
+
+      const corpo = this.add.circle(0, 0, 38, 0xff69b4);
+      corpo.setStrokeStyle(4, 0xffffff);
+      const brilhoBolinha = this.add.circle(-12, -12, 10, 0xffffff, 0.6);
+      const olhoEsq = this.add.circle(-12, -3, 5, 0x000000);
+      const olhoDir = this.add.circle(12, -3, 5, 0x000000);
+      const brilhoOlhoEsq = this.add.circle(-10, -5, 2, 0xffffff);
+      const brilhoOlhoDir = this.add.circle(14, -5, 2, 0xffffff);
+      const boca = this.add.graphics();
+      boca.lineStyle(3, 0x000000, 1);
+      boca.beginPath();
+      boca.arc(0, 8, 8, 0, Math.PI, false);
+      boca.strokePath();
+
+      bolinha.add([corpo, brilhoBolinha, olhoEsq, olhoDir, brilhoOlhoEsq, brilhoOlhoDir, boca]);
+
+      this.physics.add.existing(bolinha);
+      bolinha.body.setCircle(38, -38, -38);
+      bolinha.body.setBounce(0.05);
+      bolinha.body.setMaxVelocity(400, 1200);
+
+      // Colisões
+      this.physics.add.collider(bolinha, paredeEsq);
+      this.physics.add.collider(bolinha, paredeDir);
+      this.physics.add.collider(bolinha, chao);
+
+      // Score
+      scoreText = this.add.text(GAME_W/2, 30, '⭐ 0', {
+        fontSize: '44px',
+        color: '#ffffff',
+        fontStyle: 'bold',
+        stroke: '#ff1493',
+        strokeThickness: 7
+      }).setOrigin(0.5);
+
+      // Estrelas/corações pra coletar
+      this.time.addEvent({
+        delay: 1100,
+        loop: true,
+        callback: spawnColetavel
+      });
+
+      // Controles teclado
+      cursors = this.input.keyboard.createCursorKeys();
+
+      // Controles touch — toque na metade esquerda/direita
+      this.input.on('pointerdown', (pointer) => {
+        initAudio();
+        if (pointer.x < window.innerWidth / 2) movEsq = true;
+        else movDir = true;
+      });
+      this.input.on('pointerup', () => {
+        movEsq = false;
+        movDir = false;
+      });
+      this.input.on('pointerupoutside', () => {
+        movEsq = false;
+        movDir = false;
+      });
+
+      // Texto de instrução (some em 4s)
+      const instr = this.add.text(GAME_W/2, GAME_H/2, '👈 toca aqui pra ir pra esquerda     toca aqui pra ir pra direita 👉', {
+        fontSize: '22px',
+        color: '#ffffff',
+        fontStyle: 'bold',
+        stroke: '#ff1493',
+        strokeThickness: 4,
+        align: 'center',
+        wordWrap: { width: GAME_W - 200 }
+      }).setOrigin(0.5);
+      this.tweens.add({
+        targets: instr,
+        alpha: 0,
+        duration: 1500,
+        delay: 3500,
+        onComplete: () => instr.destroy()
+      });
+    }
+
+    function initAudio() {
+      if (!audioCtx) {
+        try {
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        } catch(e) {}
+      }
+    }
+
+    function tom(freq, dur, type) {
+      if (!audioCtx) return;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = type || 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + dur);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + dur);
+    }
+
+    function somPulo() { tom(600, 0.12); }
+    function somColeta() {
+      tom(900, 0.1);
+      setTimeout(() => tom(1200, 0.1), 80);
+      setTimeout(() => tom(1500, 0.15), 160);
+    }
+
+    function spawnColetavel() {
+      const emojis = ['⭐', '💖', '🌟', '✨', '🌈', '🦄', '🎀'];
+      const emoji = emojis[Math.floor(Math.random() * emojis.length)];
+      const x = PAREDE_LARG + 40 + Math.random() * (GAME_W - 2*PAREDE_LARG - 80);
+      const y = -40;
+
+      const item = scene.add.text(x, y, emoji, { fontSize: '44px' }).setOrigin(0.5);
+      scene.physics.add.existing(item);
+      item.body.setVelocityY(180 + Math.random() * 80);
+      item.body.setAngularVelocity(60);
+
+      scene.physics.add.overlap(bolinha, item, () => {
+        if (!item.active) return;
+        score++;
+        scoreText.setText('⭐ ' + score);
+        somColeta();
+        // Mini efeito de brilho onde foi pego
+        for (let i = 0; i < 6; i++) {
+          const sp = scene.add.text(item.x, item.y, '✨', { fontSize: '20px' });
+          const ang = (Math.PI * 2 * i) / 6;
+          scene.tweens.add({
+            targets: sp,
+            x: item.x + Math.cos(ang) * 50,
+            y: item.y + Math.sin(ang) * 50,
+            alpha: 0,
+            duration: 500,
+            onComplete: () => sp.destroy()
+          });
+        }
+        item.destroy();
+      });
+
+      // Remove se cair muito
+      scene.time.delayedCall(8000, () => {
+        if (item && item.active) item.destroy();
+      });
+    }
+
+    function update(time, delta) {
+      if (!bolinha) return;
+
+      // Movimento horizontal — ANDAR
+      const vel = 280;
+      const esq = cursors.left.isDown || movEsq;
+      const dir = cursors.right.isDown || movDir;
+
+      if (esq && !dir) {
+        bolinha.body.setVelocityX(-vel);
+      } else if (dir && !esq) {
+        bolinha.body.setVelocityX(vel);
+      } else {
+        bolinha.body.setVelocityX(0);
+      }
+
+      // Pulo automático ao tocar o chão
+      if (bolinha.body.blocked.down || bolinha.body.touching.down) {
+        bolinha.body.setVelocityY(-720);
+        if (podeOuvirChao) {
+          somPulo();
+          podeOuvirChao = false;
+          scene.time.delayedCall(150, () => { podeOuvirChao = true; });
+        }
+      }
+
+      // Rotaciona a bolinha conforme movimento
+      bolinha.rotation += (bolinha.body.velocity.x / 400) * 0.03;
+
+      // Trail (rastro) atrás da bolinha
+      if (Math.random() < 0.4) {
+        const t = scene.add.circle(bolinha.x, bolinha.y, 12, 0xff69b4, 0.5);
+        scene.tweens.add({
+          targets: t,
+          alpha: 0,
+          scale: 0.2,
+          duration: 400,
+          onComplete: () => t.destroy()
+        });
+      }
+    }
+
+    new Phaser.Game(config);
+  </script>
+</body>
+</html>

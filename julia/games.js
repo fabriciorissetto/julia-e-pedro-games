@@ -41,4 +41,11 @@ window.GAMES = [
     color: "#b56fff",
     description: "Vira as cartas e acha os pares"
   },
+  {
+    slug: "bolinha",
+    title: "Bolinha Pulinhos",
+    emoji: "🩷",
+    color: "#ff69b4",
+    description: "Anda entre as paredes pegando estrelinhas"
+  },
 ];
