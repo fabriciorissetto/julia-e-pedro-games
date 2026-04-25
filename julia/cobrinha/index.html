@@ -8,7 +8,7 @@
     html, body {
       margin: 0;
       padding: 0;
-      background: #222;
+      background: #1a0f2e;
       height: 100%;
       overflow: hidden;
       font-family: sans-serif;
@@ -19,7 +19,7 @@
       justify-content: center;
     }
     #game {
-      background: #000;
+      background: #1a0f2e;
     }
   </style>
 </head>
@@ -28,9 +28,9 @@
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
   <script>
     // Tamanho do grid em células
-    const CELL = 24;
-    const COLS = 20;
-    const ROWS = 20;
+    const CELL = 36;
+    const COLS = 24;
+    const ROWS = 24;
     const W = CELL * COLS;
     const H = CELL * ROWS;
 
@@ -38,11 +38,23 @@
     let dir;          // {x,y}
     let nextDir;
     let food;         // {x,y}
+    let foodColor;    // cor da bolinha atual
     let stepTimer = 0;
-    const STEP_MS = 180;
+    const STEP_MS = 280;
     let scoreText;
     let score = 0;
     let graphics;
+    let pulseTime = 0;
+
+    // paleta fofa pra bolinhas
+    const FOOD_COLORS = [
+      0xff6fb5, // rosa
+      0xb56fff, // roxo
+      0x6fb5ff, // azul
+      0xffd16f, // amarelo
+      0xff8888, // vermelho clarinho
+      0x88ffcc  // verde água
+    ];
 
     function preload() {}
 
@@ -51,20 +63,22 @@
 
       // estado inicial
       snake = [
-        { x: 10, y: 10 },
-        { x: 9, y: 10 },
-        { x: 8, y: 10 }
+        { x: 12, y: 12 },
+        { x: 11, y: 12 },
+        { x: 10, y: 12 }
       ];
       dir = { x: 1, y: 0 };
       nextDir = { x: 1, y: 0 };
       score = 0;
       placeFood();
 
-      scoreText = this.add.text(8, 8, 'Pontos: 0', {
-        fontSize: '20px',
+      scoreText = this.add.text(12, 10, 'Pontos: 0', {
+        fontSize: '26px',
         color: '#ffffff',
-        fontFamily: 'sans-serif'
+        fontFamily: 'sans-serif',
+        fontStyle: 'bold'
       });
+      scoreText.setShadow(2, 2, '#000000', 4, true, true);
 
       // teclado
       this.input.keyboard.on('keydown-LEFT',  () => setDir(-1, 0));
@@ -102,6 +116,7 @@
         const fy = Phaser.Math.Between(0, ROWS - 1);
         if (!snake.some(s => s.x === fx && s.y === fy)) {
           food = { x: fx, y: fy };
+          foodColor = Phaser.Utils.Array.GetRandom(FOOD_COLORS);
           return;
         }
       }
@@ -109,9 +124,9 @@
 
     function reset() {
       snake = [
-        { x: 10, y: 10 },
-        { x: 9, y: 10 },
-        { x: 8, y: 10 }
+        { x: 12, y: 12 },
+        { x: 11, y: 12 },
+        { x: 10, y: 12 }
       ];
       dir = { x: 1, y: 0 };
       nextDir = { x: 1, y: 0 };
@@ -149,19 +164,85 @@
     function draw() {
       graphics.clear();
 
-      // comida
-      graphics.fillStyle(0xff5577, 1);
-      graphics.fillRect(food.x * CELL, food.y * CELL, CELL, CELL);
+      // fundo quadriculado bem suave
+      graphics.fillStyle(0x2a1845, 1);
+      graphics.fillRect(0, 0, W, H);
+      graphics.fillStyle(0x32205a, 1);
+      for (let y = 0; y < ROWS; y++) {
+        for (let x = 0; x < COLS; x++) {
+          if ((x + y) % 2 === 0) {
+            graphics.fillRect(x * CELL, y * CELL, CELL, CELL);
+          }
+        }
+      }
+
+      // bolinha (comida) com brilho pulsante
+      const cx = food.x * CELL + CELL / 2;
+      const cy = food.y * CELL + CELL / 2;
+      const pulse = 1 + Math.sin(pulseTime * 0.005) * 0.1;
+      const r = (CELL / 2 - 3) * pulse;
+
+      // halo brilhante
+      graphics.fillStyle(foodColor, 0.25);
+      graphics.fillCircle(cx, cy, r + 6);
+      // bolinha
+      graphics.fillStyle(foodColor, 1);
+      graphics.fillCircle(cx, cy, r);
+      // reflexo branco
+      graphics.fillStyle(0xffffff, 0.7);
+      graphics.fillCircle(cx - r * 0.35, cy - r * 0.35, r * 0.3);
 
       // cobrinha
       for (let i = 0; i < snake.length; i++) {
         const s = snake[i];
-        graphics.fillStyle(i === 0 ? 0x88ff88 : 0x55cc55, 1);
-        graphics.fillRect(s.x * CELL, s.y * CELL, CELL, CELL);
+        const px = s.x * CELL + CELL / 2;
+        const py = s.y * CELL + CELL / 2;
+        const radius = CELL / 2 - 2;
+
+        if (i === 0) {
+          // cabeça rosa brilhante
+          graphics.fillStyle(0xff6fb5, 1);
+          graphics.fillCircle(px, py, radius);
+          graphics.fillStyle(0xffb3d9, 1);
+          graphics.fillCircle(px - radius * 0.3, py - radius * 0.3, radius * 0.4);
+
+          // olhinhos olhando pra direção
+          const eyeOffX = dir.x * radius * 0.35;
+          const eyeOffY = dir.y * radius * 0.35;
+          const eyeSpread = radius * 0.4;
+          // se anda na horizontal, olhos em cima/baixo; se vertical, esquerda/direita
+          let ex1, ey1, ex2, ey2;
+          if (dir.x !== 0) {
+            ex1 = px + eyeOffX; ey1 = py - eyeSpread;
+            ex2 = px + eyeOffX; ey2 = py + eyeSpread;
+          } else {
+            ex1 = px - eyeSpread; ey1 = py + eyeOffY;
+            ex2 = px + eyeSpread; ey2 = py + eyeOffY;
+          }
+          // branco do olho
+          graphics.fillStyle(0xffffff, 1);
+          graphics.fillCircle(ex1, ey1, radius * 0.28);
+          graphics.fillCircle(ex2, ey2, radius * 0.28);
+          // pupila preta
+          graphics.fillStyle(0x000000, 1);
+          graphics.fillCircle(ex1 + dir.x * 2, ey1 + dir.y * 2, radius * 0.15);
+          graphics.fillCircle(ex2 + dir.x * 2, ey2 + dir.y * 2, radius * 0.15);
+        } else {
+          // corpo em arco-íris suave (varia a cor por segmento)
+          const t = i / snake.length;
+          const colors = [0xb56fff, 0x6fb5ff, 0x88ffcc, 0xffd16f, 0xff6fb5];
+          const c = colors[i % colors.length];
+          graphics.fillStyle(c, 1);
+          graphics.fillCircle(px, py, radius);
+          // brilhinho
+          graphics.fillStyle(0xffffff, 0.4);
+          graphics.fillCircle(px - radius * 0.3, py - radius * 0.3, radius * 0.25);
+        }
       }
     }
 
     function update(time, delta) {
+      pulseTime += delta;
       stepTimer += delta;
       if (stepTimer >= STEP_MS) {
         stepTimer = 0;
@@ -175,7 +256,7 @@
       parent: 'game',
       width: W,
       height: H,
-      backgroundColor: '#000000',
+      backgroundColor: '#1a0f2e',
       scale: {
         mode: Phaser.Scale.FIT,
         autoCenter: Phaser.Scale.CENTER_BOTH
