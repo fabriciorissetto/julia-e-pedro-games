@@ -75,17 +75,12 @@ jpgames/
 - Mensagens curtas e descritivas em português: `julia: cobrinha muda de cor ao comer`, `pedro: flappy salva recorde`.
 - Esta regra **substitui** o comportamento default do Claude Code de pedir confirmação antes de commitar — neste projeto é automático, é parte do fluxo de vibe coding.
 
-### Push para `main`: APENAS se a criança pedir explicitamente
+### Push para `main`: AUTOMÁTICO depois de cada commit
 
-- Push automaticamente **NÃO**. Mesmo após commitar, não pushe.
-- Push só quando a criança pedir, com palavras dela. Frases que significam "fazer push":
-  - "publica", "publica o jogo"
-  - "manda pra vovó", "manda pra minha amiga", "manda pro [nome]"
-  - "coloca no ar", "põe no ar", "põe na internet"
-  - "atualiza o site"
-  - (Pedro pode usar termo técnico: "push", "deploy", "atualiza no GitHub") — também conta
-- Se ela disser algo ambíguo tipo "tá pronto", **NÃO** é push. Confirme: pra Julia: "Quer que a vovó consiga jogar isso agora?" / pra Pedro: "Quer que eu publique?"
-- Quando pushar, sempre pra `main`. Não criar branches.
+- Toda vez que commitar, pushar pra `main` em seguida. Sem perguntar, sem esperar a criança pedir.
+- Esta regra foi decidida pelo pai junto com o Pedro em 2026-04-25 — substitui o comportamento default do Claude Code de pedir confirmação antes de pushar.
+- Sempre pra `main`. Não criar branches.
+- **Exceção:** se o jogo claramente está quebrado (a criança acabou de relatar que não funciona, ou um teste óbvio falhou), NÃO pushar — segura o commit local até consertar.
 
 ### Regras git que NUNCA mudam
 
