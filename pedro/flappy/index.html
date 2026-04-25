@@ -57,6 +57,7 @@
     #trocarUser.show { display: block; }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+  <script src="/shared/multiplayer.js"></script>
 </head>
 <body>
   <a id="voltar" href="../">← voltar</a>
@@ -190,13 +191,63 @@
       Object.assign(u[nick], mod);
       salvarUsuarios(u);
     }
-    function recordeGlobal() {
+    function recordeGlobalLocal() {
       const u = carregarUsuarios();
       let melhorN = 0, melhorNick = null;
       for (const [nick, d] of Object.entries(u)) {
         if ((d.recorde || 0) > melhorN) { melhorN = d.recorde; melhorNick = nick; }
       }
       return { pontos: melhorN, nick: melhorNick };
+    }
+    function recordeGlobalOnline() {
+      if (!salaGlobal || !salaGlobal.lastState || !salaGlobal.lastState.recordes) return null;
+      let melhorN = 0, melhorNick = null;
+      for (const [nick, pontos] of Object.entries(salaGlobal.lastState.recordes)) {
+        if (pontos > melhorN) { melhorN = pontos; melhorNick = nick; }
+      }
+      if (melhorNick === null) return null;
+      return { pontos: melhorN, nick: melhorNick };
+    }
+    function recordeGlobal() {
+      return recordeGlobalOnline() || recordeGlobalLocal();
+    }
+    function listaRanking(tipo) {
+      // tipo: "recorde" (numa partida) ou "totais" (acumulado)
+      const map = {};
+      const locais = carregarUsuarios();
+      for (const [nick, d] of Object.entries(locais)) {
+        const v = tipo === "totais" ? (d.pontosTotal || 0) : (d.recorde || 0);
+        if (v > 0) map[nick] = v;
+      }
+      const onlineKey = tipo === "totais" ? "totais" : "recordes";
+      if (salaGlobal && salaGlobal.lastState && salaGlobal.lastState[onlineKey]) {
+        for (const [nick, p] of Object.entries(salaGlobal.lastState[onlineKey])) {
+          if (p > (map[nick] || 0)) map[nick] = p;
+        }
+      }
+      return Object.entries(map)
+        .map(([nick, pontos]) => ({ nick, pontos }))
+        .sort((a, b) => b.pontos - a.pontos);
+    }
+    async function publicarRecordeOnline(nick, pontos) {
+      if (!salaGlobal) return;
+      try {
+        const atual = (salaGlobal.lastState && salaGlobal.lastState.recordes) || {};
+        if ((atual[nick] || 0) >= pontos) return;
+        const estado = salaGlobal.lastState || {};
+        const novo = { ...estado, recordes: { ...atual, [nick]: pontos } };
+        await salaGlobal.setState(novo);
+      } catch (e) { /* offline */ }
+    }
+    async function publicarTotaisOnline(nick, total) {
+      if (!salaGlobal) return;
+      try {
+        const atual = (salaGlobal.lastState && salaGlobal.lastState.totais) || {};
+        if ((atual[nick] || 0) >= total) return;
+        const estado = salaGlobal.lastState || {};
+        const novo = { ...estado, totais: { ...atual, [nick]: total } };
+        await salaGlobal.setState(novo);
+      } catch (e) { /* offline */ }
     }
     // Wrappers que falam com o usuário atual
     function carregarPontosTotal() { return (dadosUsuario() || {}).pontosTotal || 0; }
@@ -262,6 +313,10 @@
     let teclaB;
     let barraHabBg, barraHabFill, textoHab;
     let abaLojaAtual = "skins"; // "skins" | "habilidades"
+    let salaGlobal = null;
+    let cardRecordeRefs = null;
+    let telaRanking = null;
+    let abaRanking = "recorde"; // "recorde" | "totais"
 
     const config = {
       type: Phaser.AUTO,
@@ -391,6 +446,27 @@
 
       // ===== Login =====
       cenaRef = this;
+
+      // Conecta na sala global de recordes (polling 3s)
+      try {
+        salaGlobal = JPMultiplayer.join("FLAPPYRECORDS", {
+          initialState: { recordes: {} },
+          pollMs: 3000,
+          onUpdate: () => {
+            // Atualiza textos do card de recorde sem recarregar menu
+            atualizarCardRecorde();
+            // Se ranking está aberto, recarrega pra mostrar ao vivo
+            if (telaRanking) {
+              telaRanking.destroy();
+              telaRanking = null;
+              mostrarRanking(scene);
+            }
+          },
+        });
+      } catch (e) {
+        console.warn("multiplayer offline:", e);
+      }
+
       iniciarFluxoLogin(this);
     }
 
@@ -559,29 +635,163 @@
       telaMenu.add(btnLoja);
       telaMenu.add(txtLoja);
 
-      // Recorde pessoal
-      const txtRec = scene.add.text(TELA_W / 2, 495, `🏆 Seu recorde: ${melhor}`, {
-        fontSize: "16px", color: "#ffffff",
-        stroke: "#000000", strokeThickness: 3,
+      // ===== Card do recorde global (clicável → abre ranking) =====
+      const rg = recordeGlobal();
+      const cardY = 520;
+      const cardFundo = scene.add.rectangle(TELA_W / 2, cardY, TELA_W - 40, 80, 0x1a1a3a, 0.85)
+        .setStrokeStyle(3, 0xfff04f).setInteractive();
+      cardFundo.on("pointerover", () => cardFundo.setFillStyle(0x2a2a5a, 0.9));
+      cardFundo.on("pointerout", () => cardFundo.setFillStyle(0x1a1a3a, 0.85));
+      cardFundo.on("pointerdown", () => {
+        scene.sound.play("ponto", { volume: 0.4 });
+        mostrarRanking(scene);
+      });
+      telaMenu.add(cardFundo);
+
+      const onlineFlag = recordeGlobalOnline() !== null;
+      const tituloRG = scene.add.text(TELA_W / 2, cardY - 24,
+        onlineFlag ? "🌍 RECORDE GLOBAL" : "👑 RECORDE", {
+        fontSize: "13px", color: "#fff04f", fontStyle: "bold",
+      }).setOrigin(0.5);
+      telaMenu.add(tituloRG);
+
+      const pontosRG = scene.add.text(TELA_W / 2, cardY - 2, `${rg.pontos || 0}`, {
+        fontSize: "26px", color: "#ffffff", fontStyle: "bold",
+        stroke: "#000000", strokeThickness: 4,
+      }).setOrigin(0.5);
+      telaMenu.add(pontosRG);
+
+      const nickRG = scene.add.text(TELA_W / 2, cardY + 22,
+        rg.nick ? `— ${rg.nick} —  (toque pra ver ranking)` : "(ninguém ainda)", {
+        fontSize: "11px", color: "#fff04f", fontStyle: "italic",
+      }).setOrigin(0.5);
+      telaMenu.add(nickRG);
+
+      // Salva refs pra atualizar quando vier dado novo do servidor
+      cardRecordeRefs = { tituloRG, pontosRG, nickRG };
+
+      // Seu recorde abaixo
+      const txtRec = scene.add.text(TELA_W / 2, 575, `🏆 Seu recorde: ${melhor}`, {
+        fontSize: "13px", color: "#ffffff",
+        stroke: "#000000", strokeThickness: 2,
       }).setOrigin(0.5);
       telaMenu.add(txtRec);
 
-      // Recorde global (deste navegador)
+    }
+
+    // ============================================
+    // CARD DE RECORDE — atualizar sem recarregar menu
+    // ============================================
+    function atualizarCardRecorde() {
+      if (!cardRecordeRefs || estado !== "menu") return;
       const rg = recordeGlobal();
-      if (rg.nick) {
-        const txtRG = scene.add.text(TELA_W / 2, 525,
-          `👑 Maior recorde: ${rg.pontos}\n— ${rg.nick}`, {
-          fontSize: "14px", color: "#fff04f", fontStyle: "bold",
-          align: "center", stroke: "#000000", strokeThickness: 3,
+      const onlineFlag = recordeGlobalOnline() !== null;
+      cardRecordeRefs.tituloRG.setText(onlineFlag ? "🌍 RECORDE GLOBAL" : "👑 RECORDE");
+      cardRecordeRefs.pontosRG.setText(`${rg.pontos || 0}`);
+      cardRecordeRefs.nickRG.setText(
+        rg.nick ? `— ${rg.nick} —  (toque pra ver ranking)` : "(ninguém ainda)"
+      );
+    }
+
+    // ============================================
+    // TELA DE RANKING
+    // ============================================
+    function mostrarRanking(scene) {
+      if (telaRanking) telaRanking.destroy();
+      telaRanking = scene.add.container(0, 0).setDepth(40);
+      const fundo = scene.add.rectangle(TELA_W / 2, TELA_H / 2, TELA_W, TELA_H, 0x000000, 0.92);
+      telaRanking.add(fundo);
+
+      const titulo = scene.add.text(TELA_W / 2, 25, "🏆 RANKING", {
+        fontSize: "22px", color: "#fff04f", fontStyle: "bold",
+        stroke: "#000000", strokeThickness: 4,
+      }).setOrigin(0.5);
+      telaRanking.add(titulo);
+
+      const onlineFlag = recordeGlobalOnline() !== null;
+      const sub = scene.add.text(TELA_W / 2, 50,
+        onlineFlag ? "🌍 ao vivo (todos os jogadores)" : "(offline — só desse navegador)", {
+        fontSize: "11px", color: onlineFlag ? "#4fdb9b" : "#aaaaaa",
+      }).setOrigin(0.5);
+      telaRanking.add(sub);
+
+      // ===== Abas =====
+      const abaY = 80;
+      const criarAba = (nome, slug, x, ativa) => {
+        const cor = ativa ? 0xfff04f : 0x444466;
+        const corTxt = ativa ? "#000" : "#ffffff";
+        const r = scene.add.rectangle(x, abaY, 170, 32, cor, 1).setInteractive().setStrokeStyle(2, 0x000000);
+        const t = scene.add.text(x, abaY, nome, { fontSize: "13px", color: corTxt, fontStyle: "bold" }).setOrigin(0.5);
+        r.on("pointerdown", () => {
+          if (abaRanking === slug) return;
+          abaRanking = slug;
+          scene.sound.play("ponto", { volume: 0.3 });
+          telaRanking.destroy();
+          telaRanking = null;
+          mostrarRanking(scene);
+        });
+        telaRanking.add(r); telaRanking.add(t);
+      };
+      criarAba("🏆 RECORDE", "recorde", TELA_W / 2 - 90, abaRanking === "recorde");
+      criarAba("💰 ACUMULADOS", "totais", TELA_W / 2 + 90, abaRanking === "totais");
+
+      // ===== Lista =====
+      const ranking = listaRanking(abaRanking).slice(0, 11);
+      const startY = 115;
+      const itemH = 32;
+      const meuNick = getUsuarioAtual();
+      const corPontos = abaRanking === "totais" ? "#fff04f" : "#fff04f";
+
+      if (ranking.length === 0) {
+        const txtVazio = scene.add.text(TELA_W / 2, TELA_H / 2 - 30,
+          abaRanking === "totais"
+            ? "Ninguém juntou moedas ainda.\nJoga e ganha pontos! 💰"
+            : "Ninguém pontuou ainda.\nSeja o primeiro! 🎯", {
+          fontSize: "16px", color: "#ffffff", align: "center",
         }).setOrigin(0.5);
-        telaMenu.add(txtRG);
+        telaRanking.add(txtVazio);
+      } else {
+        ranking.forEach((r, i) => {
+          const y = startY + i * itemH;
+          const ehVoce = r.nick === meuNick;
+          const medalha = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}º`;
+          const corFundo = ehVoce ? 0x2a4f2a : 0x222244;
+          const card = scene.add.rectangle(TELA_W / 2, y, 360, itemH - 4, corFundo, 0.9)
+            .setStrokeStyle(2, ehVoce ? 0x4fdb9b : 0x444466);
+          telaRanking.add(card);
+
+          const lblPos = scene.add.text(TELA_W / 2 - 165, y, medalha, {
+            fontSize: i < 3 ? "20px" : "14px", color: "#ffffff", fontStyle: "bold",
+          }).setOrigin(0, 0.5);
+          telaRanking.add(lblPos);
+
+          const lblNick = scene.add.text(TELA_W / 2 - 100, y, r.nick + (ehVoce ? "  (você)" : ""), {
+            fontSize: "14px", color: ehVoce ? "#4fdb9b" : "#ffffff", fontStyle: "bold",
+          }).setOrigin(0, 0.5);
+          telaRanking.add(lblNick);
+
+          const lblPontos = scene.add.text(TELA_W / 2 + 145, y,
+            abaRanking === "totais" ? `💰 ${r.pontos}` : `${r.pontos}`, {
+            fontSize: "16px", color: corPontos, fontStyle: "bold",
+            stroke: "#000000", strokeThickness: 2,
+          }).setOrigin(1, 0.5);
+          telaRanking.add(lblPontos);
+        });
       }
 
-      const txtControles = scene.add.text(TELA_W / 2, 575,
-        "ESPAÇO ou clique pra pular", {
-        fontSize: "12px", color: "#ffffff",
+      // Botão fechar
+      const btnFechar = scene.add.rectangle(TELA_W / 2, TELA_H - 30, 160, 38, 0x4f9bff, 1)
+        .setInteractive().setStrokeStyle(3, 0x000000);
+      const txtFechar = scene.add.text(TELA_W / 2, TELA_H - 30, "← Voltar", {
+        fontSize: "16px", color: "#ffffff", fontStyle: "bold",
       }).setOrigin(0.5);
-      telaMenu.add(txtControles);
+      btnFechar.on("pointerdown", () => {
+        scene.sound.play("ponto", { volume: 0.4 });
+        telaRanking.destroy();
+        telaRanking = null;
+      });
+      telaRanking.add(btnFechar);
+      telaRanking.add(txtFechar);
     }
 
     // ============================================
@@ -959,7 +1169,10 @@
         melhor = pontos;
         salvarMelhor(melhor);
         novoRecorde = true;
+        publicarRecordeOnline(getUsuarioAtual(), pontos);
       }
+      // Publica pontos acumulados (sempre, no fim da partida)
+      publicarTotaisOnline(getUsuarioAtual(), pontosTotal);
 
       const tit = novoRecorde ? "🏆 NOVO RECORDE!" : "💥 GAME OVER";
       textoFim = scene.add.container(0, 0).setDepth(50);
