@@ -13,4 +13,11 @@ window.GAMES = [
     color: "#ff4f6f",
     description: "Você contra o cronômetro, 3 voltas"
   },
+  {
+    slug: "among",
+    title: "Among Us",
+    emoji: "🚀",
+    color: "#9b4fff",
+    description: "Ache o impostor antes que ele te ache"
+  },
 ];
