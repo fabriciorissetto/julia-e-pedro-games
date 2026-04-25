@@ -10,16 +10,37 @@ Abra **`/shared/assets/preview.html`** no navegador (rodando `vercel dev`, fica 
 
 ## O que tem
 
-### Sprites (`sprites/kenney/`)
+### Sprites — Pixel Frog (`sprites/pixelfrog/`)
+
+⭐ **Pixel art animado de altíssima qualidade.** O melhor visual do repo.
 
 | Pasta | O que é | Bom pra |
 |---|---|---|
-| `animals/` | 10 bichos (elephant, giraffe, hippo, monkey, panda, parrot, penguin, pig, rabbit, snake) em 8 estilos (round/square × com/sem detalhe × com/sem outline) | Jogos de bicho, mascotes, personagens |
+| `pixel-adventure-1/Main Characters/` | 4 personagens (Pink Man, Mask Dude, Ninja Frog, Virtual Guy) com 7 animações cada (idle, run, jump, double jump, fall, hit, wall jump) | Plataforma estilo Celeste/Super Meat Boy |
+| `pixel-adventure-1/Enemies/` | 21 inimigos animados (AngryPig, Bat, Bee, Bunny, Chicken, Mushroom, Skull, Slime, Trunk, Turtle, Plant, Radish, Rino, Ghost...) | Inimigos pra jogo de plataforma |
+| `pixel-adventure-1/Traps/` | Saw, Spike, Fire, Trampoline, Falling Platform, Spiked Ball, Rock Head, Arrow | Obstáculos e armadilhas |
+| `pixel-adventure-1/Items/Fruits/` | Apple, Bananas, Cherries, Kiwi, Melon, Orange, Pineapple, Strawberry, Collected | Coletáveis |
+| `pixel-adventure-1/Background/` | 8 backgrounds tileable em cores diferentes | Fundos de fase |
+| `pixel-adventure-1/Terrain/` | Tile de chão único com paleta verde/marrom | Plataformas |
+
+### Sprites — Kenney (`sprites/kenney/`)
+
+Estilo "vector flat" — limpo, geométrico, ótimo pra protótipo. Mais minimalista que o Pixel Frog.
+
+| Pasta | O que é | Bom pra |
+|---|---|---|
+| `tiny-dungeon/` | ⭐ Pixel art 16×16 RPG fofo (heróis, monstros, paredes de dungeon, baús) | RPG top-down minimalista |
+| `tiny-town/` | ⭐ Pixel art 16×16 cidade (casas, árvores, NPCs, animais) | Top-down de exploração |
+| `toon-characters/` | 4 personagens 3D-cartoon (Female adventurer, Female person, Male adventurer, Male person) com várias poses | Personagens cartoon estilizados |
+| `pirate/` | Tema pirata (navios, baús, mapa, papagaio, esqueletos) | Jogo de aventura pirata |
+| `roguelike-modern-city/` | Tiles modernos (ruas, prédios, carros, pessoas) | Jogo top-down urbano |
+| `platformer-characters/` | Personagens de plataforma (alien em várias cores) | Variantes pra platformer |
 | `platformer/Base pack/` | Plataforma clássico — 2 personagens (p1, p2) com animações, tiles de chão, inimigos, itens, HUD | Jogos de pulo estilo Mario |
 | `platformer/Candy expansion/`, `Ice expansion/`, `Mushroom expansion/` | Tiles de cenários doce, gelo e cogumelo | Variar fases do platformer |
-| `particles/PNG/` | 200 efeitos: fogo, fumaça, faíscas, círculos, estrelas, magia | Explosão, rastro, partícula de moeda, mágica |
-| `ui/PNG/` | Botões, painéis, ícones, barras de vida — em azul, verde, vermelho, cinza | Menus, HUD, telas de game over |
-| `1bit/` | Tilesheet 16×16 monocromático (1078 tiles: dungeon, RPG, urbano, fantasia) | Estética retrô minimalista |
+| `animals/` | 10 bichos (elephant, giraffe, hippo, monkey, panda, parrot, penguin, pig, rabbit, snake) em 8 estilos | Jogos de bicho, mascotes |
+| `particles/PNG/` | 200 efeitos: fogo, fumaça, faíscas, estrelas, magia | Explosão, rastro, partícula de moeda |
+| `ui/PNG/` | Botões, painéis, ícones, barras de vida — em azul, verde, vermelho, cinza, amarelo | Menus, HUD, telas de game over |
+| `1bit/` | Tilesheet 16×16 monocromático (1078 tiles) | Estética retrô minimalista |
 
 ### Sons (`sounds/kenney/`)
 
@@ -37,7 +58,7 @@ Todos em `.ogg` (formato leve que toca em qualquer navegador).
 Caminho dos jogos (ex: `julia/cobrinha/index.html`) até os assets:
 
 ```
-../../shared/assets/sprites/kenney/animals/PNG/Round/elephant.png
+../../shared/assets/sprites/pixelfrog/pixel-adventure-1/Main Characters/Ninja Frog/Idle (32x32).png
 ../../shared/assets/sounds/kenney/interface/Audio/click_001.ogg
 ```
 
@@ -45,14 +66,15 @@ Caminho dos jogos (ex: `julia/cobrinha/index.html`) até os assets:
 
 ```js
 function preload() {
+  // sprite simples (1 frame)
   this.load.image(
-    'elephant',
-    '../../shared/assets/sprites/kenney/animals/PNG/Round/elephant.png'
+    'frog',
+    '../../shared/assets/sprites/pixelfrog/pixel-adventure-1/Main Characters/Ninja Frog/Jump (32x32).png'
   );
 }
 
 function create() {
-  this.add.image(400, 300, 'elephant');
+  this.add.image(400, 300, 'frog').setScale(2);
 }
 ```
 
@@ -73,28 +95,44 @@ function create() {
 }
 ```
 
-### Animação de personagem (platformer base pack)
+### Animação de personagem (Pixel Adventure)
 
-A pasta `platformer/Base pack/Player/p1_walk/` já vem com 11 frames de caminhada (`PNG/p1_walk01.png` ... `p1_walk11.png`). Pra usar:
+Os sprites do Pixel Frog vêm como **spritesheets horizontais**: ex. `Run (32x32).png` tem todos os frames de 32×32 lado a lado. Phaser carrega isso direto com `load.spritesheet`:
 
 ```js
 function preload() {
-  for (let i = 1; i <= 11; i++) {
-    const n = String(i).padStart(2, '0');
-    this.load.image(`p1_walk_${n}`, `../../shared/assets/sprites/kenney/platformer/Base pack/Player/p1_walk/PNG/p1_walk${n}.png`);
-  }
+  this.load.spritesheet('frog_run',
+    '../../shared/assets/sprites/pixelfrog/pixel-adventure-1/Main Characters/Ninja Frog/Run (32x32).png',
+    { frameWidth: 32, frameHeight: 32 }
+  );
+  this.load.spritesheet('frog_idle',
+    '../../shared/assets/sprites/pixelfrog/pixel-adventure-1/Main Characters/Ninja Frog/Idle (32x32).png',
+    { frameWidth: 32, frameHeight: 32 }
+  );
 }
 
 function create() {
   this.anims.create({
-    key: 'walk',
-    frames: Array.from({length: 11}, (_, i) => ({ key: `p1_walk_${String(i+1).padStart(2,'0')}` })),
-    frameRate: 12,
+    key: 'run',
+    frames: this.anims.generateFrameNumbers('frog_run'),
+    frameRate: 20, // Pixel Frog recomenda 20 FPS (50ms)
     repeat: -1,
   });
-  this.add.sprite(400, 300, 'p1_walk_01').play('walk');
+  this.anims.create({
+    key: 'idle',
+    frames: this.anims.generateFrameNumbers('frog_idle'),
+    frameRate: 20,
+    repeat: -1,
+  });
+  this.add.sprite(400, 300, 'frog_idle').setScale(3).play('idle');
 }
 ```
+
+Tamanho dos frames por categoria:
+- **Personagens principais**: `32x32`
+- **Inimigos**: variável — está no nome do arquivo, ex. `Run (34x28).png`
+- **Frutas**: `32x32`
+- **Backgrounds**: `64x64` (tileable — usar `tileSprite`)
 
 ## Quando precisar de mais assets
 

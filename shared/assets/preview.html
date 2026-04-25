@@ -183,7 +183,7 @@ function render() {
 }
 
 function renderFolder(folder, files) {
-  const root = currentTab === 'sprites' ? 'sprites/kenney' : 'sounds/kenney';
+  const root = currentTab === 'sprites' ? 'sprites' : 'sounds';
   const fullPath = `${root}/${folder}`;
   const id = 'cat-' + Math.random().toString(36).slice(2, 8);
   if (currentTab === 'sprites') {
@@ -207,7 +207,7 @@ function renderFolder(folder, files) {
       <div class="item">
         <button class="play" onclick="playSound('${fullPath}/${encodeURI(f)}', this)">▶</button>
         <span class="name">${f}</span>
-        <button class="copy" onclick='copyPath(${JSON.stringify(`sounds/kenney/${folder}/${f}`)}, "audio")'>copiar</button>
+        <button class="copy" onclick='copyPath(${JSON.stringify(`../../shared/assets/sounds/${folder}/${f}`)}, "audio")'>copiar</button>
       </div>
     `).join('');
     return `
@@ -232,7 +232,7 @@ function playSound(path, btn) {
 }
 
 function openSprite(folder, file) {
-  const fullPath = `sprites/kenney/${folder}/${file}`;
+  const fullPath = `sprites/${folder}/${file}`;
   const relFromGame = `../../shared/assets/${fullPath}`;
   const key = file.replace(/\.png$/i, '').replace(/[^a-z0-9]/gi, '_');
   const modal = document.getElementById('modal');
