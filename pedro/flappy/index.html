@@ -57,7 +57,6 @@
     #trocarUser.show { display: block; }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
-  <script src="/shared/multiplayer.js"></script>
 </head>
 <body>
   <a id="voltar" href="../">← voltar</a>
@@ -150,40 +149,13 @@
       Object.assign(u[nick], mod);
       salvarUsuarios(u);
     }
-    function recordeGlobalLocal() {
-      // Melhor recorde dos usuários DESTE navegador (fallback se sem internet)
+    function recordeGlobal() {
       const u = carregarUsuarios();
       let melhorN = 0, melhorNick = null;
       for (const [nick, d] of Object.entries(u)) {
         if ((d.recorde || 0) > melhorN) { melhorN = d.recorde; melhorNick = nick; }
       }
       return { pontos: melhorN, nick: melhorNick };
-    }
-    function recordeGlobalOnline() {
-      // Olha o estado da sala global (todos os usuários do mundo)
-      if (!salaGlobal || !salaGlobal.lastState || !salaGlobal.lastState.recordes) return null;
-      let melhorN = 0, melhorNick = null;
-      for (const [nick, pontos] of Object.entries(salaGlobal.lastState.recordes)) {
-        if (pontos > melhorN) { melhorN = pontos; melhorNick = nick; }
-      }
-      if (melhorNick === null) return null;
-      return { pontos: melhorN, nick: melhorNick };
-    }
-    function recordeGlobal() {
-      // Prefere o online se disponível
-      const online = recordeGlobalOnline();
-      if (online) return online;
-      return recordeGlobalLocal();
-    }
-    async function publicarRecordeOnline(nick, pontos) {
-      if (!salaGlobal) return;
-      try {
-        const atual = (salaGlobal.lastState && salaGlobal.lastState.recordes) || {};
-        // Só publica se o novo é maior que o que tá lá
-        if ((atual[nick] || 0) >= pontos) return;
-        const novo = { ...atual, [nick]: pontos };
-        await salaGlobal.setState({ recordes: novo });
-      } catch (e) { /* ignora se offline */ }
     }
     // Wrappers que falam com o usuário atual
     function carregarPontosTotal() { return (dadosUsuario() || {}).pontosTotal || 0; }
@@ -242,7 +214,6 @@
     let textoPontos, telaMenu, telaLoja, textoFim;
     let textoMoedasMenu, textoNickBird;
     let cenaRef = null;
-    let salaGlobal = null;
 
     const config = {
       type: Phaser.AUTO,
@@ -358,23 +329,6 @@
 
       // ===== Login =====
       cenaRef = this;
-
-      // Conecta na sala global de recordes (polling 3s — não precisa rápido)
-      try {
-        salaGlobal = JPMultiplayer.join("FLAPPYRECORDS", {
-          initialState: { recordes: {} },
-          pollMs: 3000,
-          onUpdate: () => {
-            // Quando recebe novo estado da sala, atualiza o card do menu se estiver visível
-            if (estado === "menu" && telaMenu) {
-              mostrarMenu(scene);
-            }
-          },
-        });
-      } catch (e) {
-        console.warn("multiplayer offline:", e);
-      }
-
       iniciarFluxoLogin(this);
     }
 
@@ -554,9 +508,7 @@
         .setStrokeStyle(3, 0xfff04f);
       telaMenu.add(cardFundo);
 
-      const online = recordeGlobalOnline() !== null;
-      const tituloRG = scene.add.text(TELA_W / 2, cardY - 28,
-        online ? "🌍 RECORDE GLOBAL" : "👑 RECORDE", {
+      const tituloRG = scene.add.text(TELA_W / 2, cardY - 28, "👑 RECORDE", {
         fontSize: "14px", color: "#fff04f", fontStyle: "bold",
       }).setOrigin(0.5);
       telaMenu.add(tituloRG);
@@ -823,8 +775,6 @@
         melhor = pontos;
         salvarMelhor(melhor);
         novoRecorde = true;
-        // Publica no servidor pra todos os outros verem
-        publicarRecordeOnline(getUsuarioAtual(), pontos);
       }
 
       const tit = novoRecorde ? "🏆 NOVO RECORDE!" : "💥 GAME OVER";
