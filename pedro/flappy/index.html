@@ -80,13 +80,11 @@
     // ====== Física ======
     const GRAVIDADE = 1100;
     const PULO = -380;
-    const VEL_BIRD_X = 180;        // bird voa pra direita, câmera segue
-    const ESPACO_CANOS = 220;      // distância entre paredes (no mundo)
-    const GAP_CANO = 160;
-    const LARGURA_CANO = 90;
+    const VEL_CANO = -180;
+    const ESPACO_CANOS = 160;     // distância horizontal entre paredes
+    const GAP_CANO = 160;          // tamanho do buraco
+    const LARGURA_CANO = 90;       // paredes bem largas
     const CHAO_H = 60;
-    const MUNDO_W = 10_000_000;    // mundo bem grande (basicamente infinito)
-    const BIRD_OFFSET_X = 140;     // bird mostrado nessa posição da tela (esquerda)
 
     // ====== Skins (cada uma é uma spritesheet com N frames) ======
     const SKINS = [
@@ -201,10 +199,8 @@
     let bird;
     let canos;
     let chao;
-    let chaoColisor;
     let fundoCeu;
     let nuvens = [];
-    let proximoSpawnX = 0;
     let pontos = 0;
     let pontosTotal = 0;
     let melhor = 0;
@@ -248,13 +244,8 @@
     function create() {
       const scene = this;
 
-      // ===== Bounds: mundo gigante (bird voa pra direita "infinito") =====
-      this.physics.world.setBounds(0, -1000, MUNDO_W, TELA_H + 2000);
-      this.cameras.main.setBounds(0, 0, MUNDO_W, TELA_H);
-
-      // ===== Fundo (fixo na tela, scrolla via tilePositionX) =====
-      fundoCeu = this.add.tileSprite(TELA_W / 2, TELA_H / 2, TELA_W, TELA_H, "fundoCeu")
-        .setScrollFactor(0).setDepth(0);
+      // ===== Fundo =====
+      fundoCeu = this.add.tileSprite(TELA_W / 2, TELA_H / 2, TELA_W, TELA_H, "fundoCeu").setDepth(0);
       desenharNuvens(this);
 
       // ===== Animações de cada skin =====
@@ -269,41 +260,32 @@
         }
       });
 
-      // ===== Pássaro =====
-      bird = this.physics.add.sprite(BIRD_OFFSET_X, TELA_H / 2, `skin_${skinAtual}`);
+      // ===== Pássaro (criado UMA vez; trocamos a textura quando muda skin) =====
+      bird = this.physics.add.sprite(120, TELA_H / 2, `skin_${skinAtual}`);
       bird.body.allowGravity = false;
-      bird.setCollideWorldBounds(false);
       bird.setDepth(5);
       aplicarSkinNoBird(this);
 
       // ===== Canos =====
       canos = this.physics.add.group();
 
-      // ===== Chão (fixo na tela; scrolla por tilePositionX) =====
-      chao = this.add.tileSprite(TELA_W / 2, TELA_H - CHAO_H / 2, TELA_W, CHAO_H, "fundoCeu")
-        .setScrollFactor(0);
+      // ===== Chão =====
+      chao = this.add.tileSprite(TELA_W / 2, TELA_H - CHAO_H / 2, TELA_W, CHAO_H, "fundoCeu");
       chao.setTint(0x7d5a3a);
       chao.setDepth(8);
-      // Linha de colisão do chão (acompanha a câmera)
-      chaoColisor = this.add.rectangle(0, TELA_H - CHAO_H / 2, TELA_W * 4, CHAO_H, 0x000000, 0)
-        .setScrollFactor(0).setDepth(0);
-      this.physics.add.existing(chaoColisor, true);
-      const grama = this.add.rectangle(TELA_W / 2, TELA_H - CHAO_H, TELA_W, 8, 0x4fdb9b)
-        .setScrollFactor(0).setDepth(8);
+      this.physics.add.existing(chao, true);
+      const grama = this.add.rectangle(TELA_W / 2, TELA_H - CHAO_H, TELA_W, 8, 0x4fdb9b);
+      grama.setDepth(8);
 
       // ===== Colisões =====
-      this.physics.add.collider(bird, chaoColisor, () => bater(scene));
+      this.physics.add.collider(bird, chao, () => bater(scene));
       this.physics.add.overlap(bird, canos, () => bater(scene));
-
-      // ===== Câmera segue o pássaro (offset pra ele ficar à esquerda) =====
-      this.cameras.main.startFollow(bird, true, 1, 1);
-      this.cameras.main.setFollowOffset(-(TELA_W / 2 - BIRD_OFFSET_X), 0);
 
       // ===== UI =====
       textoPontos = this.add.text(TELA_W / 2, 60, "0", {
         fontSize: "60px", color: "#ffffff", fontStyle: "bold",
         stroke: "#000000", strokeThickness: 6,
-      }).setOrigin(0.5).setScrollFactor(0).setDepth(20).setVisible(false);
+      }).setOrigin(0.5).setDepth(20).setVisible(false);
 
       // ===== Texto do nickname acima do pássaro =====
       textoNickBird = this.add.text(0, 0, "", {
@@ -432,12 +414,7 @@
     function mostrarMenu(scene) {
       estado = "menu";
       if (telaMenu) telaMenu.destroy();
-      telaMenu = scene.add.container(0, 0).setDepth(30).setScrollFactor(0);
-      // Reposiciona bird e câmera ao voltar pro menu (após game over)
-      bird.setPosition(BIRD_OFFSET_X, TELA_H / 2);
-      bird.body.velocity.set(0, 0);
-      bird.body.allowGravity = false;
-      scene.cameras.main.scrollX = 0;
+      telaMenu = scene.add.container(0, 0).setDepth(30);
 
       const fundo = scene.add.rectangle(TELA_W / 2, TELA_H / 2, TELA_W, TELA_H, 0x000000, 0.45);
       telaMenu.add(fundo);
@@ -501,38 +478,25 @@
       telaMenu.add(btnLoja);
       telaMenu.add(txtLoja);
 
-      // ===== Card do recorde global (destaque) =====
-      const rg = recordeGlobal();
-      const cardY = 500;
-      const cardFundo = scene.add.rectangle(TELA_W / 2, cardY, TELA_W - 40, 90, 0x1a1a3a, 0.85)
-        .setStrokeStyle(3, 0xfff04f);
-      telaMenu.add(cardFundo);
-
-      const tituloRG = scene.add.text(TELA_W / 2, cardY - 28, "👑 RECORDE", {
-        fontSize: "14px", color: "#fff04f", fontStyle: "bold",
-      }).setOrigin(0.5);
-      telaMenu.add(tituloRG);
-
-      const pontosRG = scene.add.text(TELA_W / 2, cardY - 5, `${rg.pontos || 0}`, {
-        fontSize: "30px", color: "#ffffff", fontStyle: "bold",
-        stroke: "#000000", strokeThickness: 4,
-      }).setOrigin(0.5);
-      telaMenu.add(pontosRG);
-
-      const nickRG = scene.add.text(TELA_W / 2, cardY + 22,
-        rg.nick ? `— ${rg.nick} —` : "(ninguém ainda)", {
-        fontSize: "14px", color: "#fff04f", fontStyle: "italic",
-      }).setOrigin(0.5);
-      telaMenu.add(nickRG);
-
-      // Seu recorde abaixo
-      const txtRec = scene.add.text(TELA_W / 2, 560, `🏆 seu recorde: ${melhor}`, {
-        fontSize: "13px", color: "#ffffff",
-        stroke: "#000000", strokeThickness: 2,
+      // Recorde pessoal
+      const txtRec = scene.add.text(TELA_W / 2, 495, `🏆 Seu recorde: ${melhor}`, {
+        fontSize: "16px", color: "#ffffff",
+        stroke: "#000000", strokeThickness: 3,
       }).setOrigin(0.5);
       telaMenu.add(txtRec);
 
-      const txtControles = scene.add.text(TELA_W / 2, 583,
+      // Recorde global (deste navegador)
+      const rg = recordeGlobal();
+      if (rg.nick) {
+        const txtRG = scene.add.text(TELA_W / 2, 525,
+          `👑 Maior recorde: ${rg.pontos}\n— ${rg.nick}`, {
+          fontSize: "14px", color: "#fff04f", fontStyle: "bold",
+          align: "center", stroke: "#000000", strokeThickness: 3,
+        }).setOrigin(0.5);
+        telaMenu.add(txtRG);
+      }
+
+      const txtControles = scene.add.text(TELA_W / 2, 575,
         "ESPAÇO ou clique pra pular", {
         fontSize: "12px", color: "#ffffff",
       }).setOrigin(0.5);
@@ -545,7 +509,7 @@
     function mostrarLoja(scene) {
       estado = "loja";
       if (telaLoja) telaLoja.destroy();
-      telaLoja = scene.add.container(0, 0).setDepth(30).setScrollFactor(0);
+      telaLoja = scene.add.container(0, 0).setDepth(30);
 
       const fundo = scene.add.rectangle(TELA_W / 2, TELA_H / 2, TELA_W, TELA_H, 0x000000, 0.7);
       telaLoja.add(fundo);
@@ -663,17 +627,13 @@
       canos.clear(true, true);
       // Atualiza skin e reposiciona pássaro
       aplicarSkinNoBird(scene);
-      bird.setPosition(BIRD_OFFSET_X, TELA_H / 2);
+      bird.setPosition(120, TELA_H / 2);
       bird.angle = 0;
       bird.clearTint();
       bird.setVisible(true);
       bird.body.allowGravity = true;
       scene.physics.world.gravity.y = GRAVIDADE;
       bird.body.velocity.y = PULO;
-      bird.body.velocity.x = VEL_BIRD_X;
-      // Reseta câmera/scroll
-      scene.cameras.main.scrollX = 0;
-      proximoSpawnX = TELA_W + 120;
       scene.sound.play("pular", { volume: 0.4 });
       // Nickname acima do bird, escala proporcional à skin
       const skin = SKINS.find(s => s.slug === skinAtual) || SKINS[0];
@@ -688,36 +648,31 @@
       const scene = this;
       const dt = deltaMs / 1000;
 
-      // Parallax: fundo bem devagar, nuvens média
+      // Parallax: fundo bem devagar, nuvens média, chão rápido
+      // (mexem sempre — até no menu — pra dar movimento na tela)
       fundoCeu.tilePositionX += 12 * dt;
       nuvens.forEach(n => {
         n.x -= n.dataVel * dt;
         if (n.x < -40) n.x = TELA_W + 40;
       });
+      if (estado === "jogando") chao.tilePositionX += 100 * dt;
 
       if (estado !== "jogando") return;
-
-      // Scroll do chão acompanha câmera
-      chao.tilePositionX = scene.cameras.main.scrollX;
-      // Move o colisor do chão pra acompanhar a câmera (corpo estático precisa updateFromGameObject)
-      chaoColisor.x = scene.cameras.main.scrollX + TELA_W / 2;
-      if (chaoColisor.body) chaoColisor.body.updateFromGameObject();
 
       const v = bird.body.velocity.y;
       const ang = Phaser.Math.Clamp(v / 8, -25, 90);
       bird.angle += (ang - bird.angle) * 0.08;
 
-      // Nickname acompanha o bird
+      // Nickname acompanha o bird (proporcional ao tamanho da skin)
       if (textoNickBird.visible) {
         const skin = SKINS.find(s => s.slug === skinAtual) || SKINS[0];
         const alturaSkin = skin.h * skin.escala;
         textoNickBird.setPosition(bird.x, bird.y - alturaSkin / 2 - 4);
       }
 
-      // Verifica passou cano + destrói canos muito atrás
       canos.children.iterate(c => {
         if (!c) return;
-        if (c.x < bird.x - TELA_W) { c.destroy(); return; }
+        if (c.x < -LARGURA_CANO) { c.destroy(); return; }
         if (!c.dataPontuou && c.x < bird.x - 5 && c.dataParCima) {
           c.dataPontuou = true;
           pontos++;
@@ -728,38 +683,43 @@
         }
       });
 
-      // Spawna próximo cano quando bird se aproxima
-      if (bird.x + TELA_W > proximoSpawnX) {
-        spawnarCanos(scene, proximoSpawnX);
-        proximoSpawnX += ESPACO_CANOS;
+      if (canos.children.size === 0
+          || canos.children.entries[canos.children.entries.length - 1].x < TELA_W - ESPACO_CANOS) {
+        spawnarCanos(scene);
       }
 
       if (bird.y < -20) bird.body.velocity.y = 50;
     }
 
-    function spawnarCanos(scene, xMundo) {
+    function spawnarCanos(scene) {
       const margem = 70;
       const minY = margem + GAP_CANO / 2;
       const maxY = TELA_H - CHAO_H - margem - GAP_CANO / 2;
       const centroGap = Phaser.Math.Between(minY, maxY);
+      const x = TELA_W + LARGURA_CANO / 2;
 
       const alturaCima = centroGap - GAP_CANO / 2;
       const alturaBaixo = TELA_H - CHAO_H - (centroGap + GAP_CANO / 2);
 
-      // Parede de cima — estática no mundo (sem velocidade, sem gravidade)
-      const paredeCima = scene.add.rectangle(xMundo, alturaCima / 2, LARGURA_CANO, alturaCima, 0x8a6a4a);
+      // Parede de cima
+      const paredeCima = scene.add.rectangle(x, alturaCima / 2, LARGURA_CANO, alturaCima, 0x8a6a4a);
       paredeCima.setStrokeStyle(4, 0x4a3520);
-      scene.physics.add.existing(paredeCima, true); // true = estático
+      scene.physics.add.existing(paredeCima);
       paredeCima.dataParCima = true;
       paredeCima.dataPontuou = false;
       canos.add(paredeCima);
+      // Setar AQUI (depois do group.add) — caso contrário o group reseta o body
+      paredeCima.body.setAllowGravity(false);
+      paredeCima.body.setVelocity(VEL_CANO, 0);
 
       // Parede de baixo
       const yBaixo = TELA_H - CHAO_H - alturaBaixo / 2;
-      const paredeBaixo = scene.add.rectangle(xMundo, yBaixo, LARGURA_CANO, alturaBaixo, 0x8a6a4a);
+      const paredeBaixo = scene.add.rectangle(x, yBaixo, LARGURA_CANO, alturaBaixo, 0x8a6a4a);
       paredeBaixo.setStrokeStyle(4, 0x4a3520);
-      scene.physics.add.existing(paredeBaixo, true);
+      scene.physics.add.existing(paredeBaixo);
       canos.add(paredeBaixo);
+      paredeBaixo.body.setAllowGravity(false);
+      paredeBaixo.body.setVelocity(VEL_CANO, 0);
     }
 
     function bater(scene) {
@@ -768,7 +728,7 @@
       scene.sound.play("bater", { volume: 0.6 });
       if (bird.anims) bird.anims.stop();
       bird.setTint(0xff8888);
-      bird.body.velocity.x = 0;
+      canos.children.iterate(c => { if (c && c.body) c.body.setVelocityX(0); });
 
       let novoRecorde = false;
       if (pontos > melhor) {
@@ -778,7 +738,7 @@
       }
 
       const tit = novoRecorde ? "🏆 NOVO RECORDE!" : "💥 GAME OVER";
-      textoFim = scene.add.container(0, 0).setDepth(50).setScrollFactor(0);
+      textoFim = scene.add.container(0, 0).setDepth(50);
       const fundo = scene.add.rectangle(TELA_W / 2, TELA_H / 2, TELA_W, TELA_H, 0x000000, 0.65);
       textoFim.add(fundo);
       const txt = scene.add.text(TELA_W / 2, TELA_H / 2 - 60,
