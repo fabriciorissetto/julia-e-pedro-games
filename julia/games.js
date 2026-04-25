@@ -27,4 +27,11 @@ window.GAMES = [
     color: "#4ba747",
     description: "Sobreviva, corte árvores, abra baús e enfrente os monstros à noite"
   },
+  {
+    slug: "quebra-cabeca",
+    title: "Quebra-Cabeça das Guerreiras",
+    emoji: "✨",
+    color: "#ff1493",
+    description: "Monta as 25 peças das Guerreiras do K-pop"
+  },
 ];

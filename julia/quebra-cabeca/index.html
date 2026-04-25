@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quebra-Cabeça das Guerreiras do K-pop</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(135deg, #1a0033, #4d0066, #ff1493);
+      background-attachment: fixed;
+      overflow: hidden;
+      font-family: 'Comic Sans MS', cursive, sans-serif;
+      width: 100%;
+      height: 100%;
+    }
+    #voltar {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      padding: 10px 18px;
+      background: #ff6fb5;
+      color: white;
+      border: none;
+      border-radius: 24px;
+      font-size: 18px;
+      cursor: pointer;
+      z-index: 10;
+      text-decoration: none;
+      font-weight: bold;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.4);
+    }
+    #game { display: block; }
+  </style>
+</head>
+<body>
+  <a href="../index.html" id="voltar">← Voltar</a>
+  <div id="game"></div>
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+  <script>
+    const COLS = 5;
+    const ROWS = 5;
+    const PIECE_W = 140;
+    const PIECE_H = 79;
+    const PUZZLE_W = COLS * PIECE_W;
+    const PUZZLE_H = ROWS * PIECE_H;
+    const GAME_W = 1280;
+    const GAME_H = 720;
+    const PUZZLE_X = (GAME_W - PUZZLE_W) / 2;
+    const PUZZLE_Y = 60;
+    const SNAP_DIST = 40;
+
+    let scene;
+    let pecasColocadas = 0;
+    const totalPecas = COLS * ROWS;
+    let audioCtx = null;
+
+    const config = {
+      type: Phaser.AUTO,
+      parent: 'game',
+      width: GAME_W,
+      height: GAME_H,
+      scale: {
+        mode: Phaser.Scale.FIT,
+        autoCenter: Phaser.Scale.CENTER_BOTH
+      },
+      backgroundColor: '#1a0033',
+      scene: { preload, create }
+    };
+
+    function preload() {
+      this.load.image('bg', 'kpop.png');
+    }
+
+    function create() {
+      scene = this;
+
+      // Título
+      this.add.text(GAME_W / 2, 28, '✨ Guerreiras do K-pop ✨', {
+        fontSize: '34px',
+        color: '#ffffff',
+        fontStyle: 'bold',
+        stroke: '#ff1493',
+        strokeThickness: 6
+      }).setOrigin(0.5);
+
+      // Fantasma desbotado da imagem (mostra onde encaixar)
+      this.add.image(PUZZLE_X + PUZZLE_W / 2, PUZZLE_Y + PUZZLE_H / 2, 'bg')
+        .setDisplaySize(PUZZLE_W, PUZZLE_H)
+        .setAlpha(0.18);
+
+      // Borda rosa do puzzle
+      this.add.rectangle(
+        PUZZLE_X + PUZZLE_W / 2,
+        PUZZLE_Y + PUZZLE_H / 2,
+        PUZZLE_W + 10,
+        PUZZLE_H + 10
+      ).setStrokeStyle(6, 0xff6fb5);
+
+      // Linhas da grade
+      const grade = this.add.graphics();
+      grade.lineStyle(1, 0xffffff, 0.3);
+      for (let i = 1; i < COLS; i++) {
+        grade.moveTo(PUZZLE_X + i * PIECE_W, PUZZLE_Y);
+        grade.lineTo(PUZZLE_X + i * PIECE_W, PUZZLE_Y + PUZZLE_H);
+      }
+      for (let i = 1; i < ROWS; i++) {
+        grade.moveTo(PUZZLE_X, PUZZLE_Y + i * PIECE_H);
+        grade.lineTo(PUZZLE_X + PUZZLE_W, PUZZLE_Y + i * PIECE_H);
+      }
+      grade.strokePath();
+
+      // Linha decorativa separando puzzle da bandeja
+      this.add.rectangle(GAME_W / 2, 480, GAME_W - 40, 3, 0xff6fb5, 0.5);
+
+      // Criar frames das peças a partir da textura
+      const tex = this.textures.get('bg');
+      const src = tex.getSourceImage();
+      const srcPW = src.width / COLS;
+      const srcPH = src.height / ROWS;
+
+      const pecas = [];
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          const frameName = 'p_' + r + '_' + c;
+          tex.add(frameName, 0, c * srcPW, r * srcPH, srcPW, srcPH);
+          pecas.push({ r, c, frameName });
+        }
+      }
+
+      // Embaralhar a ordem
+      for (let i = pecas.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [pecas[i], pecas[j]] = [pecas[j], pecas[i]];
+      }
+
+      // Criar sprites das peças, espalhadas na bandeja embaixo
+      pecas.forEach((p, idx) => {
+        // Posição inicial aleatória na bandeja
+        const x = 90 + Math.random() * (GAME_W - 180);
+        const y = 510 + Math.random() * 180;
+
+        const sprite = scene.add.sprite(x, y, 'bg', p.frameName);
+        const normalScaleX = PIECE_W / srcPW;
+        const normalScaleY = PIECE_H / srcPH;
+        sprite.setScale(normalScaleX, normalScaleY);
+        sprite.normalScaleX = normalScaleX;
+        sprite.normalScaleY = normalScaleY;
+        sprite.targetX = PUZZLE_X + p.c * PIECE_W + PIECE_W / 2;
+        sprite.targetY = PUZZLE_Y + p.r * PIECE_H + PIECE_H / 2;
+        sprite.colocada = false;
+
+        sprite.setInteractive({ draggable: true, useHandCursor: true });
+        scene.input.setDraggable(sprite);
+
+        sprite.on('dragstart', () => {
+          if (sprite.colocada) return;
+          scene.children.bringToTop(sprite);
+          scene.tweens.add({
+            targets: sprite,
+            scaleX: sprite.normalScaleX * 1.18,
+            scaleY: sprite.normalScaleY * 1.18,
+            duration: 100
+          });
+        });
+
+        sprite.on('drag', (pointer, dragX, dragY) => {
+          if (sprite.colocada) return;
+          sprite.x = dragX;
+          sprite.y = dragY;
+        });
+
+        sprite.on('dragend', () => {
+          if (sprite.colocada) return;
+          const dist = Phaser.Math.Distance.Between(
+            sprite.x, sprite.y,
+            sprite.targetX, sprite.targetY
+          );
+          if (dist < SNAP_DIST) {
+            // ENCAIXOU!
+            sprite.x = sprite.targetX;
+            sprite.y = sprite.targetY;
+            sprite.colocada = true;
+            sprite.setScale(sprite.normalScaleX, sprite.normalScaleY);
+            sprite.disableInteractive();
+            snapEffect(sprite.x, sprite.y);
+            playSnap();
+            pecasColocadas++;
+            atualizaContador();
+            if (pecasColocadas === totalPecas) {
+              setTimeout(venceu, 400);
+            }
+          } else {
+            // Volta ao tamanho normal
+            scene.tweens.add({
+              targets: sprite,
+              scaleX: sprite.normalScaleX,
+              scaleY: sprite.normalScaleY,
+              duration: 100
+            });
+          }
+        });
+      });
+
+      // Contador de peças
+      scene.contadorTexto = scene.add.text(20, GAME_H - 40,
+        '⭐ ' + pecasColocadas + ' de ' + totalPecas, {
+        fontSize: '24px',
+        color: '#ffffff',
+        fontStyle: 'bold',
+        stroke: '#ff1493',
+        strokeThickness: 4
+      });
+
+      // Inicializa áudio no primeiro clique
+      this.input.once('pointerdown', () => {
+        try {
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        } catch (e) {}
+      });
+    }
+
+    function atualizaContador() {
+      if (scene.contadorTexto) {
+        scene.contadorTexto.setText('⭐ ' + pecasColocadas + ' de ' + totalPecas);
+      }
+    }
+
+    function playSnap() {
+      if (!audioCtx) return;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(900, audioCtx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(1700, audioCtx.currentTime + 0.12);
+      gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.22);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.22);
+    }
+
+    function playWin() {
+      if (!audioCtx) return;
+      const notes = [523, 659, 784, 1047, 1319];
+      notes.forEach((freq, i) => {
+        setTimeout(() => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sine';
+          osc.frequency.value = freq;
+          gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.5);
+        }, i * 130);
+      });
+    }
+
+    function snapEffect(x, y) {
+      // Estrelinhas voando pra fora
+      for (let i = 0; i < 10; i++) {
+        const star = scene.add.text(x, y, '✨', { fontSize: '28px' });
+        star.setOrigin(0.5);
+        const angle = (Math.PI * 2 * i) / 10;
+        const dist = 50 + Math.random() * 40;
+        scene.tweens.add({
+          targets: star,
+          x: x + Math.cos(angle) * dist,
+          y: y + Math.sin(angle) * dist,
+          alpha: 0,
+          scale: 0.3,
+          duration: 700,
+          onComplete: () => star.destroy()
+        });
+      }
+    }
+
+    function venceu() {
+      playWin();
+
+      // Mostra a imagem completa em destaque
+      const overlay = scene.add.rectangle(GAME_W / 2, GAME_H / 2, GAME_W, GAME_H, 0x000000, 0.5);
+
+      const winText = scene.add.text(GAME_W / 2, 200, '🎉 UHUUUL! 🎉', {
+        fontSize: '90px',
+        color: '#ffff00',
+        fontStyle: 'bold',
+        stroke: '#ff1493',
+        strokeThickness: 10
+      }).setOrigin(0.5).setScale(0);
+
+      scene.tweens.add({
+        targets: winText,
+        scale: 1,
+        duration: 700,
+        ease: 'Bounce.out'
+      });
+
+      const subText = scene.add.text(GAME_W / 2, 300, 'Você completou!', {
+        fontSize: '40px',
+        color: '#ffffff',
+        fontStyle: 'bold',
+        stroke: '#b56fff',
+        strokeThickness: 6
+      }).setOrigin(0.5).setAlpha(0);
+
+      scene.tweens.add({
+        targets: subText,
+        alpha: 1,
+        duration: 600,
+        delay: 600
+      });
+
+      // Botão de jogar de novo
+      const btn = scene.add.rectangle(GAME_W / 2, 560, 280, 80, 0xff6fb5)
+        .setStrokeStyle(5, 0xffffff)
+        .setInteractive({ useHandCursor: true })
+        .setAlpha(0);
+      const btnText = scene.add.text(GAME_W / 2, 560, '🌟 Jogar de novo', {
+        fontSize: '32px',
+        color: '#ffffff',
+        fontStyle: 'bold'
+      }).setOrigin(0.5).setAlpha(0);
+
+      scene.tweens.add({
+        targets: [btn, btnText],
+        alpha: 1,
+        duration: 500,
+        delay: 1200
+      });
+
+      btn.on('pointerdown', () => location.reload());
+
+      // Chuva de corações e estrelas
+      let count = 0;
+      const chuva = scene.time.addEvent({
+        delay: 80,
+        repeat: 80,
+        callback: () => {
+          const emojis = ['💖', '⭐', '✨', '🌟', '💜', '💗', '🎀', '💫'];
+          const emoji = emojis[Math.floor(Math.random() * emojis.length)];
+          const item = scene.add.text(
+            Math.random() * GAME_W,
+            -50,
+            emoji,
+            { fontSize: (30 + Math.random() * 20) + 'px' }
+          );
+          scene.tweens.add({
+            targets: item,
+            y: GAME_H + 100,
+            rotation: (Math.random() - 0.5) * 6,
+            duration: 2500 + Math.random() * 2000,
+            onComplete: () => item.destroy()
+          });
+        }
+      });
+    }
+
+    new Phaser.Game(config);
+  </script>
+</body>
+</html>
