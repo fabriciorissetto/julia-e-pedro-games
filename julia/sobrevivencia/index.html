@@ -606,6 +606,8 @@
     let pesEsq, pesDir;
     let petPos = { x: 0, y: 0 };
     let proxArranhada = 0;
+    let gigante = null;
+    let proxAtaqueGigante = 0;
     let magiaProntoEm = 0; // timestamp em que a magia volta a poder ser usada
     let atacando = false;
 
@@ -702,6 +704,22 @@
       tomSweep(120, 700, 0.4, 'sawtooth', 0.18);
       setTimeout(()=>ruido(0.5, 0.22), 100);
       setTimeout(()=>tomSweep(900, 200, 0.5, 'triangle', 0.14), 80);
+    };
+    const somGigante = () => {
+      // rugido grave assustador
+      tomSweep(80, 220, 1.0, 'sawtooth', 0.28);
+      setTimeout(() => ruido(0.5, 0.22), 200);
+      setTimeout(() => tomSweep(60, 180, 0.6, 'sawtooth', 0.22), 600);
+    };
+    const somAtaqueGigante = () => {
+      // pisada/golpe pesado
+      tom(70, 0.18, 'sawtooth', 0.25);
+      setTimeout(() => ruido(0.18, 0.2), 50);
+      setTimeout(() => tom(50, 0.25, 'sawtooth', 0.22), 100);
+    };
+    const somDestruir = () => {
+      ruido(0.25, 0.16);
+      setTimeout(() => tom(180, 0.1, 'square', 0.14), 50);
     };
 
     // ===== Phaser =====
@@ -1164,6 +1182,9 @@
         }
       });
 
+      // gigante
+      atualizarGigante(time);
+
       // pet com garras arranha monstros perto
       if (inv.equipado.pet && inv.equipado.petItem === 'garrasPet' && time > proxArranhada) {
         const RAIO_PET = 80;
@@ -1230,13 +1251,20 @@
         pesEsq.setVisible(false); pesDir.setVisible(false);
       }
 
-      // veículo bem embaixo do player
+      // veículo: terrestre fica embaixo, aéreo fica em volta e BEM maior
       if (inv.equipado.veiculo) {
         const v = CATALOGO[inv.equipado.veiculo];
         veiculoSprite.setText(v.emoji);
         veiculoSprite.setVisible(true);
-        veiculoSprite.x = player.x;
-        veiculoSprite.y = player.y + 18;
+        if (v.aereo) {
+          veiculoSprite.setFontSize('38px');
+          veiculoSprite.x = player.x;
+          veiculoSprite.y = player.y + 4 + Math.sin(time/280)*3; // flutuando
+        } else {
+          veiculoSprite.setFontSize('20px');
+          veiculoSprite.x = player.x;
+          veiculoSprite.y = player.y + 18;
+        }
         veiculoSprite.setScale(player.flipX ? -1 : 1, 1);
       } else veiculoSprite.setVisible(false);
 
@@ -1501,6 +1529,8 @@
       animarEspadada();
       const alcance = 50;
       const forca = arma ? arma.forca : 1;
+      // tenta golpear o gigante (alcance maior)
+      golpearGigante(forca);
       monstros.children.iterate(m => {
         if (!m || !m.active) return;
         if (Phaser.Math.Distance.Between(player.x, player.y, m.x, m.y) < alcance) {
@@ -1623,6 +1653,14 @@
 
       // dano em todos os monstros no raio
       const forca = CATALOGO.magiaFogo.forca;
+      // gigante também leva dano da magia se estiver no raio
+      if (gigante && gigante.active) {
+        if (Phaser.Math.Distance.Between(player.x, player.y, gigante.x, gigante.y) < MAGIA_RAIO + 30) {
+          gigante.hp -= forca;
+          scene.tweens.add({ targets: gigante.emoji, alpha: 0.35, duration: 90, yoyo: true, repeat: 1 });
+          if (gigante.hp <= 0) destruirGigante();
+        }
+      }
       monstros.children.iterate(m => {
         if (!m || !m.active) return;
         if (Phaser.Math.Distance.Between(player.x, player.y, m.x, m.y) < MAGIA_RAIO) {
@@ -1678,6 +1716,184 @@
       }
     }
 
+    // ===== GIGANTE (boss noturno a partir do dia 5) =====
+    function spawnGigante() {
+      if (gigante && gigante.active) return;
+      // canto aleatório do mapa
+      const cantos = [
+        { x: 80, y: 80 },
+        { x: WORLD_W - 80, y: 80 },
+        { x: 80, y: WORLD_H - 80 },
+        { x: WORLD_W - 80, y: WORLD_H - 80 },
+      ];
+      const c = Phaser.Math.RND.pick(cantos);
+      // sprite invisível só pra physics
+      gigante = scene.physics.add.sprite(c.x, c.y, 'dungeon', T.monstroVerm).setVisible(false);
+      gigante.body.setSize(90, 90); // hitbox grande pra facilitar acertar
+      gigante.body.setOffset(-37, -37);
+      gigante.hp = 6;
+      gigante.hpMax = 6;
+      gigante.atacando = false;
+      // emoji visual gigante (5x maior que monstros normais ~16-32px → ~80px)
+      gigante.emoji = scene.add.text(c.x, c.y, '👹', { fontSize: '80px' }).setOrigin(0.5).setDepth(11);
+      // pulsa devagar, parecendo respirando
+      scene.tweens.add({
+        targets: gigante.emoji,
+        scaleX: 1.06, scaleY: 0.94,
+        duration: 600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
+      });
+      // barra de vida
+      gigante.barraBg = scene.add.graphics().setDepth(20);
+      gigante.barraFg = scene.add.graphics().setDepth(21);
+      gigante.barraTit = scene.add.text(c.x, c.y, 'GIGANTE', {
+        fontSize: '12px', color: '#ff5050', fontStyle: 'bold',
+        stroke: '#000', strokeThickness: 3
+      }).setOrigin(0.5).setDepth(22);
+      somGigante();
+      mostrarToast('👹 UM GIGANTE APARECEU!');
+      scene.cameras.main.shake(800, 0.012);
+    }
+
+    function atualizarGigante(time) {
+      if (!gigante || !gigante.active) return;
+      const g = gigante;
+      // persegue o player devagar
+      const dx = player.x - g.x;
+      const dy = player.y - g.y;
+      const dm = Math.hypot(dx, dy) || 1;
+      const v = 38;
+      g.setVelocity(dx/dm*v, dy/dm*v);
+      g.emoji.x = g.x;
+      g.emoji.y = g.y;
+
+      // virar pra direção do player
+      g.emoji.setScale(dx < 0 ? -1 : 1, 1);
+      // posicionar pulse base scale (preserva o sinal do flip)
+      const flipX = dx < 0 ? -1 : 1;
+
+      // destruir árvores e baús que toca
+      const RAIO_DESTRUI = 50;
+      arvores.children.iterate(a => {
+        if (!a) return;
+        if (Phaser.Math.Distance.Between(a.x, a.y, g.x, g.y) < RAIO_DESTRUI) {
+          criarRestoMadeira(a.x, a.y);
+          somDestruir();
+          a.destroy();
+        }
+      });
+      baus.children.iterate(b => {
+        if (!b || b.aberto) return;
+        if (Phaser.Math.Distance.Between(b.x, b.y, g.x, g.y) < RAIO_DESTRUI) {
+          criarRestoMadeira(b.x, b.y);
+          somDestruir();
+          if (b.checkSprite) b.checkSprite.destroy();
+          b.destroy();
+        }
+      });
+
+      // ataque quando perto do player
+      if (dm < 90 && time > proxAtaqueGigante) {
+        proxAtaqueGigante = time + 1500;
+        atacarPlayerGigante();
+      }
+
+      // barra de vida
+      const x = g.x - 45, y = g.y - 60;
+      g.barraBg.clear();
+      g.barraBg.fillStyle(0x000000, 0.75);
+      g.barraBg.fillRect(x-2, y-2, 94, 13);
+      g.barraFg.clear();
+      g.barraFg.fillStyle(0xff3030, 1);
+      const w = 90 * (g.hp / g.hpMax);
+      g.barraFg.fillRect(x, y, w, 9);
+      g.barraTit.x = g.x;
+      g.barraTit.y = y - 12;
+    }
+
+    function atacarPlayerGigante() {
+      if (!gigante || !gigante.active) return;
+      somAtaqueGigante();
+      // animação de levantar braços / dar pisão
+      scene.tweens.add({
+        targets: gigante.emoji,
+        scaleX: gigante.emoji.scaleX * 1.4,
+        scaleY: gigante.emoji.scaleY * 1.4,
+        y: gigante.emoji.y - 14,
+        duration: 180, yoyo: true, ease: 'Cubic.easeOut'
+      });
+      scene.cameras.main.shake(220, 0.018);
+      // dano se o player estiver bem perto
+      const dm = Phaser.Math.Distance.Between(player.x, player.y, gigante.x, gigante.y);
+      if (dm < 90) {
+        const t = scene.time.now;
+        if (t > invulnAte) {
+          invulnAte = t + 800;
+          inv.vida -= 2; // dano grande
+          somDano();
+          scene.tweens.add({ targets: player, alpha: 0.3, duration: 100, yoyo: true, repeat: 2 });
+          atualizarHUD();
+          if (inv.vida <= 0) perder();
+        }
+      }
+    }
+
+    function golpearGigante(forca) {
+      if (!gigante || !gigante.active) return false;
+      // hitbox visual mais generosa que o golpe normal
+      const ALCANCE = 90;
+      if (Phaser.Math.Distance.Between(player.x, player.y, gigante.x, gigante.y) > ALCANCE) return false;
+      gigante.hp -= forca;
+      somAcertar();
+      // flash vermelho
+      scene.tweens.add({
+        targets: gigante.emoji, alpha: 0.35, duration: 90, yoyo: true, repeat: 1
+      });
+      scene.cameras.main.shake(120, 0.008);
+      const slash = scene.add.text(gigante.x, gigante.y, '💥', { fontSize: '40px' }).setOrigin(0.5).setDepth(25);
+      scene.tweens.add({ targets: slash, alpha: 0, scale: 1.6, duration: 350, onComplete: () => slash.destroy() });
+      if (gigante.hp <= 0) destruirGigante();
+      return true;
+    }
+
+    function destruirGigante() {
+      if (!gigante) return;
+      const g = gigante;
+      // explosão grande
+      const boom = scene.add.text(g.x, g.y, '💥', { fontSize: '100px' }).setOrigin(0.5).setDepth(30);
+      scene.tweens.add({ targets: boom, alpha: 0, scale: 3, duration: 800, onComplete: () => boom.destroy() });
+      // partículas de moedas
+      for (let i=0;i<10;i++){
+        const ang = (i/10)*Math.PI*2;
+        const c = scene.add.text(g.x, g.y, '💰', { fontSize: '20px' }).setOrigin(0.5).setDepth(31);
+        scene.tweens.add({
+          targets: c,
+          x: g.x + Math.cos(ang)*120,
+          y: g.y + Math.sin(ang)*120,
+          alpha: 0, duration: 800, ease: 'Cubic.easeOut',
+          onComplete: () => c.destroy()
+        });
+      }
+      inv.moedas += 60;
+      mostrarToast('🎉 Gigante derrotado! +60 💰');
+      somVitoria();
+      atualizarHUD();
+      // limpa
+      g.emoji.destroy();
+      g.barraBg.destroy();
+      g.barraFg.destroy();
+      g.barraTit.destroy();
+      g.destroy();
+      gigante = null;
+    }
+
+    function criarRestoMadeira(x, y) {
+      const r = scene.add.text(x, y, '🪵', {
+        fontSize: '20px'
+      }).setOrigin(0.5).setDepth(2)
+        .setRotation(Phaser.Math.Between(-30, 30) * Math.PI / 180)
+        .setAlpha(0.85);
+    }
+
     function spawnMonstro() {
       const lado = Phaser.Math.Between(0,3);
       let x, y;
@@ -1704,11 +1920,30 @@
       const el = document.getElementById('hudDiaItem');
       el.classList.add('noite'); el.classList.add('alerta');
       el.innerHTML = '🌙 Noite <span id="hudDia">' + dia + '</span>/' + META_DIAS;
+      // a partir do dia 5, GIGANTE invade a noite
+      if (dia >= 5) {
+        scene.time.delayedCall(4000, () => spawnGigante());
+      }
     }
     function virarDia() {
       ehNoite = false;
       somDia();
       monstros.children.iterate(m => { if (m) m.destroy(); });
+      // gigante foge ao amanhecer (se ainda estiver vivo)
+      if (gigante && gigante.active) {
+        const g = gigante;
+        scene.tweens.add({
+          targets: g.emoji, alpha: 0, scale: 0.3, duration: 600,
+          onComplete: () => {
+            if (g.emoji) g.emoji.destroy();
+            if (g.barraBg) g.barraBg.destroy();
+            if (g.barraFg) g.barraFg.destroy();
+            if (g.barraTit) g.barraTit.destroy();
+            if (g) g.destroy();
+            gigante = null;
+          }
+        });
+      }
       dia += 1;
       if (dia > META_DIAS) { vencer(); return; }
       mostrarToast('☀️ Amanheceu! Dia ' + dia);
