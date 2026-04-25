@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cantinho da Julia</title>
+  <link rel="stylesheet" href="../shared/style.css" />
+  <style>
+    body {
+      background: linear-gradient(135deg, #ffe0ee 0%, #f0d6ff 100%);
+    }
+  </style>
+</head>
+<body>
+  <header class="hub-header">
+    <a class="back-btn" href="../">← Voltar</a>
+    <h1 class="hub-title">🐱 Cantinho da Julia</h1>
+    <span class="spacer"></span>
+  </header>
+
+  <main id="games-root" class="games-grid"></main>
+
+  <script src="./games.js"></script>
+  <script>
+    const root = document.getElementById('games-root');
+    const games = window.GAMES || [];
+
+    if (games.length === 0) {
+      root.classList.remove('games-grid');
+      root.innerHTML = `
+        <div class="empty-state">
+          <div class="big-emoji">✨</div>
+          <h2>Ainda não tem jogos por aqui!</h2>
+          <p>Peça pro Claude Code criar seu primeiro jogo. Tente algo tipo:<br><br>
+          <code>"Faça um jogo onde uma estrelinha cai e eu pego com uma cestinha"</code></p>
+        </div>
+      `;
+    } else {
+      games.forEach(g => {
+        const a = document.createElement('a');
+        a.className = 'game-card';
+        a.href = `./${g.slug}/`;
+        a.style.setProperty('--card-color', g.color || '#ff6fb5');
+        a.innerHTML = `
+          <div class="emoji">${g.emoji || '🎮'}</div>
+          <div class="title">${g.title}</div>
+          ${g.description ? `<div class="desc">${g.description}</div>` : ''}
+        `;
+        root.appendChild(a);
+      });
+    }
+  </script>
+</body>
+</html>

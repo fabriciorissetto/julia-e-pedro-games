@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Jogos da Família</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      background: linear-gradient(135deg, #ffd6e8 0%, #d0e8ff 50%, #d6f5e8 100%);
+      overflow: hidden;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    h1 {
+      font-size: clamp(2rem, 5vw, 3.5rem);
+      color: #2d2d4d;
+      margin-bottom: 0.5rem;
+      text-align: center;
+      text-shadow: 2px 2px 0 rgba(255, 255, 255, 0.6);
+    }
+
+    .subtitle {
+      font-size: clamp(1rem, 2vw, 1.25rem);
+      color: #555;
+      margin-bottom: 3rem;
+      text-align: center;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 24px;
+      width: 100%;
+      max-width: 800px;
+    }
+
+    .card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 48px 24px;
+      border-radius: 24px;
+      text-decoration: none;
+      color: white;
+      font-weight: bold;
+      text-align: center;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+      min-height: 280px;
+    }
+
+    .card:hover, .card:focus {
+      transform: translateY(-6px) scale(1.02);
+      box-shadow: 0 16px 32px rgba(0, 0, 0, 0.2);
+      outline: none;
+    }
+
+    .card:active { transform: translateY(-2px) scale(0.99); }
+
+    .card .emoji {
+      font-size: clamp(4rem, 10vw, 6rem);
+      margin-bottom: 16px;
+      filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
+    }
+
+    .card .name {
+      font-size: clamp(1.75rem, 4vw, 2.5rem);
+      letter-spacing: 0.02em;
+    }
+
+    .card .tag {
+      margin-top: 8px;
+      font-size: 1rem;
+      font-weight: normal;
+      opacity: 0.9;
+    }
+
+    .card-julia {
+      background: linear-gradient(135deg, #ff6fb5 0%, #b56fff 100%);
+    }
+
+    .card-pedro {
+      background: linear-gradient(135deg, #4f9bff 0%, #4fdb9b 100%);
+    }
+
+    footer {
+      margin-top: 3rem;
+      color: #666;
+      font-size: 0.9rem;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <h1>Jogos da Família</h1>
+  <p class="subtitle">Escolha seu cantinho de jogos</p>
+
+  <div class="cards">
+    <a class="card card-julia" href="./julia/">
+      <div class="emoji">🐱</div>
+      <div class="name">Julia</div>
+      <div class="tag">Cantinho da Julia</div>
+    </a>
+
+    <a class="card card-pedro" href="./pedro/">
+      <div class="emoji">🎮</div>
+      <div class="name">Pedro</div>
+      <div class="tag">Cantinho do Pedro</div>
+    </a>
+  </div>
+
+  <footer>Feito com Claude Code</footer>
+</body>
+</html>

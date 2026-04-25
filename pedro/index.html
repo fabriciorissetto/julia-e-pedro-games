@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cantinho do Pedro</title>
+  <link rel="stylesheet" href="../shared/style.css" />
+  <style>
+    body {
+      background: linear-gradient(135deg, #d6e8ff 0%, #d6f5e8 100%);
+    }
+  </style>
+</head>
+<body>
+  <header class="hub-header">
+    <a class="back-btn" href="../">← Voltar</a>
+    <h1 class="hub-title">🎮 Cantinho do Pedro</h1>
+    <span class="spacer"></span>
+  </header>
+
+  <main id="games-root" class="games-grid"></main>
+
+  <script src="./games.js"></script>
+  <script>
+    const root = document.getElementById('games-root');
+    const games = window.GAMES || [];
+
+    if (games.length === 0) {
+      root.classList.remove('games-grid');
+      root.innerHTML = `
+        <div class="empty-state">
+          <div class="big-emoji">🚀</div>
+          <h2>Ainda não tem jogos por aqui!</h2>
+          <p>Peça pro Claude Code criar seu primeiro jogo. Tente algo tipo:<br><br>
+          <code>"Faça um Pong com cores neon e dois jogadores"</code></p>
+        </div>
+      `;
+    } else {
+      games.forEach(g => {
+        const a = document.createElement('a');
+        a.className = 'game-card';
+        a.href = `./${g.slug}/`;
+        a.style.setProperty('--card-color', g.color || '#4f9bff');
+        a.innerHTML = `
+          <div class="emoji">${g.emoji || '🎮'}</div>
+          <div class="title">${g.title}</div>
+          ${g.description ? `<div class="desc">${g.description}</div>` : ''}
+        `;
+        root.appendChild(a);
+      });
+    }
+  </script>
+</body>
+</html>
