@@ -454,7 +454,7 @@
   </div>
 
   <div class="controles" id="controles">
-    Setas/WASD = mover · M = cortar · A = abrir baú · E = comer · B = construir · ESPAÇO = atacar
+    Setas/WAD = mover · S = correr · M = cortar · A = abrir baú · E = comer · B = construir · ESPAÇO = atacar
   </div>
 
   <div class="bag" id="bag">
@@ -1142,7 +1142,7 @@
       if (cursors.left.isDown || wasd.A.isDown) dx -= 1;
       if (cursors.right.isDown || wasd.D.isDown) dx += 1;
       if (cursors.up.isDown || wasd.W.isDown) dy -= 1;
-      if (cursors.down.isDown || wasd.S.isDown) dy += 1;
+      if (cursors.down.isDown) dy += 1;
       if (touchDir.x || touchDir.y) { dx = touchDir.x; dy = touchDir.y; }
       const mag = Math.hypot(dx, dy);
       if (mag > 0) { dx/=mag; dy/=mag; }
@@ -1151,6 +1151,8 @@
         const veic = CATALOGO[inv.equipado.veiculo];
         velocidade += veic.aereo ? AEREO_BONUS : VEICULO_BONUS;
       }
+      // segura S pra correr (1.7x mais rápido)
+      if (wasd.S.isDown) velocidade *= 1.7;
       player.setVelocity(dx*velocidade, dy*velocidade);
       if (dx < 0) player.setFlipX(true);
       else if (dx > 0) player.setFlipX(false);
