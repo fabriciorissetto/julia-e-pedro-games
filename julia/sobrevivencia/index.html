@@ -603,7 +603,7 @@
     let nightOverlay;
     let interactHint;
     let armaSprite, chapeuSprite, rostoSprite, escudoSprite, capaSprite, veiculoSprite, petSprite, petAcessorioSprite;
-    let pesEsq, pesDir;
+    let corpoSprite, pernaEsq, pernaDir;
     let petPos = { x: 0, y: 0 };
     let proxArranhada = 0;
     let gigante = null;
@@ -726,6 +726,8 @@
     function preload() {
       this.load.spritesheet('town', 'sprites/town.png',  { frameWidth: TILE, frameHeight: TILE });
       this.load.spritesheet('dungeon', 'sprites/dungeon.png', { frameWidth: TILE, frameHeight: TILE });
+      this.load.image('body', 'sprites/body.png');
+      this.load.image('leg', 'sprites/leg.png');
     }
 
     function create() {
@@ -818,9 +820,11 @@
       petAcessorioSprite = this.add.text(0, 0, '', { fontSize: '12px' }).setOrigin(0.5).setDepth(10).setVisible(false);
       petPos.x = WORLD_W/2; petPos.y = WORLD_H/2;
 
-      // pézinhos
-      pesEsq = this.add.rectangle(0, 0, 5, 6, 0x4a2a18).setDepth(8).setVisible(false);
-      pesDir = this.add.rectangle(0, 0, 5, 6, 0x4a2a18).setDepth(8).setVisible(false);
+      // corpo: peito + 2 pernas (asset do Kenney toon-characters)
+      corpoSprite = this.add.image(0, 0, 'body').setScale(0.55).setDepth(9).setVisible(false);
+      pernaEsq = this.add.image(0, 0, 'leg').setScale(0.5).setOrigin(0.5, 0).setDepth(8).setVisible(false);
+      pernaDir = this.add.image(0, 0, 'leg').setScale(0.5).setOrigin(0.5, 0).setDepth(8).setVisible(false);
+      pernaEsq.setFlipX(true);
 
       // câmera
       this.cameras.main.setBounds(0, 0, WORLD_W, WORLD_H);
@@ -829,7 +833,7 @@
 
       // colisões
       this.physics.add.collider(player, arvores);
-      this.physics.add.collider(player, baus);
+      // baús: sem colisão — dá pra passar por cima
       this.physics.add.collider(player, paredes);
       this.physics.add.collider(monstros, paredes);
       this.physics.add.collider(monstros, arvores);
@@ -1243,18 +1247,29 @@
         playerSkinSprite.setScale(player.flipX ? -1 : 1, 1);
       }
 
-      // pézinhos: visíveis quando NÃO tem veículo
+      // peito + pernas: visíveis quando NÃO tem veículo
       const semVeic = !inv.equipado.veiculo;
       if (semVeic) {
-        pesEsq.setVisible(true); pesDir.setVisible(true);
+        corpoSprite.setVisible(true);
+        pernaEsq.setVisible(true);
+        pernaDir.setVisible(true);
+        // peitoral abaixo da cabeça
+        corpoSprite.x = player.x;
+        corpoSprite.y = player.y + 9;
+        corpoSprite.setFlipX(player.flipX);
+        // walk cycle: pernas oscilam em torno do quadril
         const andando = Math.abs(player.body.velocity.x) > 5 || Math.abs(player.body.velocity.y) > 5;
         const fase = time / 110;
-        const offEsq = andando ? Math.sin(fase) * 3 : 0;
-        const offDir = andando ? Math.sin(fase + Math.PI) * 3 : 0;
-        pesEsq.x = player.x - 5; pesEsq.y = player.y + 14 + offEsq;
-        pesDir.x = player.x + 5; pesDir.y = player.y + 14 + offDir;
+        const angEsq = andando ? Math.sin(fase) * 0.45 : 0;
+        const angDir = andando ? Math.sin(fase + Math.PI) * 0.45 : 0;
+        pernaEsq.x = player.x - 4; pernaEsq.y = player.y + 16;
+        pernaEsq.setRotation(angEsq);
+        pernaDir.x = player.x + 4; pernaDir.y = player.y + 16;
+        pernaDir.setRotation(angDir);
       } else {
-        pesEsq.setVisible(false); pesDir.setVisible(false);
+        corpoSprite.setVisible(false);
+        pernaEsq.setVisible(false);
+        pernaDir.setVisible(false);
       }
 
       // veículo: terrestre fica embaixo, aéreo fica em volta e BEM maior
