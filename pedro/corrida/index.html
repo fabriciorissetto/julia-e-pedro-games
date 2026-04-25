@@ -160,11 +160,11 @@
 
       // ===== Fogo do turbo (partículas) =====
       emitterTurbo = this.add.particles(0, 0, "chama", {
-        lifespan: 350,
-        speed: { min: 120, max: 240 },
+        lifespan: 320,
+        speed: { min: 60, max: 180 },
         scale: { start: 0.9, end: 0 },
         alpha: { start: 1, end: 0 },
-        tint: [0xffffff, 0xfff04f, 0xff8800, 0xff4f00],
+        tint: 0xff7700,
         blendMode: "ADD",
         frequency: 18,
         emitting: false,
@@ -326,8 +326,6 @@
         carro.x + Math.cos(angTras) * 24,
         carro.y + Math.sin(angTras) * 24
       );
-      const grausTras = Phaser.Math.RadToDeg(angTras);
-      emitterTurbo.setParticleAngle({ min: grausTras - 25, max: grausTras + 25 });
       emitterTurbo.emitting = turbo;
     }
 
