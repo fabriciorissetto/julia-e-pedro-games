@@ -29,27 +29,38 @@
   <div id="game"></div>
 
   <script>
-    // ====== Tamanhos do mundo (a pista é maior que a tela) ======
+    // ====== Tamanhos ======
     const TELA_W = 800;
     const TELA_H = 600;
     const MUNDO_W = 2400;
     const MUNDO_H = 1600;
 
-    // ====== Pista (formato "donut" retangular) ======
-    // Borda externa
+    // ====== Pista ======
     const PISTA_X = 200, PISTA_Y = 200;
     const PISTA_W = 2000, PISTA_H = 1200;
-    // Buraco interno (a "ilha" no meio)
     const ILHA_X = 600, ILHA_Y = 500;
     const ILHA_W = 1200, ILHA_H = 600;
 
-    // ====== Carro ======
-    const ACEL = 700;          // aceleração
-    const VEL_MAX = 420;       // velocidade máxima
-    const VEL_MAX_RE = 180;    // ré mais lenta
-    const DRAG = 350;          // atrito quando solta o gás
-    const ROT_VEL = 3.2;       // velocidade de rotação (rad/s)
-    const VEL_MIN_PRA_VIRAR = 30; // só vira se tiver se mexendo
+    // ====== Carro do jogador ======
+    const ACEL = 500;          // ganho de velocidade por segundo
+    const FRENAGEM = 700;      // perda quando aperta ré
+    const ATRITO = 250;        // perda quando não aperta nada
+    const VEL_MAX = 420;
+    const VEL_MAX_RE = 180;
+    const ROT_VEL = 3.2;       // rad/s
+    const VEL_MIN_PRA_VIRAR = 30;
+
+    // ====== Turbo ======
+    const VEL_MAX_TURBO = 820;     // disparada insana
+    const ACEL_TURBO = 1400;
+    const TURBO_GASTO = 70;        // por segundo
+    const TURBO_REGEN = 30;        // por segundo
+    const TURBO_MAX = 100;
+
+    // ====== Oponentes ======
+    const VEL_OPONENTE = 360;
+    const ACEL_OPONENTE = 450;
+    const ROT_OPONENTE = 2.6;
 
     // ====== Corrida ======
     const TOTAL_VOLTAS = 3;
@@ -60,248 +71,372 @@
       width: TELA_W,
       height: TELA_H,
       backgroundColor: "#2d5a2d",
-      scale: {
-        mode: Phaser.Scale.FIT,
-        autoCenter: Phaser.Scale.CENTER_BOTH,
-      },
-      physics: {
-        default: "arcade",
-        arcade: { gravity: { y: 0 }, debug: false },
-      },
+      scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
+      physics: { default: "arcade", arcade: { gravity: { y: 0 }, debug: false } },
       scene: { create, update },
     };
 
     new Phaser.Game(config);
 
-    let carro, teclas;
-    let estadoCorrida = "correndo"; // "correndo" | "fim"
-    let voltaAtual = 1;
-    let passouCheckpoint = false;
-    let tempoInicioVolta = 0;
-    let tempoInicioCorrida = 0;
+    // ====== Estado ======
+    let carro;
+    let oponentes = [];
+    let teclas, teclaEspaco;
+    let estadoCorrida = "correndo";
+    let textoUI;
+    let barraTurboBg, barraTurboFill;
+    let posicaoFinalTexto = null;
+    let botoes = { cima: false, baixo: false, esq: false, dir: false, turbo: false };
     let melhorVolta = parseFloat(localStorage.getItem("corrida_melhor_volta")) || null;
     let melhorTotal = parseFloat(localStorage.getItem("corrida_melhor_total")) || null;
-    let textoUI;
-    // Botões touch
-    let botoes = { cima: false, baixo: false, esq: false, dir: false };
+
+    // Waypoints da pista (sentido horário) — usado pela IA dos oponentes
+    const WAYPOINTS = [
+      { x: 1700, y: 1250 },
+      { x: 2050, y: 1100 },
+      { x: 2050, y: 500 },
+      { x: 1700, y: 350 },
+      { x: 700, y: 350 },
+      { x: 350, y: 500 },
+      { x: 350, y: 1100 },
+      { x: 700, y: 1250 },
+      { x: 1200, y: 1250 }, // chegada
+    ];
 
     function create() {
-      // ===== Limites do mundo =====
       this.physics.world.setBounds(0, 0, MUNDO_W, MUNDO_H);
       this.cameras.main.setBounds(0, 0, MUNDO_W, MUNDO_H);
 
-      // ===== Desenha a pista (visual) =====
+      // ===== Pista (visual) =====
       const g = this.add.graphics();
-      // Asfalto
       g.fillStyle(0x3a3a3a, 1);
       g.fillRect(PISTA_X, PISTA_Y, PISTA_W, PISTA_H);
-      // Ilha de grama no meio
       g.fillStyle(0x2d5a2d, 1);
       g.fillRect(ILHA_X, ILHA_Y, ILHA_W, ILHA_H);
-      // Linhas brancas nos limites
       g.lineStyle(6, 0xffffff, 1);
       g.strokeRect(PISTA_X, PISTA_Y, PISTA_W, PISTA_H);
       g.strokeRect(ILHA_X, ILHA_Y, ILHA_W, ILHA_H);
+      const cy1 = ILHA_Y + ILHA_H, cy2 = PISTA_Y + PISTA_H;
+      desenhaXadrez(g, 1180, cy1, 40, cy2 - cy1, 20);
 
-      // Linha de chegada (xadrez branco/preto na parte de baixo da pista)
-      const chegadaX = 1200;
-      const chegadaY1 = ILHA_Y + ILHA_H; // 1100
-      const chegadaY2 = PISTA_Y + PISTA_H; // 1400
-      desenhaXadrez(g, chegadaX - 20, chegadaY1, 40, chegadaY2 - chegadaY1, 20);
-
-      // ===== Paredes (física) =====
+      // ===== Paredes =====
       const paredes = this.physics.add.staticGroup();
-      const espessura = 20;
-      // Borda externa — 4 paredes finas
-      paredes.add(criarParede(this, PISTA_X + PISTA_W/2, PISTA_Y, PISTA_W, espessura));
-      paredes.add(criarParede(this, PISTA_X + PISTA_W/2, PISTA_Y + PISTA_H, PISTA_W, espessura));
-      paredes.add(criarParede(this, PISTA_X, PISTA_Y + PISTA_H/2, espessura, PISTA_H));
-      paredes.add(criarParede(this, PISTA_X + PISTA_W, PISTA_Y + PISTA_H/2, espessura, PISTA_H));
-      // Ilha interna — 1 retângulo sólido
+      const e = 20;
+      paredes.add(criarParede(this, PISTA_X + PISTA_W/2, PISTA_Y, PISTA_W, e));
+      paredes.add(criarParede(this, PISTA_X + PISTA_W/2, PISTA_Y + PISTA_H, PISTA_W, e));
+      paredes.add(criarParede(this, PISTA_X, PISTA_Y + PISTA_H/2, e, PISTA_H));
+      paredes.add(criarParede(this, PISTA_X + PISTA_W, PISTA_Y + PISTA_H/2, e, PISTA_H));
       paredes.add(criarParede(this, ILHA_X + ILHA_W/2, ILHA_Y + ILHA_H/2, ILHA_W, ILHA_H));
 
-      // ===== Obstáculos (cones laranjas) =====
+      // ===== Cones (obstáculos) =====
       const obstaculos = this.physics.add.staticGroup();
-      const posicoesCones = [
-        // Reta inferior — chicane
-        { x: 900, y: 1250 },
-        { x: 1100, y: 1350 },
-        { x: 1500, y: 1250 },
-        // Curva esquerda
-        { x: 350, y: 800 },
-        // Curva direita
-        { x: 2100, y: 800 },
-        // Reta superior
-        { x: 1000, y: 350 },
-        { x: 1500, y: 350 },
+      const cones = [
+        { x: 900, y: 1250 }, { x: 1500, y: 1250 },
+        { x: 350, y: 800 }, { x: 2100, y: 800 },
+        { x: 1000, y: 350 }, { x: 1500, y: 350 },
       ];
-      posicoesCones.forEach(p => {
-        const cone = criarCone(this, p.x, p.y);
-        obstaculos.add(cone);
-      });
+      cones.forEach(p => obstaculos.add(criarCone(this, p.x, p.y)));
+
+      // ===== Texturas dos carros =====
+      criarTexturaCarro(this, "carroJogador", 0xff4f6f);
+      criarTexturaCarro(this, "carroOponente1", 0x4f9bff);
+      criarTexturaCarro(this, "carroOponente2", 0xfff04f);
 
       // ===== Carro do jogador =====
-      criarTexturaCarro(this, "carroJogador", 0xff4f6f);
-      // Spawna logo antes da linha de chegada, virado pra direita
       carro = this.physics.add.sprite(1100, 1250, "carroJogador");
-      carro.setSize(40, 24); // hitbox menor que sprite
-      carro.setMaxVelocity(VEL_MAX);
-      carro.setDrag(DRAG);
-      carro.setBounce(0.15);
-      carro.setCollideWorldBounds(true);
+      configurarCarro(carro);
+      carro.dataSpeed = 0;
+      carro.dataTurbo = TURBO_MAX;
+      carro.dataVolta = 1;
+      carro.dataPassouCheckpoint = false;
+      carro.dataTerminou = false;
+      carro.dataNome = "Você";
+      carro.dataWp = 0; // só pra ranking de meio de corrida
 
-      // Colisões
-      this.physics.add.collider(carro, paredes, baterEmAlgo);
-      this.physics.add.collider(carro, obstaculos, baterEmAlgo);
+      // ===== Oponentes =====
+      const oponentesData = [
+        { x: 1100, y: 1300, key: "carroOponente1", nome: "Azul", velMax: 360 },
+        { x: 1050, y: 1200, key: "carroOponente2", nome: "Amarelo", velMax: 380 },
+      ];
+      oponentesData.forEach(d => {
+        const op = this.physics.add.sprite(d.x, d.y, d.key);
+        configurarCarro(op);
+        op.dataSpeed = 0;
+        op.dataVolta = 1;
+        op.dataPassouCheckpoint = false;
+        op.dataTerminou = false;
+        op.dataNome = d.nome;
+        op.dataWp = 0;        // próximo waypoint
+        op.dataVelMax = d.velMax;
+        oponentes.push(op);
+      });
 
-      // ===== Câmera segue o carro =====
+      // ===== Colisões =====
+      const todosCarros = [carro, ...oponentes];
+      todosCarros.forEach(c => {
+        this.physics.add.collider(c, paredes, baterEmAlgo);
+        this.physics.add.collider(c, obstaculos, baterEmAlgo);
+      });
+      // Carros colidem entre si
+      for (let i = 0; i < todosCarros.length; i++) {
+        for (let j = i + 1; j < todosCarros.length; j++) {
+          this.physics.add.collider(todosCarros[i], todosCarros[j], baterCarroCarro);
+        }
+      }
+
+      // ===== Câmera =====
       this.cameras.main.startFollow(carro, true, 0.1, 0.1);
 
-      // ===== Linha de chegada e checkpoint (zonas que detectam passagem) =====
-      // Linha de chegada: parte inferior da pista
+      // ===== Linha de chegada e checkpoint =====
       const linhaChegada = this.add.zone(1200, 1250, 60, 280);
       this.physics.add.existing(linhaChegada, true);
-      this.physics.add.overlap(carro, linhaChegada, passarLinhaChegada);
-
-      // Checkpoint: parte superior da pista (oposto)
       const checkpoint = this.add.zone(1200, 350, 60, 280);
       this.physics.add.existing(checkpoint, true);
-      this.physics.add.overlap(carro, checkpoint, passarCheckpoint);
+
+      todosCarros.forEach(c => {
+        this.physics.add.overlap(c, linhaChegada, () => passarLinhaChegada(this, c));
+        this.physics.add.overlap(c, checkpoint, () => { c.dataPassouCheckpoint = true; });
+      });
 
       // ===== Teclas =====
       teclas = this.input.keyboard.createCursorKeys();
-      this.input.keyboard.addKey("R").on("down", reiniciar);
+      teclaEspaco = this.input.keyboard.addKey("SPACE");
+      this.input.keyboard.addKey("R").on("down", () => location.reload());
 
-      // ===== UI fixa (não scrolla com câmera) =====
+      // ===== UI =====
       textoUI = this.add.text(10, 10, "", {
-        fontSize: "20px",
+        fontSize: "18px",
         color: "#ffffff",
         backgroundColor: "rgba(0,0,0,0.5)",
         padding: { x: 10, y: 6 },
-      });
-      textoUI.setScrollFactor(0);
-      textoUI.setDepth(100);
+      }).setScrollFactor(0).setDepth(100);
 
-      // ===== Botões touch (mobile) =====
+      // Barra de turbo
+      const barraY = 170, barraX = 10, barraW = 200, barraH = 18;
+      this.add.text(barraX, barraY - 22, "TURBO (espaço)", {
+        fontSize: "14px", color: "#ffffff",
+        backgroundColor: "rgba(0,0,0,0.5)", padding: { x: 6, y: 2 },
+      }).setScrollFactor(0).setDepth(100);
+      barraTurboBg = this.add.rectangle(barraX, barraY, barraW, barraH, 0x000000, 0.5)
+        .setOrigin(0, 0).setScrollFactor(0).setDepth(100).setStrokeStyle(2, 0xffffff);
+      barraTurboFill = this.add.rectangle(barraX + 2, barraY + 2, barraW - 4, barraH - 4, 0x4fdb9b)
+        .setOrigin(0, 0).setScrollFactor(0).setDepth(101);
+
+      // Botões touch
       criarBotoesTouch(this);
 
-      // ===== Cronômetro =====
-      tempoInicioCorrida = this.time.now;
-      tempoInicioVolta = this.time.now;
+      // Cronômetros
+      carro.dataTempoInicioVolta = this.time.now;
+      carro.dataTempoInicioCorrida = this.time.now;
     }
 
-    function update(_, delta) {
+    function configurarCarro(c) {
+      c.setSize(40, 24);
+      c.setBounce(0.15);
+      c.setCollideWorldBounds(true);
+      c.setMaxVelocity(2000); // controlamos manualmente
+      c.setDrag(0); // sem drag automático
+    }
+
+    function update(_, deltaMs) {
       if (estadoCorrida === "fim") {
-        carro.setAcceleration(0, 0);
-        carro.setAngularVelocity(0);
+        carro.body.velocity.x = 0;
+        carro.body.velocity.y = 0;
         return;
       }
+      const dt = deltaMs / 1000;
 
-      // ===== Controle =====
+      // ===== JOGADOR =====
+      atualizarJogador(this, dt);
+
+      // ===== OPONENTES =====
+      oponentes.forEach(op => atualizarOponente(op, dt));
+
+      // ===== UI =====
+      atualizarUI(this);
+
+      // ===== Verifica fim =====
+      if (carro.dataTerminou && !posicaoFinalTexto) {
+        terminarCorrida(this);
+      }
+    }
+
+    function atualizarJogador(scene, dt) {
       const acelera = teclas.up.isDown || botoes.cima;
       const reFreio = teclas.down.isDown || botoes.baixo;
       const viraEsq = teclas.left.isDown || botoes.esq;
       const viraDir = teclas.right.isDown || botoes.dir;
+      const turbo = (teclaEspaco.isDown || botoes.turbo) && carro.dataTurbo > 0;
 
-      // Aceleração: na direção que o carro tá apontado
-      if (acelera) {
-        const ang = carro.rotation;
-        carro.setAcceleration(Math.cos(ang) * ACEL, Math.sin(ang) * ACEL);
-        carro.setMaxVelocity(VEL_MAX);
-      } else if (reFreio) {
-        const ang = carro.rotation;
-        carro.setAcceleration(-Math.cos(ang) * ACEL, -Math.sin(ang) * ACEL);
-        carro.setMaxVelocity(VEL_MAX_RE);
+      // Velocidade alvo / aceleração
+      let velMaxAtual = VEL_MAX;
+      let acelAtual = ACEL;
+      if (turbo) {
+        velMaxAtual = VEL_MAX_TURBO;
+        acelAtual = ACEL_TURBO;
+        carro.dataTurbo = Math.max(0, carro.dataTurbo - TURBO_GASTO * dt);
       } else {
-        carro.setAcceleration(0, 0);
-        carro.setMaxVelocity(VEL_MAX);
+        carro.dataTurbo = Math.min(TURBO_MAX, carro.dataTurbo + TURBO_REGEN * dt);
       }
 
-      // Rotação: só se o carro tá se mexendo
-      const velocidade = Math.hypot(carro.body.velocity.x, carro.body.velocity.y);
-      if (velocidade > VEL_MIN_PRA_VIRAR) {
-        const dt = delta / 1000;
+      if (acelera) {
+        carro.dataSpeed = Math.min(carro.dataSpeed + acelAtual * dt, velMaxAtual);
+      } else if (reFreio) {
+        carro.dataSpeed = Math.max(carro.dataSpeed - FRENAGEM * dt, -VEL_MAX_RE);
+      } else {
+        // atrito que puxa pra zero
+        if (carro.dataSpeed > 0) carro.dataSpeed = Math.max(0, carro.dataSpeed - ATRITO * dt);
+        else if (carro.dataSpeed < 0) carro.dataSpeed = Math.min(0, carro.dataSpeed + ATRITO * dt);
+      }
+
+      // Rotação (só vira se tá em movimento)
+      if (Math.abs(carro.dataSpeed) > VEL_MIN_PRA_VIRAR) {
         if (viraEsq) carro.rotation -= ROT_VEL * dt;
         if (viraDir) carro.rotation += ROT_VEL * dt;
       }
 
-      // ===== Atualiza UI =====
-      const tempoVolta = (this.time.now - tempoInicioVolta) / 1000;
-      const tempoTotal = (this.time.now - tempoInicioCorrida) / 1000;
+      // Aplica velocidade NA DIREÇÃO do carro (sem deslizamento)
+      carro.body.velocity.x = Math.cos(carro.rotation) * carro.dataSpeed;
+      carro.body.velocity.y = Math.sin(carro.rotation) * carro.dataSpeed;
+    }
+
+    function atualizarOponente(op, dt) {
+      if (op.dataTerminou) {
+        op.body.velocity.x = 0;
+        op.body.velocity.y = 0;
+        return;
+      }
+      const wp = WAYPOINTS[op.dataWp];
+      const dx = wp.x - op.x;
+      const dy = wp.y - op.y;
+      const dist = Math.hypot(dx, dy);
+
+      if (dist < 90) {
+        op.dataWp = (op.dataWp + 1) % WAYPOINTS.length;
+      }
+
+      // Gira gradualmente em direção ao waypoint
+      const alvo = Math.atan2(dy, dx);
+      let diff = alvo - op.rotation;
+      while (diff > Math.PI) diff -= 2 * Math.PI;
+      while (diff < -Math.PI) diff += 2 * Math.PI;
+      const passo = ROT_OPONENTE * dt;
+      if (Math.abs(diff) < passo) op.rotation = alvo;
+      else op.rotation += Math.sign(diff) * passo;
+
+      // Acelera
+      op.dataSpeed = Math.min(op.dataSpeed + ACEL_OPONENTE * dt, op.dataVelMax);
+      op.body.velocity.x = Math.cos(op.rotation) * op.dataSpeed;
+      op.body.velocity.y = Math.sin(op.rotation) * op.dataSpeed;
+    }
+
+    function atualizarUI(scene) {
+      const tVolta = (scene.time.now - carro.dataTempoInicioVolta) / 1000;
+      const tTotal = (scene.time.now - carro.dataTempoInicioCorrida) / 1000;
+      const posicao = calcularPosicao();
+
       textoUI.setText(
-        `Volta: ${voltaAtual} / ${TOTAL_VOLTAS}\n` +
-        `Tempo da volta: ${tempoVolta.toFixed(2)}s\n` +
-        `Tempo total: ${tempoTotal.toFixed(2)}s\n` +
+        `Posição: ${posicao}º / ${oponentes.length + 1}\n` +
+        `Volta: ${Math.min(carro.dataVolta, TOTAL_VOLTAS)} / ${TOTAL_VOLTAS}\n` +
+        `Tempo da volta: ${tVolta.toFixed(2)}s\n` +
+        `Tempo total: ${tTotal.toFixed(2)}s\n` +
         `Melhor volta: ${melhorVolta ? melhorVolta.toFixed(2) + "s" : "—"}\n` +
         `Melhor corrida: ${melhorTotal ? melhorTotal.toFixed(2) + "s" : "—"}`
       );
+
+      // Atualiza barra de turbo
+      const w = (carro.dataTurbo / TURBO_MAX) * 196;
+      barraTurboFill.width = Math.max(0, w);
+      // Cor: verde quando cheio, amarelo médio, vermelho baixo
+      let cor = 0x4fdb9b;
+      if (carro.dataTurbo < 50) cor = 0xfff04f;
+      if (carro.dataTurbo < 20) cor = 0xff4f6f;
+      barraTurboFill.fillColor = cor;
     }
 
-    // ===== Quando bate em parede ou obstáculo: perde velocidade =====
-    function baterEmAlgo(carroSprite) {
-      carroSprite.body.velocity.x *= 0.4;
-      carroSprite.body.velocity.y *= 0.4;
+    function calcularPosicao() {
+      // Score = volta * 100 + waypoint atual (estimativa de progresso na volta)
+      const todos = [carro, ...oponentes];
+      const score = c => {
+        const wp = c === carro ? estimarWaypointJogador() : c.dataWp;
+        return c.dataVolta * 100 + wp;
+      };
+      const ordenados = [...todos].sort((a, b) => score(b) - score(a));
+      return ordenados.indexOf(carro) + 1;
+    }
+
+    function estimarWaypointJogador() {
+      // Acha o waypoint mais "à frente" do jogador (próximo na ordem)
+      let melhor = 0, menorDist = Infinity;
+      for (let i = 0; i < WAYPOINTS.length; i++) {
+        const w = WAYPOINTS[i];
+        const d = Math.hypot(w.x - carro.x, w.y - carro.y);
+        if (d < menorDist) { menorDist = d; melhor = i; }
+      }
+      return melhor;
+    }
+
+    // ===== Colisões =====
+    function baterEmAlgo(c) {
+      c.dataSpeed *= 0.4;
+    }
+    function baterCarroCarro(a, b) {
+      a.dataSpeed *= 0.6;
+      b.dataSpeed *= 0.6;
     }
 
     // ===== Lap detection =====
-    function passarLinhaChegada(carroSprite) {
-      if (!passouCheckpoint) return; // anti-trapaça
-      passouCheckpoint = false;
+    function passarLinhaChegada(scene, c) {
+      if (c.dataTerminou) return;
+      if (!c.dataPassouCheckpoint) return;
+      c.dataPassouCheckpoint = false;
 
-      const tempoVolta = (carroSprite.scene.time.now - tempoInicioVolta) / 1000;
-      tempoInicioVolta = carroSprite.scene.time.now;
-
-      // Atualiza melhor volta
-      if (melhorVolta === null || tempoVolta < melhorVolta) {
-        melhorVolta = tempoVolta;
-        localStorage.setItem("corrida_melhor_volta", melhorVolta);
+      if (c === carro) {
+        const tVolta = (scene.time.now - carro.dataTempoInicioVolta) / 1000;
+        carro.dataTempoInicioVolta = scene.time.now;
+        if (melhorVolta === null || tVolta < melhorVolta) {
+          melhorVolta = tVolta;
+          localStorage.setItem("corrida_melhor_volta", melhorVolta);
+        }
       }
 
-      voltaAtual++;
-      if (voltaAtual > TOTAL_VOLTAS) {
-        terminarCorrida(carroSprite.scene);
+      c.dataVolta++;
+      if (c.dataVolta > TOTAL_VOLTAS) {
+        c.dataTerminou = true;
       }
-    }
-
-    function passarCheckpoint() {
-      passouCheckpoint = true;
     }
 
     function terminarCorrida(scene) {
       estadoCorrida = "fim";
-      const tempoTotal = (scene.time.now - tempoInicioCorrida) / 1000;
+      const tTotal = (scene.time.now - carro.dataTempoInicioCorrida) / 1000;
+      const posFinal = calcularPosicao();
+
       let novoRecorde = false;
-      if (melhorTotal === null || tempoTotal < melhorTotal) {
-        melhorTotal = tempoTotal;
+      if (posFinal === 1 && (melhorTotal === null || tTotal < melhorTotal)) {
+        melhorTotal = tTotal;
         localStorage.setItem("corrida_melhor_total", melhorTotal);
         novoRecorde = true;
       }
 
-      const fim = scene.add.text(TELA_W / 2, TELA_H / 2,
-        (novoRecorde ? "🏆 NOVO RECORDE! 🏆\n" : "🏁 CORRIDA COMPLETA 🏁\n") +
-        `Tempo: ${tempoTotal.toFixed(2)}s\n` +
+      const medalhas = ["🥇", "🥈", "🥉"];
+      const titulo = posFinal === 1
+        ? (novoRecorde ? "🏆 NOVO RECORDE! 🏆" : "🥇 VITÓRIA! 🥇")
+        : `${medalhas[posFinal - 1] || ""} ${posFinal}º LUGAR`;
+
+      posicaoFinalTexto = scene.add.text(TELA_W / 2, TELA_H / 2,
+        `${titulo}\n` +
+        `Tempo: ${tTotal.toFixed(2)}s\n` +
         `Melhor volta: ${melhorVolta.toFixed(2)}s\n\n` +
         `Aperta R pra correr de novo`,
         {
-          fontSize: "28px",
-          color: "#ffffff",
+          fontSize: "26px", color: "#ffffff",
           backgroundColor: "rgba(0,0,0,0.85)",
-          padding: { x: 24, y: 20 },
-          align: "center",
+          padding: { x: 24, y: 20 }, align: "center",
         }
-      );
-      fim.setOrigin(0.5);
-      fim.setScrollFactor(0);
-      fim.setDepth(200);
+      ).setOrigin(0.5).setScrollFactor(0).setDepth(200);
     }
 
-    function reiniciar() {
-      // Recarrega a página — jeito mais simples e confiável
-      location.reload();
-    }
-
-    // ===== Helpers =====
-
+    // ===== Helpers visuais =====
     function criarParede(scene, x, y, w, h) {
       const r = scene.add.rectangle(x, y, w, h, 0xffffff, 0);
       scene.physics.add.existing(r, true);
@@ -309,13 +444,11 @@
     }
 
     function criarCone(scene, x, y) {
-      // Desenha cone laranja
       const g = scene.add.graphics();
       g.fillStyle(0xff8800, 1);
       g.fillTriangle(x - 14, y + 14, x + 14, y + 14, x, y - 14);
       g.lineStyle(2, 0xffffff);
       g.strokeTriangle(x - 14, y + 14, x + 14, y + 14, x, y - 14);
-      // Hitbox física
       const hit = scene.add.rectangle(x, y, 24, 24, 0xff8800, 0);
       scene.physics.add.existing(hit, true);
       return hit;
@@ -323,13 +456,10 @@
 
     function criarTexturaCarro(scene, key, cor) {
       const g = scene.add.graphics();
-      // Corpo do carro (apontando pra direita = ângulo 0)
       g.fillStyle(cor, 1);
       g.fillRoundedRect(0, 4, 50, 24, 4);
-      // Para-brisa (parte da frente)
       g.fillStyle(0x222244, 1);
       g.fillRoundedRect(28, 8, 16, 16, 2);
-      // Rodas
       g.fillStyle(0x111111, 1);
       g.fillRect(6, 0, 12, 6);
       g.fillRect(6, 26, 12, 6);
@@ -340,7 +470,6 @@
     }
 
     function desenhaXadrez(g, x, y, w, h, tam) {
-      // Faixa xadrez tipo bandeira de chegada
       const cols = Math.ceil(w / tam);
       const rows = Math.ceil(h / tam);
       for (let r = 0; r < rows; r++) {
@@ -353,31 +482,32 @@
     }
 
     function criarBotoesTouch(scene) {
-      // Só mostra em telas com touch
       const temTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
       if (!temTouch) return;
 
       const op = 0.35;
-      const tam = 70;
-      const margem = 20;
+      const t = 60;
+      const m = 16;
 
-      // D-pad esquerdo (esquerda/direita)
-      const esq = scene.add.circle(margem + tam, TELA_H - margem - tam, tam, 0xffffff, op)
+      const esq = scene.add.circle(m + t, TELA_H - m - t, t, 0xffffff, op)
         .setScrollFactor(0).setDepth(100).setInteractive();
-      const dir = scene.add.circle(margem + tam * 3 + 20, TELA_H - margem - tam, tam, 0xffffff, op)
+      const dir = scene.add.circle(m + t * 3 + 10, TELA_H - m - t, t, 0xffffff, op)
         .setScrollFactor(0).setDepth(100).setInteractive();
-      // Acelera/freia direita
-      const cima = scene.add.circle(TELA_W - margem - tam * 3 - 20, TELA_H - margem - tam, tam, 0xff4f6f, op)
+      const cima = scene.add.circle(TELA_W - m - t * 3 - 10, TELA_H - m - t, t, 0xff4f6f, op)
         .setScrollFactor(0).setDepth(100).setInteractive();
-      const baixo = scene.add.circle(TELA_W - margem - tam, TELA_H - margem - tam, tam, 0x4f9bff, op)
+      const baixo = scene.add.circle(TELA_W - m - t, TELA_H - m - t, t, 0x4f9bff, op)
+        .setScrollFactor(0).setDepth(100).setInteractive();
+      // Botão turbo, em cima do acelerador
+      const turbo = scene.add.circle(TELA_W - m - t * 2 - 5, TELA_H - m - t * 2 - 30, t * 0.7, 0x4fdb9b, 0.6)
         .setScrollFactor(0).setDepth(100).setInteractive();
 
-      // Labels
-      const estilo = { fontSize: "32px", color: "#000" };
-      scene.add.text(esq.x, esq.y, "◀", estilo).setOrigin(0.5).setScrollFactor(0).setDepth(101);
-      scene.add.text(dir.x, dir.y, "▶", estilo).setOrigin(0.5).setScrollFactor(0).setDepth(101);
-      scene.add.text(cima.x, cima.y, "▲", estilo).setOrigin(0.5).setScrollFactor(0).setDepth(101);
-      scene.add.text(baixo.x, baixo.y, "▼", estilo).setOrigin(0.5).setScrollFactor(0).setDepth(101);
+      const e = { fontSize: "28px", color: "#000" };
+      scene.add.text(esq.x, esq.y, "◀", e).setOrigin(0.5).setScrollFactor(0).setDepth(101);
+      scene.add.text(dir.x, dir.y, "▶", e).setOrigin(0.5).setScrollFactor(0).setDepth(101);
+      scene.add.text(cima.x, cima.y, "▲", e).setOrigin(0.5).setScrollFactor(0).setDepth(101);
+      scene.add.text(baixo.x, baixo.y, "▼", e).setOrigin(0.5).setScrollFactor(0).setDepth(101);
+      scene.add.text(turbo.x, turbo.y, "🚀", { fontSize: "24px" })
+        .setOrigin(0.5).setScrollFactor(0).setDepth(101);
 
       const segura = (botao, key) => {
         botao.on("pointerdown", () => botoes[key] = true);
@@ -388,6 +518,7 @@
       segura(dir, "dir");
       segura(cima, "cima");
       segura(baixo, "baixo");
+      segura(turbo, "turbo");
     }
   </script>
 </body>
