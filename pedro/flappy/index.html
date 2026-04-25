@@ -144,8 +144,8 @@
         slug: "shield_breaker",
         nome: "Shield Breaker",
         custo: 150,
-        descricao: "Carrega em 15s. Aperte B pra quebrar 3 paredes!",
-        cooldown: 15000,
+        descricao: "Carrega em 10s. Aperte B (ou 💥) pra quebrar 3 paredes!",
+        cooldown: 10000,
         paredesQuebradas: 3,
       },
     ];
@@ -311,7 +311,7 @@
     let habAtiva = false;
     let paredesParaQuebrar = 0;
     let teclaB;
-    let barraHabBg, barraHabFill, textoHab;
+    let barraHabBg, barraHabFill, textoHab, botaoHabilidade;
     let abaLojaAtual = "skins"; // "skins" | "habilidades"
     let salaGlobal = null;
     let cardRecordeRefs = null;
@@ -423,6 +423,17 @@
         fontSize: "11px", color: "#ffffff", fontStyle: "bold",
         stroke: "#000000", strokeThickness: 2,
       }).setOrigin(0.5).setScrollFactor(0).setDepth(21).setVisible(false);
+
+      // ===== Botão B (Shield Breaker) — só pra mobile =====
+      botaoHabilidade = this.add.circle(TELA_W - 50, TELA_H - 130, 32, 0xfff04f, 0.9)
+        .setStrokeStyle(3, 0xff8800).setScrollFactor(0).setDepth(25).setInteractive().setVisible(false);
+      const txtBtnHab = this.add.text(TELA_W - 50, TELA_H - 130, "💥", { fontSize: "28px" })
+        .setOrigin(0.5).setScrollFactor(0).setDepth(26);
+      txtBtnHab.dataIsButtonLabel = true;
+      botaoHabilidade.dataLabel = txtBtnHab;
+      botaoHabilidade.on("pointerdown", () => {
+        if (estado === "jogando" && habPronta && !habAtiva) ativarShieldBreaker(scene);
+      });
 
       // ===== Input =====
       const acao = () => {
@@ -1061,7 +1072,7 @@
 
       // === Habilidade Shield Breaker ===
       if (temHabilidade("shield_breaker") && !habAtiva) {
-        habCarga = Math.min(1, habCarga + dt / 15);
+        habCarga = Math.min(1, habCarga + dt / 10);
         if (habCarga >= 1) habPronta = true;
       }
       // Atualiza barra
@@ -1072,12 +1083,17 @@
         barraHabFill.fillColor = 0xffd700;
         barraHabFill.width = (paredesParaQuebrar / 3) * habW;
       } else if (habPronta) {
-        textoHab.setText("🔥 PRESSIONE B");
+        textoHab.setText("🔥 PRESSIONE B (ou toque no 💥)");
         barraHabFill.fillColor = 0x4fdb9b;
       } else if (temHabilidade("shield_breaker")) {
         textoHab.setText(`Shield Breaker: ${Math.round(habCarga * 100)}%`);
         barraHabFill.fillColor = 0x4f9bff;
       }
+
+      // Mostra/esconde botão de habilidade no mobile
+      const mostrarBotaoHab = temHabilidade("shield_breaker") && habPronta && !habAtiva;
+      botaoHabilidade.setVisible(mostrarBotaoHab);
+      if (botaoHabilidade.dataLabel) botaoHabilidade.dataLabel.setVisible(mostrarBotaoHab);
     }
 
     function spawnarCanos(scene) {
@@ -1159,6 +1175,8 @@
       barraHabBg.setVisible(false);
       barraHabFill.setVisible(false);
       textoHab.setVisible(false);
+      botaoHabilidade.setVisible(false);
+      if (botaoHabilidade.dataLabel) botaoHabilidade.dataLabel.setVisible(false);
       scene.sound.play("bater", { volume: 0.6 });
       if (bird.anims) bird.anims.stop();
       bird.setTint(0xff8888);
