@@ -82,6 +82,17 @@
     let tufos = [];
     let listras = [];
 
+    // biomas que a estrada atravessa
+    const BIOMAS = [
+      { fundo: 0x88dd66, chao: 0xc9a77a, borda: 0xa88656, nome: 'TERRA',  emoji: '🌾', tufoA: 0x4a8a2a, tufoB: 0x55a338 },
+      { fundo: 0x2d6e1a, chao: 0xa8e87a, borda: 0x88c85a, nome: 'GRAMA',  emoji: '🌳', tufoA: 0x1a4d10, tufoB: 0x255a18 },
+      { fundo: 0x4dc6e8, chao: 0xf4d18a, borda: 0xd4a85a, nome: 'PRAIA',  emoji: '🏖️', tufoA: 0xfff3a8, tufoB: 0xffd86b },
+    ];
+    const META = 30;
+    let biomaAtual = 0;
+    let chegou = false;
+    let estradaG;
+
     const config = {
       type: Phaser.AUTO,
       width: LARGURA,
@@ -138,27 +149,18 @@
     }
 
     function create() {
-      // estradinha de terra (BEM larga agora — quase tela toda)
-      const g = this.add.graphics();
-      g.fillStyle(0xc9a77a);
-      g.fillRect(20, 0, 440, ALTURA);
+      // estrada do tamanho da tela toda
+      estradaG = this.add.graphics();
+      this.cameras.main.setBackgroundColor(BIOMAS[0].fundo);
+      desenharEstrada();
 
-      // grama bem fininha nas bordas
-      g.fillStyle(0x66bb44);
-      g.fillRect(0, 0, 20, ALTURA);
-      g.fillRect(460, 0, 20, ALTURA);
-
-      // bordas mais escuras da estradinha
-      g.fillStyle(0xa88656);
-      g.fillRect(20, 0, 6, ALTURA);
-      g.fillRect(454, 0, 6, ALTURA);
-
-      // tufinhos de grama (passam rolando)
+      // tufinhos nas bordas (passam rolando)
       for (let i = 0; i < 24; i++) {
         const lado = Math.random() < 0.5 ? 0 : 1;
         const x = lado === 0 ? Phaser.Math.Between(2, 18) : Phaser.Math.Between(462, 478);
         const y = Phaser.Math.Between(0, ALTURA);
-        const cor = Math.random() < 0.3 ? 0x4a8a2a : 0x55a338;
+        const b = BIOMAS[0];
+        const cor = Math.random() < 0.3 ? b.tufoA : b.tufoB;
         const tufo = this.add.circle(x, y, Phaser.Math.Between(3, 7), cor);
         tufos.push(tufo);
       }
@@ -204,8 +206,8 @@
       this.input.on('pointerup', () => { dedoX = null; });
       this.input.keyboard.on('keydown', () => ensureAudio());
 
-      pontosTexto = this.add.text(LARGURA - 16, 16, '🌸 0', {
-        fontSize: '36px', color: '#ffffff', fontStyle: 'bold',
+      pontosTexto = this.add.text(LARGURA - 16, 16, '🌸 0 / ' + META, {
+        fontSize: '32px', color: '#ffffff', fontStyle: 'bold',
         stroke: '#b56fff', strokeThickness: 5
       }).setOrigin(1, 0).setDepth(10);
 
@@ -249,7 +251,7 @@
       if (dedoX !== null) {
         alvoX = Phaser.Math.Linear(boneca.x, dedoX, 0.18);
       }
-      alvoX = Phaser.Math.Clamp(alvoX, 80, 400);
+      alvoX = Phaser.Math.Clamp(alvoX, 60, 420);
       boneca.x = alvoX;
 
       // cachorrinho segue logo atrás (embaixo) na mesma coluna
@@ -293,9 +295,9 @@
       coleira.strokePath();
 
       // nascer obstáculos
-      if (tempo - ultimoObstaculo > 850) {
+      if (!chegou && tempo - ultimoObstaculo > 850) {
         ultimoObstaculo = tempo;
-        const x = Phaser.Math.Between(80, 400);
+        const x = Phaser.Math.Between(60, 420);
         const ehPedra = Math.random() < 0.55;
         if (ehPedra) {
           const pedra = this.add.text(x, -40, '🪨', { fontSize: '56px' }).setOrigin(0.5);
@@ -316,9 +318,9 @@
       }
 
       // nascer florzinhas
-      if (tempo - ultimaFlor > 1400) {
+      if (!chegou && tempo - ultimaFlor > 1400) {
         ultimaFlor = tempo;
-        const x = Phaser.Math.Between(80, 400);
+        const x = Phaser.Math.Between(60, 420);
         const emojiFlor = Math.random() < 0.5 ? '🌸' : '⭐';
         const flor = this.add.text(x, -40, emojiFlor, { fontSize: '42px' }).setOrigin(0.5);
         this.physics.add.existing(flor);
@@ -361,7 +363,7 @@
         if (!f) return;
         if (encostou(boneca, f, 34) || encostou(cachorro, f, 34)) {
           pontos += 1;
-          pontosTexto.setText('🌸 ' + pontos);
+          pontosTexto.setText('🌸 ' + pontos + ' / ' + META);
           plim();
           // brilhinho rapidinho
           const brilho = this.add.text(f.x, f.y, '+1', {
@@ -373,6 +375,11 @@
             duration: 600, onComplete: () => brilho.destroy()
           });
           f.destroy();
+          // entrou em bioma novo?
+          const novoBioma = Math.min(BIOMAS.length - 1, Math.floor(pontos / 10));
+          if (novoBioma > biomaAtual) trocarBioma(this, novoBioma);
+          // chegou no final?
+          if (pontos >= META && !chegou) chegada(this);
         }
       });
     }
@@ -383,9 +390,103 @@
       return Math.abs(dx) < raio && Math.abs(dy) < raio;
     }
 
+    function desenharEstrada() {
+      const b = BIOMAS[biomaAtual];
+      estradaG.clear();
+      estradaG.fillStyle(b.chao);
+      estradaG.fillRect(0, 0, LARGURA, ALTURA);
+      estradaG.fillStyle(b.borda);
+      estradaG.fillRect(0, 0, 6, ALTURA);
+      estradaG.fillRect(LARGURA - 6, 0, 6, ALTURA);
+    }
+
+    function trocarBioma(scene, novo) {
+      biomaAtual = novo;
+      const b = BIOMAS[novo];
+      scene.cameras.main.setBackgroundColor(b.fundo);
+      desenharEstrada();
+      // tufos pegam cor do novo bioma
+      tufos.forEach(t => {
+        t.fillColor = Math.random() < 0.3 ? b.tufoA : b.tufoB;
+      });
+      // banner gigante do bioma
+      const banner = scene.add.text(LARGURA / 2, ALTURA / 2,
+        b.emoji + '  ' + b.nome + '  ' + b.emoji, {
+          fontSize: '56px', color: '#ffffff', fontStyle: 'bold',
+          stroke: '#b56fff', strokeThickness: 8, align: 'center'
+        }).setOrigin(0.5).setDepth(20).setScale(0.3);
+      scene.tweens.add({
+        targets: banner, scale: 1, duration: 400, ease: 'Back.out',
+        onComplete: () => {
+          scene.tweens.add({
+            targets: banner, alpha: 0, duration: 600, delay: 1400,
+            onComplete: () => banner.destroy()
+          });
+        }
+      });
+      plim();
+    }
+
+    function chegada(scene) {
+      chegou = true;
+      // castelo descendo
+      const castelo = scene.add.text(LARGURA / 2, -120, '🏰', {
+        fontSize: '180px'
+      }).setOrigin(0.5).setDepth(5);
+      scene.tweens.add({
+        targets: castelo, y: ALTURA / 2 - 80,
+        duration: 1500, ease: 'Cubic.out'
+      });
+      // banner de chegada
+      const banner = scene.add.text(LARGURA / 2, ALTURA / 2 + 130,
+        'VOCÊ\nCHEGOU!\n🎉', {
+          fontSize: '64px', color: '#ffffff', fontStyle: 'bold',
+          align: 'center', stroke: '#ff66cc', strokeThickness: 8
+        }).setOrigin(0.5).setDepth(20).setScale(0.3).setAlpha(0);
+      scene.tweens.add({
+        targets: banner, scale: 1, alpha: 1,
+        duration: 600, delay: 800, ease: 'Back.out'
+      });
+      // confete
+      const emojisConfete = ['💖', '⭐', '🌸', '✨', '🎉', '💫'];
+      for (let i = 0; i < 30; i++) {
+        scene.time.delayedCall(800 + i * 80, () => {
+          const conf = scene.add.text(
+            Phaser.Math.Between(20, LARGURA - 20), -20,
+            emojisConfete[Phaser.Math.Between(0, emojisConfete.length - 1)],
+            { fontSize: '36px' }
+          ).setDepth(15);
+          scene.tweens.add({
+            targets: conf, y: ALTURA + 30,
+            angle: Phaser.Math.Between(-360, 360),
+            duration: Phaser.Math.Between(2200, 3500),
+            onComplete: () => conf.destroy()
+          });
+        });
+      }
+      // sons festivos
+      plim();
+      scene.time.delayedCall(280, plim);
+      scene.time.delayedCall(560, plim);
+      scene.time.delayedCall(900, plim);
+    }
+
     function tomarAi() {
       invencivel = true;
       ai();
+      // perde 1 ponto (sem ficar negativo)
+      if (pontos > 0) {
+        pontos -= 1;
+        pontosTexto.setText('🌸 ' + pontos + ' / ' + META);
+        const perde = this.add.text(boneca.x, boneca.y - 40, '-1', {
+          fontSize: '36px', color: '#ff3377', fontStyle: 'bold',
+          stroke: '#ffffff', strokeThickness: 5
+        }).setOrigin(0.5).setDepth(15);
+        this.tweens.add({
+          targets: perde, y: perde.y - 50, alpha: 0,
+          duration: 700, onComplete: () => perde.destroy()
+        });
+      }
       aiTexto.setText('Ai!');
       this.cameras.main.shake(220, 0.012);
       boneca.setAlpha(0.45);
