@@ -33,6 +33,6 @@ Obrigado, Kenney! 💛 — https://kenney.nl
 
 Distribuído sob **Creative Commons Zero (CC0) v1.0 Universal**. Mesmo termo do Kenney — uso livre, atribuição não obrigatória.
 
-- [Pixel Adventure 1](https://pixelfrog-assets.itch.io/pixel-adventure-1) — personagens animados, inimigos, terreno, traps
+- [Pixel Adventure 1](https://pixelfrog-assets.itch.io/pixel-adventure-1) + [Pixel Adventure 2](https://pixelfrog-assets.itch.io/pixel-adventure-2) — personagens animados, inimigos, terreno, traps (pack combinado)
 
 Obrigado, Pixel Frog! 🐸 — https://pixelfrog-assets.itch.io
