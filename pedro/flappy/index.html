@@ -539,7 +539,6 @@
     }
 
     function mostrarCuboKonami(scene) {
-      console.log("[KONAMI] mostrarCuboKonami chamado", scene ? "scene OK" : "no scene");
       // Cubo preto com "?" no centro da tela, dura 3s
       const cubo = scene.add.rectangle(TELA_W / 2, TELA_H / 2, 120, 120, 0x000000, 0.95)
         .setStrokeStyle(4, 0xfff04f).setScrollFactor(0).setDepth(60).setInteractive();
