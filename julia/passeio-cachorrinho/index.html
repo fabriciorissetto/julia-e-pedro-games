@@ -93,10 +93,14 @@
         mode: Phaser.Scale.FIT,
         autoCenter: Phaser.Scale.CENTER_BOTH
       },
-      scene: { create, update }
+      scene: { preload, create, update }
     };
 
     new Phaser.Game(config);
+
+    function preload() {
+      this.load.image('princesa', 'princesa.png');
+    }
 
     function criarCachorro(scene, x, y) {
       const c = scene.add.container(x, y);
@@ -134,25 +138,25 @@
     }
 
     function create() {
-      // estradinha de terra (BEM mais larga agora)
+      // estradinha de terra (BEM larga agora — quase tela toda)
       const g = this.add.graphics();
       g.fillStyle(0xc9a77a);
-      g.fillRect(40, 0, 400, ALTURA);
+      g.fillRect(20, 0, 440, ALTURA);
 
-      // grama nas bordas (mais fininha)
+      // grama bem fininha nas bordas
       g.fillStyle(0x66bb44);
-      g.fillRect(0, 0, 40, ALTURA);
-      g.fillRect(440, 0, 40, ALTURA);
+      g.fillRect(0, 0, 20, ALTURA);
+      g.fillRect(460, 0, 20, ALTURA);
 
       // bordas mais escuras da estradinha
       g.fillStyle(0xa88656);
-      g.fillRect(40, 0, 6, ALTURA);
-      g.fillRect(434, 0, 6, ALTURA);
+      g.fillRect(20, 0, 6, ALTURA);
+      g.fillRect(454, 0, 6, ALTURA);
 
       // tufinhos de grama (passam rolando)
       for (let i = 0; i < 24; i++) {
         const lado = Math.random() < 0.5 ? 0 : 1;
-        const x = lado === 0 ? Phaser.Math.Between(4, 35) : Phaser.Math.Between(445, 476);
+        const x = lado === 0 ? Phaser.Math.Between(2, 18) : Phaser.Math.Between(462, 478);
         const y = Phaser.Math.Between(0, ALTURA);
         const cor = Math.random() < 0.3 ? 0x4a8a2a : 0x55a338;
         const tufo = this.add.circle(x, y, Phaser.Math.Between(3, 7), cor);
@@ -165,20 +169,25 @@
         listras.push(listra);
       }
 
-      // boneca (emoji que ela curte)
-      boneca = this.add.text(180, 600, '👧', { fontSize: '64px' }).setOrigin(0.5);
+      // princesa (na frente, em cima)
+      boneca = this.add.image(240, 480, 'princesa');
+      boneca.setDisplaySize(110, 110);
+      boneca.setDepth(3);
       this.physics.add.existing(boneca);
-      boneca.body.setSize(45, 50).setOffset(boneca.width / 2 - 22, boneca.height / 2 - 25);
+      boneca.body.setSize(60, 80).setOffset(
+        boneca.width / 2 - 30,
+        boneca.height / 2 - 40
+      );
 
-      // bracinho da boneca segurando a coleira
-      braco = this.add.container(boneca.x + 22, boneca.y + 6);
-      const bracoCorpo = this.add.rectangle(6, 0, 18, 7, 0xffd9a8);
-      const mao = this.add.circle(15, 0, 5, 0xffd9a8);
+      // bracinho da princesa segurando a coleira (sai pra baixo)
+      braco = this.add.container(boneca.x + 8, boneca.y + 40);
+      const bracoCorpo = this.add.rectangle(0, 8, 7, 18, 0xffd9a8);
+      const mao = this.add.circle(0, 18, 5, 0xffd9a8);
       braco.add([bracoCorpo, mao]);
       braco.setDepth(2);
 
-      // cachorrinho desenhado (sem emoji)
-      cachorro = criarCachorro(this, 280, 600);
+      // cachorrinho atrás da princesa (embaixo)
+      cachorro = criarCachorro(this, 240, 620);
       this.physics.add.existing(cachorro);
       cachorro.body.setSize(60, 38).setOffset(-30, -19);
 
@@ -233,27 +242,26 @@
         if (l.y > ALTURA + 20) l.y = -30;
       });
 
-      // movimento da boneca (limites maiores pra estrada larga)
+      // movimento da princesa (limites maiores pra estrada larga)
       let alvoX = boneca.x;
       if (teclas.left.isDown) alvoX -= 5;
       if (teclas.right.isDown) alvoX += 5;
       if (dedoX !== null) {
-        alvoX = Phaser.Math.Linear(boneca.x, dedoX - 50, 0.18);
+        alvoX = Phaser.Math.Linear(boneca.x, dedoX, 0.18);
       }
-      alvoX = Phaser.Math.Clamp(alvoX, 75, 290);
+      alvoX = Phaser.Math.Clamp(alvoX, 80, 400);
       boneca.x = alvoX;
 
-      // cachorrinho segue do lado
-      const alvoCachorroX = Phaser.Math.Clamp(boneca.x + 95, 100, 405);
-      cachorro.x = Phaser.Math.Linear(cachorro.x, alvoCachorroX, 0.22);
+      // cachorrinho segue logo atrás (embaixo) na mesma coluna
+      cachorro.x = Phaser.Math.Linear(cachorro.x, boneca.x, 0.25);
 
       // balancinho fofo
-      boneca.y = 600 + Math.sin(tempo / 110) * 4;
-      cachorro.y = 600 + Math.sin(tempo / 110 + 1) * 4;
+      boneca.y = 480 + Math.sin(tempo / 110) * 4;
+      cachorro.y = 620 + Math.sin(tempo / 110 + 1) * 4;
 
-      // bracinho acompanha a boneca
-      braco.x = boneca.x + 22;
-      braco.y = boneca.y + 6;
+      // bracinho acompanha a princesa
+      braco.x = boneca.x + 8;
+      braco.y = boneca.y + 40;
 
       // pernas do cachorrinho balançando (animação simples)
       const swing = Math.sin(tempo / 80) * 3;
@@ -263,15 +271,15 @@
       cachorro.pernas[3].y = 14 - swing;
       cachorro.rabo.rotation = -0.5 + Math.sin(tempo / 100) * 0.3;
 
-      // coleira (linha rosa saindo da mão da boneca até o cachorro)
+      // coleira (linha rosa saindo da mão da princesa pra baixo até o cachorrinho)
       coleira.clear();
       coleira.lineStyle(4, 0xff66cc, 1);
-      const x1 = braco.x + 15;
-      const y1 = braco.y;
-      const x2 = cachorro.x - 16;
-      const y2 = cachorro.y - 4;
-      const meioX = (x1 + x2) / 2;
-      const meioY = (y1 + y2) / 2 + 10;
+      const x1 = braco.x;
+      const y1 = braco.y + 22;
+      const x2 = cachorro.x;
+      const y2 = cachorro.y - 16;
+      const meioX = (x1 + x2) / 2 + 8;
+      const meioY = (y1 + y2) / 2;
       coleira.beginPath();
       coleira.moveTo(x1, y1);
       const passos = 10;
