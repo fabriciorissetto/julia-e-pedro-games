@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <title>Bolinha Pula</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #1a1a2e;
+      overflow: hidden;
+      height: 100%;
+      font-family: system-ui, sans-serif;
+    }
+    #game {
+      width: 100vw;
+      height: 100vh;
+    }
+    #voltar {
+      position: fixed;
+      top: 12px;
+      left: 12px;
+      background: rgba(0,0,0,0.4);
+      color: #fff;
+      text-decoration: none;
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 14px;
+      z-index: 10;
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+</head>
+<body>
+  <a id="voltar" href="../">← voltar</a>
+  <div id="game"></div>
+
+  <script>
+    // Largura/altura do mundo do jogo
+    const LARGURA = 800;
+    const ALTURA = 600;
+
+    // Configuração do Phaser
+    const config = {
+      type: Phaser.AUTO,
+      parent: "game",
+      width: LARGURA,
+      height: ALTURA,
+      backgroundColor: "#1a1a2e",
+      scale: {
+        mode: Phaser.Scale.FIT,
+        autoCenter: Phaser.Scale.CENTER_BOTH,
+      },
+      physics: {
+        default: "arcade",
+        arcade: {
+          gravity: { y: 1200 }, // gravidade puxando a bolinha pra baixo
+          debug: false,
+        },
+      },
+      scene: { preload, create, update },
+    };
+
+    const game = new Phaser.Game(config);
+
+    let bolinha;
+    let teclas;
+    let noChao = false;
+
+    function preload() {
+      // Desenhamos a bolinha em código (sem precisar de imagem)
+    }
+
+    function create() {
+      // Chão — um retângulo invisível na base
+      const chao = this.add.rectangle(LARGURA / 2, ALTURA - 30, LARGURA, 60, 0x4fdb9b);
+      this.physics.add.existing(chao, true); // true = estático
+
+      // Bolinha — círculo desenhado em runtime
+      const raio = 30;
+      const grafico = this.add.graphics();
+      grafico.fillStyle(0x4f9bff, 1);
+      grafico.fillCircle(raio, raio, raio);
+      grafico.generateTexture("bolinha", raio * 2, raio * 2);
+      grafico.destroy();
+
+      bolinha = this.physics.add.sprite(LARGURA / 2, ALTURA - 200, "bolinha");
+      bolinha.setCircle(raio);
+      bolinha.setBounce(0.3); // quica um pouquinho
+      bolinha.setCollideWorldBounds(true);
+
+      // Colisão bolinha + chão
+      this.physics.add.collider(bolinha, chao);
+
+      // Teclas
+      teclas = this.input.keyboard.createCursorKeys();
+      this.input.keyboard.addKey("SPACE");
+
+      // Toque na tela também pula (pra celular)
+      this.input.on("pointerdown", () => pular());
+    }
+
+    function update() {
+      // Considera "no chão" se a velocidade vertical estiver ~zero e tocando algo embaixo
+      noChao = bolinha.body.blocked.down || bolinha.body.touching.down;
+
+      // Pula com seta pra cima ou espaço — só se estiver no chão
+      const cima = teclas.up.isDown || teclas.space.isDown;
+      if (cima && noChao) {
+        pular();
+      }
+    }
+
+    function pular() {
+      if (noChao) {
+        bolinha.setVelocityY(-700);
+      }
+    }
+  </script>
+</body>
+</html>
