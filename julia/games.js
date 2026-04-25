@@ -20,4 +20,11 @@ window.GAMES = [
     color: "#b56fff",
     description: "Adivinha a palavra com dicas e moedinhas"
   },
+  {
+    slug: "sobrevivencia",
+    title: "10 Dias na Floresta",
+    emoji: "🌲",
+    color: "#4ba747",
+    description: "Sobreviva, corte árvores, abra baús e enfrente os monstros à noite"
+  },
 ];

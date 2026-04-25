@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>10 Dias na Floresta</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      background: #2a4d2a;
+      font-family: 'Comic Sans MS', 'Trebuchet MS', cursive;
+      touch-action: none;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body { display: flex; align-items: center; justify-content: center; }
+    #game { image-rendering: pixelated; image-rendering: crisp-edges; }
+
+    .voltar {
+      position: fixed; top: 8px; left: 8px;
+      background: rgba(255,255,255,0.95);
+      padding: 8px 14px; border-radius: 18px;
+      text-decoration: none; color: #2d6e1a;
+      font-weight: bold; font-size: 16px;
+      z-index: 50;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+
+    .hud {
+      position: fixed; top: 8px; left: 50%;
+      transform: translateX(-50%);
+      display: flex; gap: 8px; flex-wrap: wrap;
+      justify-content: center;
+      z-index: 40; pointer-events: none;
+    }
+    .hud .item {
+      background: rgba(255,255,255,0.92);
+      padding: 6px 12px; border-radius: 16px;
+      font-size: 16px; font-weight: bold;
+      color: #2d6e1a;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+      min-width: 64px; text-align: center;
+    }
+    .hud .item.dia { color: #b56fff; }
+    .hud .item.noite { background: linear-gradient(135deg, #2a1f4d 0%, #4a2a7d 100%); color: #ffd84d; }
+    .hud .item.vida { color: #c92d4d; }
+    .hud .item.arma { color: #6a3a8a; }
+    .hud .item.alerta { animation: piscar 0.6s infinite; }
+    @keyframes piscar { 0%,100% { transform: scale(1);} 50% { transform: scale(1.1); background: #ffe5e5; } }
+
+    .controles {
+      position: fixed; bottom: 8px; left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.55);
+      color: #fff;
+      padding: 6px 14px; border-radius: 14px;
+      font-size: 12px; font-weight: bold;
+      text-align: center;
+      z-index: 40; pointer-events: none;
+      max-width: 95vw;
+      line-height: 1.3;
+    }
+
+    /* botoes touch pra mobile */
+    .touch-controls { display: none; }
+    @media (pointer: coarse), (max-width: 900px) {
+      .touch-controls { display: block; }
+      .controles { font-size: 10px; bottom: 4px; }
+    }
+    .joystick {
+      position: fixed; bottom: 30px; left: 30px;
+      width: 120px; height: 120px;
+      background: rgba(255,255,255,0.25);
+      border-radius: 60px;
+      z-index: 45;
+      touch-action: none;
+    }
+    .joystick .stick {
+      position: absolute; left: 30px; top: 30px;
+      width: 60px; height: 60px;
+      background: rgba(255,255,255,0.7);
+      border-radius: 30px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    .botoes-acao {
+      position: fixed; bottom: 30px; right: 16px;
+      display: grid; grid-template-columns: repeat(2, 64px);
+      gap: 8px; z-index: 45;
+    }
+    .botoes-acao button {
+      width: 64px; height: 64px;
+      border: none; border-radius: 32px;
+      font-size: 26px; font-weight: bold;
+      background: rgba(255,255,255,0.85);
+      color: #2d6e1a;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      cursor: pointer; touch-action: none;
+      font-family: inherit;
+    }
+    .botoes-acao button.atacar { background: rgba(255, 100, 100, 0.85); color: #fff; }
+
+    /* overlay vitória/derrota */
+    .overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.65);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 100;
+      animation: fadeIn 0.4s;
+    }
+    .overlay.escondido { display: none; }
+    .overlay-card {
+      background: linear-gradient(135deg, #ffffff 0%, #ffe5f5 100%);
+      padding: 28px;
+      border-radius: 24px;
+      text-align: center;
+      max-width: 90%;
+      box-shadow: 0 14px 40px rgba(0,0,0,0.4);
+      animation: pop 0.5s cubic-bezier(.2,1.4,.4,1);
+    }
+    .overlay-card h1 {
+      font-size: 40px; color: #b56fff; margin-bottom: 10px;
+    }
+    .overlay-card p { font-size: 18px; color: #6a3a8a; margin-bottom: 18px; }
+    .overlay-card button {
+      background: linear-gradient(135deg, #ff6fb5 0%, #b56fff 100%);
+      border: none; padding: 12px 24px;
+      border-radius: 14px; font-size: 18px;
+      font-weight: bold; color: #fff;
+      cursor: pointer; font-family: inherit;
+      box-shadow: 0 5px 14px rgba(255, 100, 180, 0.4);
+    }
+    @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+    @keyframes pop {
+      0% { transform: scale(0.4); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .toast {
+      position: fixed; top: 60px; left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.75);
+      color: #fff; padding: 8px 16px;
+      border-radius: 14px;
+      font-size: 14px; font-weight: bold;
+      z-index: 60;
+      pointer-events: none;
+      animation: toastIn 0.3s, toastOut 0.4s 1.6s forwards;
+    }
+    @keyframes toastIn { from { opacity: 0; transform: translate(-50%, -20px); } to { opacity: 1; } }
+    @keyframes toastOut { to { opacity: 0; transform: translate(-50%, -20px); } }
+  </style>
+</head>
+<body>
+  <a href="../" class="voltar">← Voltar</a>
+
+  <div class="hud">
+    <div class="item vida">❤️ <span id="hudVida">10</span></div>
+    <div class="item">🪵 <span id="hudMadeira">5</span></div>
+    <div class="item">🍎 <span id="hudComida">3</span></div>
+    <div class="item dia" id="hudDiaItem">☀️ Dia <span id="hudDia">1</span>/10</div>
+    <div class="item arma">⚔️ <span id="hudArma">Vazia</span></div>
+  </div>
+
+  <div class="controles" id="controles">
+    Setas/WASD = mover · E = cortar/abrir · F = comer · B = construir · ESPAÇO = atacar
+  </div>
+
+  <div class="touch-controls">
+    <div class="joystick" id="joystick">
+      <div class="stick" id="stick"></div>
+    </div>
+    <div class="botoes-acao">
+      <button id="btnE">🪓</button>
+      <button id="btnF">🍎</button>
+      <button id="btnB">🧱</button>
+      <button id="btnAtacar" class="atacar">⚔️</button>
+    </div>
+  </div>
+
+  <div id="game"></div>
+
+  <div id="overlay" class="overlay escondido">
+    <div class="overlay-card">
+      <h1 id="overlayTit">Você venceu!</h1>
+      <p id="overlayMsg">Sobreviveu 10 dias na floresta!</p>
+      <button id="btnRecomecar">Jogar de novo ↻</button>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+  <script>
+    // ===== config =====
+    const TILE = 16;
+    const SCALE = 2;
+    const SIZE = TILE * SCALE; // 32 px
+    const WORLD_W = 60 * SIZE; // 1920
+    const WORLD_H = 60 * SIZE;
+    const PLAYER_SPEED = 180;
+    const META_DIAS = 10;
+    const DIA_MS = 28000;
+    const NOITE_MS = 18000;
+    const SPAWN_MONSTRO_MS = 3500;
+
+    // tile indices (do tilemap_packed)
+    const T = {
+      // town
+      arvorePinheiro: 4,
+      arvoreRedonda: 5,
+      arbustinho: 7,
+      arvoreLaranja: 8,
+      arvoreLaranja2: 11,
+      cercaEsq: 44,
+      cercaMeio: 45,
+      cercaDir: 46,
+      tronco: 56,
+      bauMarrom: 83,
+      // dungeon (carregar como sprite separado)
+      jogador: 84,
+      monstroRoxo: 96,
+      monstroVerm: 97,
+    };
+
+    // ===== estado =====
+    let player;
+    let cursors, wasd, ePrev=false, fPrev=false, bPrev=false, spPrev=false;
+    let arvores; // group
+    let baus;    // group
+    let monstros; // group
+    let paredes; // group
+    let inv = { madeira: 5, comida: 3, vida: 10, arma: null };
+    const VIDA_MAX = 10;
+    let dia = 1;
+    let ehNoite = false;
+    let cicloMs = 0;
+    let proxSpawn = 0;
+    let spawnedHoje = 0;
+    let acabou = false;
+    let venceu = false;
+    let invulnAte = 0;
+    let touchDir = {x:0, y:0};
+    let scene;
+    let nightOverlay;
+    let armaSprite; // sprite visual da arma na mão
+    let interactHint;
+
+    // ===== áudio =====
+    let audioCtx = null;
+    function ensureAudio() {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+    }
+    function tom(freq, dur, type='sine', vol=0.16) {
+      if (!audioCtx) return;
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.connect(g); g.connect(audioCtx.destination);
+      o.type = type;
+      const t0 = audioCtx.currentTime;
+      o.frequency.setValueAtTime(freq, t0);
+      g.gain.setValueAtTime(vol, t0);
+      g.gain.exponentialRampToValueAtTime(0.01, t0+dur);
+      o.start(t0); o.stop(t0+dur);
+    }
+    function tomSweep(f1,f2,dur,type='sawtooth',vol=0.12) {
+      if (!audioCtx) return;
+      const o=audioCtx.createOscillator(); const g=audioCtx.createGain();
+      o.connect(g); g.connect(audioCtx.destination);
+      o.type=type;
+      const t0=audioCtx.currentTime;
+      o.frequency.setValueAtTime(f1,t0);
+      o.frequency.exponentialRampToValueAtTime(Math.max(40,f2), t0+dur);
+      g.gain.setValueAtTime(vol,t0);
+      g.gain.exponentialRampToValueAtTime(0.01,t0+dur);
+      o.start(t0); o.stop(t0+dur);
+    }
+    const somCortar  = () => tom(220, 0.08, 'square', 0.14);
+    const somMadeira = () => { tom(660, 0.06); setTimeout(()=>tom(880,0.08),60); };
+    const somAbrirBau= () => { tom(440,0.1); setTimeout(()=>tom(880,0.1),100); setTimeout(()=>tom(1320,0.15,'triangle',0.2),200); };
+    const somComer   = () => { tom(500,0.08,'triangle'); setTimeout(()=>tom(700,0.08,'triangle'),80); };
+    const somConstruir= () => { tom(180,0.06,'square',0.16); setTimeout(()=>tom(160,0.08,'square',0.16),70); };
+    const somAtacar  = () => tomSweep(900, 200, 0.15, 'sawtooth', 0.1);
+    const somAcertar = () => { tom(180,0.1,'sawtooth',0.16); setTimeout(()=>tom(120,0.12,'sawtooth',0.16),60); };
+    const somDano    = () => { tom(150,0.18,'sawtooth',0.18); };
+    const somDia     = () => { [600,800,1000].forEach((f,i)=>setTimeout(()=>tom(f,0.18,'triangle',0.18),i*120)); };
+    const somNoite   = () => { tomSweep(800,200,0.6,'sawtooth',0.13); };
+    const somVitoria = () => { [523,659,784,1047,1319,1568].forEach((f,i)=>setTimeout(()=>tom(f,0.22,'triangle',0.22),i*110)); };
+    const somDerrota = () => { [350,280,220,180].forEach((f,i)=>setTimeout(()=>tom(f,0.32,'sawtooth',0.18),i*150)); };
+    const somPickup  = () => { tom(1200,0.05); setTimeout(()=>tom(1800,0.08),40); };
+
+    // ===== Phaser =====
+    function preload() {
+      this.load.spritesheet('town', 'sprites/town.png',  { frameWidth: TILE, frameHeight: TILE });
+      this.load.spritesheet('dungeon', 'sprites/dungeon.png', { frameWidth: TILE, frameHeight: TILE });
+    }
+
+    function create() {
+      scene = this;
+
+      // chão de grama (gradient + textura)
+      const bg = this.add.graphics();
+      bg.fillStyle(0x6dc94f, 1);
+      bg.fillRect(0, 0, WORLD_W, WORLD_H);
+      bg.fillStyle(0x5db045, 0.35);
+      for (let y=0; y<WORLD_H; y+=SIZE*2) bg.fillRect(0,y,WORLD_W,SIZE);
+      bg.fillStyle(0x7ddc62, 0.18);
+      for (let y=0;y<WORLD_H;y+=SIZE) for (let x=0;x<WORLD_W;x+=SIZE)
+        if (((x/SIZE)+(y/SIZE))%2===0) bg.fillRect(x,y,SIZE,SIZE);
+      // pontinhos de flor/grama no chão
+      for (let i=0;i<400;i++){
+        const x = Phaser.Math.Between(0, WORLD_W);
+        const y = Phaser.Math.Between(0, WORLD_H);
+        const cor = Phaser.Math.RND.pick([0xffeb6f,0xff6fb5,0xffffff,0x88ffaa]);
+        bg.fillStyle(cor, 0.7);
+        bg.fillCircle(x, y, Phaser.Math.Between(2,4));
+      }
+
+      // grupos
+      arvores = this.physics.add.staticGroup();
+      baus = this.physics.add.staticGroup();
+      paredes = this.physics.add.staticGroup();
+      monstros = this.physics.add.group();
+
+      // árvores espalhadas
+      const FRAMES_ARVORE = [T.arvorePinheiro, T.arvoreRedonda, T.arvoreLaranja, T.arvoreLaranja2];
+      for (let i=0;i<140;i++){
+        const x = Phaser.Math.Between(40, WORLD_W-40);
+        const y = Phaser.Math.Between(40, WORLD_H-40);
+        // não na zona de spawn central
+        if (Math.hypot(x - WORLD_W/2, y - WORLD_H/2) < 90) continue;
+        const frame = Phaser.Math.RND.pick(FRAMES_ARVORE);
+        const a = arvores.create(x, y, 'town', frame).setScale(SCALE).refreshBody();
+        a.body.setCircle(TILE*0.45, TILE*0.05, TILE*0.25);
+        a.body.position.set(x - TILE*0.45*SCALE, y - TILE*0.2*SCALE);
+        a.hpArvore = 3;
+        a.tipo = 'arvore';
+      }
+      // arbustos decorativos (sem colisão pra ficar leve)
+      for (let i=0;i<60;i++){
+        const x = Phaser.Math.Between(20, WORLD_W-20);
+        const y = Phaser.Math.Between(20, WORLD_H-20);
+        const sp = this.add.image(x, y, 'town', T.arbustinho).setScale(SCALE).setDepth(1);
+      }
+
+      // baús: 8 marrons perto do centro, 3 dourados longe
+      for (let i=0;i<8;i++){
+        const ang = Math.random()*Math.PI*2;
+        const dist = Phaser.Math.Between(180, 520);
+        const x = WORLD_W/2 + Math.cos(ang)*dist;
+        const y = WORLD_H/2 + Math.sin(ang)*dist;
+        const b = baus.create(x, y, 'town', T.bauMarrom).setScale(SCALE).refreshBody();
+        b.tipo = 'bau-facil';
+        b.aberto = false;
+      }
+      for (let i=0;i<3;i++){
+        const ang = Math.random()*Math.PI*2;
+        const dist = Phaser.Math.Between(720, 900);
+        const x = Phaser.Math.Clamp(WORLD_W/2 + Math.cos(ang)*dist, 60, WORLD_W-60);
+        const y = Phaser.Math.Clamp(WORLD_H/2 + Math.sin(ang)*dist, 60, WORLD_H-60);
+        const b = baus.create(x, y, 'town', T.bauMarrom).setScale(SCALE).refreshBody();
+        b.setTint(0xffd84d); // dourado
+        b.tipo = 'bau-dourado';
+        b.aberto = false;
+      }
+
+      // jogador
+      player = this.physics.add.sprite(WORLD_W/2, WORLD_H/2, 'dungeon', T.jogador).setScale(SCALE);
+      player.body.setSize(TILE*0.7, TILE*0.7);
+      player.body.setOffset(TILE*0.15, TILE*0.3);
+      player.setDepth(10);
+
+      // sprite da arma (escondido até pegar)
+      armaSprite = this.add.text(0, 0, '⚔️', { fontSize: '18px' }).setOrigin(0.5).setDepth(11).setVisible(false);
+
+      // câmera
+      this.cameras.main.setBounds(0, 0, WORLD_W, WORLD_H);
+      this.cameras.main.startFollow(player, true, 0.1, 0.1);
+      this.cameras.main.setZoom(1.4);
+
+      // colisões
+      this.physics.add.collider(player, arvores);
+      this.physics.add.collider(player, baus);
+      this.physics.add.collider(player, paredes);
+      this.physics.add.collider(monstros, paredes);
+      this.physics.add.collider(monstros, arvores);
+      this.physics.add.overlap(player, monstros, levarDano, null, this);
+
+      // overlay de noite (escurece tudo)
+      nightOverlay = this.add.rectangle(0, 0, WORLD_W, WORLD_H, 0x0a1030, 0)
+        .setOrigin(0,0).setDepth(20).setScrollFactor(0);
+      // posicionado em screen-space (não mundo)
+      nightOverlay.setSize(this.scale.width*4, this.scale.height*4);
+      nightOverlay.x = -this.scale.width*2;
+      nightOverlay.y = -this.scale.height*2;
+
+      // dica de interação
+      interactHint = this.add.text(0,0,'',{
+        fontSize: '14px', color: '#fff', fontStyle: 'bold',
+        backgroundColor: '#000a', padding: {x:6, y:2}
+      }).setOrigin(0.5,1).setDepth(30).setVisible(false);
+
+      // teclado
+      cursors = this.input.keyboard.createCursorKeys();
+      wasd = this.input.keyboard.addKeys('W,A,S,D,E,F,B,SPACE');
+      this.input.keyboard.on('keydown', () => ensureAudio());
+
+      // touch buttons
+      const setupBotao = (id, callback) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const press = (e) => { e.preventDefault(); ensureAudio(); callback(); };
+        el.addEventListener('touchstart', press, {passive:false});
+        el.addEventListener('mousedown', press);
+      };
+      setupBotao('btnE', acaoInteragir);
+      setupBotao('btnF', acaoComer);
+      setupBotao('btnB', acaoConstruir);
+      setupBotao('btnAtacar', acaoAtacar);
+
+      // joystick virtual
+      const stick = document.getElementById('stick');
+      const jbase = document.getElementById('joystick');
+      let active = false;
+      const reset = () => { stick.style.left='30px'; stick.style.top='30px'; touchDir={x:0,y:0}; active=false; };
+      const move = (cx, cy) => {
+        const r = jbase.getBoundingClientRect();
+        const dx = cx - (r.left + r.width/2);
+        const dy = cy - (r.top + r.height/2);
+        const max = 36;
+        const mag = Math.hypot(dx,dy);
+        const nx = mag > max ? dx*max/mag : dx;
+        const ny = mag > max ? dy*max/mag : dy;
+        stick.style.left = (30+nx) + 'px';
+        stick.style.top  = (30+ny) + 'px';
+        touchDir.x = nx/max;
+        touchDir.y = ny/max;
+      };
+      jbase.addEventListener('touchstart', e=>{ e.preventDefault(); ensureAudio(); active=true; move(e.touches[0].clientX, e.touches[0].clientY); }, {passive:false});
+      jbase.addEventListener('touchmove',  e=>{ e.preventDefault(); if (active) move(e.touches[0].clientX, e.touches[0].clientY); }, {passive:false});
+      jbase.addEventListener('touchend',   e=>{ e.preventDefault(); reset(); }, {passive:false});
+
+      // botão recomeçar
+      document.getElementById('btnRecomecar').onclick = () => location.reload();
+
+      atualizarHUD();
+    }
+
+    // ===== loop =====
+    function update(time, delta) {
+      if (acabou) return;
+
+      // movimento
+      let dx = 0, dy = 0;
+      if (cursors.left.isDown || wasd.A.isDown) dx -= 1;
+      if (cursors.right.isDown || wasd.D.isDown) dx += 1;
+      if (cursors.up.isDown || wasd.W.isDown) dy -= 1;
+      if (cursors.down.isDown || wasd.S.isDown) dy += 1;
+      if (touchDir.x || touchDir.y) { dx = touchDir.x; dy = touchDir.y; }
+      const mag = Math.hypot(dx, dy);
+      if (mag > 0) { dx/=mag; dy/=mag; }
+      player.setVelocity(dx*PLAYER_SPEED, dy*PLAYER_SPEED);
+      if (dx < 0) player.setFlipX(true);
+      else if (dx > 0) player.setFlipX(false);
+
+      // arma na mãozinha
+      if (inv.arma) {
+        armaSprite.setVisible(true);
+        armaSprite.x = player.x + (player.flipX ? -10 : 10);
+        armaSprite.y = player.y + 4 + Math.sin(time/120)*1.5;
+      } else {
+        armaSprite.setVisible(false);
+      }
+
+      // teclas (com edge detection)
+      const eDown = wasd.E.isDown, fDown = wasd.F.isDown, bDown = wasd.B.isDown, spDown = wasd.SPACE.isDown;
+      if (eDown && !ePrev) acaoInteragir();
+      if (fDown && !fPrev) acaoComer();
+      if (bDown && !bPrev) acaoConstruir();
+      if (spDown && !spPrev) acaoAtacar();
+      ePrev = eDown; fPrev = fDown; bPrev = bDown; spPrev = spDown;
+
+      // ciclo dia/noite
+      cicloMs += delta;
+      const limite = ehNoite ? NOITE_MS : DIA_MS;
+      if (cicloMs >= limite) {
+        cicloMs = 0;
+        if (ehNoite) virarDia();
+        else virarNoite();
+      }
+
+      // overlay de noite
+      let alvoAlpha = 0;
+      if (ehNoite) {
+        alvoAlpha = 0.55;
+      } else {
+        // entardecer/amanhecer suave
+        const prog = cicloMs / DIA_MS;
+        if (prog > 0.7) alvoAlpha = (prog - 0.7) / 0.3 * 0.3;
+      }
+      nightOverlay.fillAlpha += (alvoAlpha - nightOverlay.fillAlpha) * 0.05;
+
+      // spawn de monstros à noite
+      if (ehNoite && time > proxSpawn) {
+        const max = 4 + dia;
+        if (monstros.countActive(true) < max) {
+          spawnMonstro();
+        }
+        proxSpawn = time + SPAWN_MONSTRO_MS;
+      }
+
+      // monstros perseguem player
+      monstros.children.iterate(m => {
+        if (!m || !m.active) return;
+        const dxm = player.x - m.x;
+        const dym = player.y - m.y;
+        const dm = Math.hypot(dxm,dym);
+        if (dm > 0.1) {
+          const v = m.velocidade || 60;
+          m.setVelocity(dxm/dm*v, dym/dm*v);
+        }
+      });
+
+      // dica de interação (próximo de baú/árvore)
+      const alvo = encontrarAlvoInteracao();
+      if (alvo) {
+        interactHint.x = alvo.x;
+        interactHint.y = alvo.y - 18;
+        interactHint.setText(alvo.tipo === 'arvore' ? 'E: cortar' :
+                             alvo.aberto ? 'já aberto' :
+                             alvo.tipo === 'bau-dourado' ? 'E: abrir baú dourado' : 'E: abrir baú');
+        interactHint.setVisible(true);
+      } else {
+        interactHint.setVisible(false);
+      }
+    }
+
+    // ===== ações =====
+    function acaoInteragir() {
+      ensureAudio();
+      const alvo = encontrarAlvoInteracao();
+      if (!alvo) return;
+      if (alvo.tipo === 'arvore') {
+        somCortar();
+        alvo.hpArvore -= 1;
+        scene.tweens.add({ targets: alvo, scaleX: SCALE*1.15, scaleY: SCALE*0.85, duration: 80, yoyo: true });
+        if (alvo.hpArvore <= 0) {
+          // dropa madeira
+          inv.madeira += 2;
+          somMadeira();
+          mostrarToast('+2 🪵 madeira');
+          // efeito de queda
+          scene.tweens.add({
+            targets: alvo, alpha: 0, scaleY: 0,
+            duration: 250, onComplete: () => alvo.destroy()
+          });
+        }
+      } else if (alvo.tipo === 'bau-facil' || alvo.tipo === 'bau-dourado') {
+        if (alvo.aberto) return;
+        alvo.aberto = true;
+        somAbrirBau();
+        scene.tweens.add({ targets: alvo, scaleY: SCALE*0.7, duration: 180, yoyo: true });
+        // sorteia recompensa
+        const dourado = alvo.tipo === 'bau-dourado';
+        const rolagem = Math.random();
+        let recompensa;
+        if (dourado) {
+          // dourado: arma legal + bônus
+          if (rolagem < 0.7) recompensa = { arma: 'Espada Mágica', forca: 5 };
+          else recompensa = { arma: 'Martelo Lendário', forca: 6 };
+          inv.arma = recompensa;
+          inv.comida += 3;
+          inv.madeira += 4;
+          mostrarToast('🌟 ' + recompensa.arma + ' + 3 🍎 + 4 🪵');
+        } else {
+          // marrom: comida, madeira ou espada simples
+          if (rolagem < 0.4) {
+            inv.comida += 2;
+            mostrarToast('+2 🍎 comida');
+          } else if (rolagem < 0.7) {
+            inv.madeira += 3;
+            mostrarToast('+3 🪵 madeira');
+          } else if (rolagem < 0.95) {
+            // só dá espada se não tiver arma melhor
+            const novaArma = { arma: 'Espadinha', forca: 3 };
+            if (!inv.arma || inv.arma.forca < novaArma.forca) {
+              inv.arma = novaArma;
+              mostrarToast('⚔️ ' + novaArma.arma);
+            } else {
+              inv.comida += 2;
+              mostrarToast('+2 🍎 comida');
+            }
+          } else {
+            inv.vida = Math.min(VIDA_MAX, inv.vida + 3);
+            mostrarToast('+3 ❤️ vida');
+          }
+        }
+        somPickup();
+        // efeito visual
+        const sparkle = scene.add.text(alvo.x, alvo.y, '✨', { fontSize: '24px' }).setOrigin(0.5).setDepth(30);
+        scene.tweens.add({ targets: sparkle, y: alvo.y-30, alpha: 0, duration: 700, onComplete: ()=>sparkle.destroy() });
+        atualizarHUD();
+      }
+    }
+
+    function acaoComer() {
+      ensureAudio();
+      if (inv.comida <= 0) {
+        mostrarToast('Sem comida 🍎');
+        return;
+      }
+      if (inv.vida >= VIDA_MAX) {
+        mostrarToast('Vida cheia ❤️');
+        return;
+      }
+      inv.comida -= 1;
+      inv.vida = Math.min(VIDA_MAX, inv.vida + 3);
+      somComer();
+      mostrarToast('Comeu 🍎 +3 ❤️');
+      const heart = scene.add.text(player.x, player.y-20, '❤️', { fontSize: '20px' }).setOrigin(0.5).setDepth(30);
+      scene.tweens.add({ targets: heart, y: heart.y-30, alpha: 0, duration: 600, onComplete: ()=>heart.destroy() });
+      atualizarHUD();
+    }
+
+    function acaoConstruir() {
+      ensureAudio();
+      if (inv.madeira < 2) {
+        mostrarToast('Precisa 2 🪵');
+        return;
+      }
+      // posiciona parede a 1 tile na frente do jogador
+      const ang = Math.atan2(player.body.velocity.y || 0.001, player.body.velocity.x || (player.flipX?-1:1));
+      const dist = SIZE * 1.2;
+      let px = player.x + Math.cos(ang)*dist;
+      let py = player.y + Math.sin(ang)*dist;
+      // arredonda pra grade
+      px = Math.round(px / SIZE) * SIZE;
+      py = Math.round(py / SIZE) * SIZE;
+      // fora dos limites?
+      if (px < SIZE || px > WORLD_W-SIZE || py < SIZE || py > WORLD_H-SIZE) return;
+      // já tem parede ali?
+      let conflito = false;
+      paredes.children.iterate(p => { if (p && Math.abs(p.x-px)<4 && Math.abs(p.y-py)<4) conflito = true; });
+      if (conflito) return;
+      const p = paredes.create(px, py, 'town', T.cercaMeio).setScale(SCALE).refreshBody();
+      p.tipo = 'parede';
+      inv.madeira -= 2;
+      somConstruir();
+      mostrarToast('🧱 parede construída');
+      atualizarHUD();
+    }
+
+    function acaoAtacar() {
+      ensureAudio();
+      somAtacar();
+      // efeito visual
+      const slash = scene.add.text(player.x + (player.flipX?-20:20), player.y,
+        '✦', { fontSize: '36px', color: '#ffeb6f' }).setOrigin(0.5).setDepth(20);
+      scene.tweens.add({ targets: slash, scale: 1.6, alpha: 0, duration: 250, onComplete: ()=>slash.destroy() });
+      // dano em monstros próximos
+      const alcance = 50;
+      const forca = inv.arma ? inv.arma.forca : 1;
+      monstros.children.iterate(m => {
+        if (!m || !m.active) return;
+        if (Phaser.Math.Distance.Between(player.x, player.y, m.x, m.y) < alcance) {
+          m.hp = (m.hp ?? 3) - forca;
+          somAcertar();
+          // feedback vermelho
+          m.setTint(0xff3030);
+          scene.time.delayedCall(120, () => { if (m.active) m.clearTint(); });
+          if (m.hp <= 0) {
+            const burst = scene.add.text(m.x, m.y, '💥', { fontSize: '28px' }).setOrigin(0.5).setDepth(30);
+            scene.tweens.add({ targets: burst, alpha: 0, scale: 1.6, duration: 400, onComplete: ()=>burst.destroy() });
+            m.destroy();
+          }
+        }
+      });
+    }
+
+    function levarDano(player, monstro) {
+      const t = scene.time.now;
+      if (t < invulnAte) return;
+      invulnAte = t + 700;
+      inv.vida -= 1;
+      somDano();
+      scene.cameras.main.shake(180, 0.012);
+      // pisca o player
+      scene.tweens.add({ targets: player, alpha: 0.3, duration: 100, yoyo: true, repeat: 2 });
+      atualizarHUD();
+      if (inv.vida <= 0) {
+        perder();
+      }
+    }
+
+    function spawnMonstro() {
+      // spawn nas bordas do mundo
+      const lado = Phaser.Math.Between(0,3);
+      let x, y;
+      if (lado === 0) { x = Phaser.Math.Between(0, WORLD_W); y = 20; }
+      else if (lado === 1) { x = Phaser.Math.Between(0, WORLD_W); y = WORLD_H-20; }
+      else if (lado === 2) { x = 20; y = Phaser.Math.Between(0, WORLD_H); }
+      else { x = WORLD_W-20; y = Phaser.Math.Between(0, WORLD_H); }
+      const frame = Math.random() < 0.5 ? T.monstroRoxo : T.monstroVerm;
+      const m = monstros.create(x, y, 'dungeon', frame).setScale(SCALE);
+      m.setDepth(9);
+      m.body.setSize(TILE*0.7, TILE*0.7);
+      m.body.setOffset(TILE*0.15, TILE*0.3);
+      m.hp = 3 + Math.floor(dia/2);
+      m.velocidade = 50 + dia * 4;
+      m.setCollideWorldBounds(true);
+      // wobble fofo
+      scene.tweens.add({ targets: m, scaleX: SCALE*1.1, scaleY: SCALE*0.9, duration: 220, yoyo: true, repeat: -1 });
+    }
+
+    // ===== ciclo =====
+    function virarNoite() {
+      ehNoite = true;
+      somNoite();
+      mostrarToast('🌙 Noite ' + dia + ' — cuidado!');
+      document.getElementById('hudDiaItem').classList.add('noite');
+      document.getElementById('hudDiaItem').classList.add('alerta');
+      // muda pra lua
+      document.getElementById('hudDiaItem').innerHTML = '🌙 Noite <span id="hudDia">' + dia + '</span>/' + META_DIAS;
+    }
+
+    function virarDia() {
+      ehNoite = false;
+      somDia();
+      // limpa monstros restantes
+      monstros.children.iterate(m => { if (m) m.destroy(); });
+      dia += 1;
+      if (dia > META_DIAS) { vencer(); return; }
+      mostrarToast('☀️ Amanheceu! Dia ' + dia);
+      document.getElementById('hudDiaItem').classList.remove('noite');
+      document.getElementById('hudDiaItem').classList.remove('alerta');
+      document.getElementById('hudDiaItem').innerHTML = '☀️ Dia <span id="hudDia">' + dia + '</span>/' + META_DIAS;
+    }
+
+    // ===== util =====
+    function encontrarAlvoInteracao() {
+      let melhor = null, dmin = 50;
+      const checar = (sprite) => {
+        if (!sprite) return;
+        const d = Phaser.Math.Distance.Between(player.x, player.y, sprite.x, sprite.y);
+        if (d < dmin) { dmin = d; melhor = sprite; }
+      };
+      arvores.children.iterate(checar);
+      baus.children.iterate(checar);
+      return melhor;
+    }
+
+    function atualizarHUD() {
+      document.getElementById('hudVida').textContent = inv.vida;
+      document.getElementById('hudMadeira').textContent = inv.madeira;
+      document.getElementById('hudComida').textContent = inv.comida;
+      document.getElementById('hudArma').textContent = inv.arma ? inv.arma.arma : 'Vazia';
+    }
+
+    function mostrarToast(txt) {
+      const old = document.querySelector('.toast');
+      if (old) old.remove();
+      const t = document.createElement('div');
+      t.className = 'toast';
+      t.textContent = txt;
+      document.body.appendChild(t);
+      setTimeout(()=>t.remove(), 2200);
+    }
+
+    function vencer() {
+      acabou = true; venceu = true;
+      somVitoria();
+      document.getElementById('overlayTit').textContent = '🎉 Você venceu!';
+      document.getElementById('overlayMsg').textContent = 'Sobreviveu 10 dias na floresta! Você é demais!';
+      document.getElementById('overlay').classList.remove('escondido');
+    }
+    function perder() {
+      acabou = true;
+      somDerrota();
+      document.getElementById('overlayTit').textContent = '💔 Ai, não foi dessa vez!';
+      document.getElementById('overlayMsg').textContent = 'Você sobreviveu até o dia ' + dia + '. Quer tentar de novo?';
+      document.getElementById('overlay').classList.remove('escondido');
+    }
+
+    // ===== game =====
+    new Phaser.Game({
+      type: Phaser.AUTO,
+      parent: 'game',
+      width: Math.min(window.innerWidth, 900),
+      height: Math.min(window.innerHeight, 900),
+      pixelArt: true,
+      backgroundColor: '#2a4d2a',
+      physics: { default: 'arcade', arcade: { debug: false } },
+      scene: { preload, create, update },
+      scale: { mode: Phaser.Scale.RESIZE, autoCenter: Phaser.Scale.CENTER_BOTH }
+    });
+  </script>
+</body>
+</html>
