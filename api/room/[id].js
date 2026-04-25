@@ -8,9 +8,15 @@ const redis = new Redis({
 })
 
 // Salas expiram em 24h se ninguém escrever — evita lixo eterno no Redis.
+// EXCEÇÃO: salas terminadas em "RECORDS" (ex: FLAPPYRECORDS, SNAKERECORDS) são
+// permanentes — usadas como placares globais que devem sobreviver entre jogadas.
 const TTL_SECONDS = 60 * 60 * 24
 
 const ID_REGEX = /^[A-Z0-9]{3,32}$/
+
+function isPlacarPermanente(id) {
+  return id.endsWith('RECORDS')
+}
 
 export default async function handler(req, res) {
   const rawId = req.query?.id
@@ -38,7 +44,8 @@ export default async function handler(req, res) {
       const current = await redis.get(key)
       const version = (current?.version ?? 0) + 1
       const payload = { state: body.state, version, updatedAt: Date.now() }
-      await redis.set(key, payload, { ex: TTL_SECONDS })
+      const setOpts = isPlacarPermanente(id) ? {} : { ex: TTL_SECONDS }
+      await redis.set(key, payload, setOpts)
       return res.status(200).json(payload)
     }
 
