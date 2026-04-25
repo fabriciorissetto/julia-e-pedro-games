@@ -30,39 +30,65 @@
     const TELA_W = 800, TELA_H = 600;
     const MAPA_W = 1600, MAPA_H = 1200;
 
-    // ====== Jogador ======
     const VEL_JOGADOR = 200;
     const VEL_BOT = 110;
 
-    // ====== Impostor ======
-    const ALCANCE_KILL = 70;
+    // Habilidades
+    const ALCANCE_KILL = 80;
+    const ALCANCE_TIRO_XERIFE = 110;
     const COOLDOWN_KILL_MIN = 8000;
     const COOLDOWN_KILL_MAX = 14000;
+    const COOLDOWN_XERIFE = 5000;
 
-    // ====== Tarefas ======
     const ALCANCE_TAREFA = 60;
-    const TEMPO_TAREFA = 2000; // ms segurando espaço
+    const TEMPO_TAREFA = 2000;
 
-    // ====== Cores ======
-    const COR_VOCE = 0x4f9bff;       // azul
-    const COR_BOTS = [0x4fdb9b, 0xfff04f, 0xff4f6f, 0xff8800]; // verde, amarelo, rosa, laranja
-    const NOMES_BOTS = ["Verde", "Amarelo", "Rosa", "Laranja"];
-    const N_BOTS = 4;
+    // Personagens disponíveis
+    const PERSONAGENS = [
+      { key: "p_male", label: "Você", asset: "/shared/assets/sprites/kenney/toon-characters/Male adventurer/PNG/Poses/character_maleAdventurer_idle.png" },
+      { key: "p_female", label: "Lara", asset: "/shared/assets/sprites/kenney/toon-characters/Female adventurer/PNG/Poses/character_femaleAdventurer_idle.png" },
+      { key: "p_robot", label: "Beep", asset: "/shared/assets/sprites/kenney/toon-characters/Robot/PNG/Poses/character_robot_idle.png" },
+      { key: "p_zombie", label: "Zé", asset: "/shared/assets/sprites/kenney/toon-characters/Zombie/PNG/Poses/character_zombie_idle.png" },
+      { key: "p_femPerson", label: "Ana", asset: "/shared/assets/sprites/kenney/toon-characters/Female person/PNG/Poses/character_femalePerson_idle.png" },
+    ];
+
+    const ASSETS_DECORACAO = [
+      "/shared/assets/sprites/kenney/tiny-town/Tiles/tile_0028.png",
+      "/shared/assets/sprites/kenney/tiny-town/Tiles/tile_0029.png",
+      "/shared/assets/sprites/kenney/tiny-town/Tiles/tile_0050.png",
+      "/shared/assets/sprites/kenney/tiny-town/Tiles/tile_0051.png",
+      "/shared/assets/sprites/kenney/tiny-town/Tiles/tile_0070.png",
+      "/shared/assets/sprites/kenney/tiny-town/Tiles/tile_0071.png",
+      "/shared/assets/sprites/kenney/tiny-town/Tiles/tile_0084.png",
+      "/shared/assets/sprites/kenney/tiny-town/Tiles/tile_0085.png",
+    ];
+
+    const SONS = {
+      kill: "/shared/assets/sounds/kenney/digital/Audio/laser1.ogg",
+      tiro: "/shared/assets/sounds/kenney/digital/Audio/laser5.ogg",
+      morte: "/shared/assets/sounds/kenney/digital/Audio/lowDown.ogg",
+      reportar: "/shared/assets/sounds/kenney/interface/Audio/bong_001.ogg",
+      tarefa: "/shared/assets/sounds/kenney/interface/Audio/confirmation_002.ogg",
+      click: "/shared/assets/sounds/kenney/interface/Audio/click_001.ogg",
+      vitoria: "/shared/assets/sounds/kenney/interface/Audio/confirmation_004.ogg",
+      derrota: "/shared/assets/sounds/kenney/interface/Audio/close_004.ogg",
+    };
 
     // ====== Estado ======
     let jogador, fantasma = false;
-    let bots = [];                 // {sprite, nome, cor, isImpostor, vivo, alvo, label}
-    let tarefas = [];              // {x, y, sprite, completa}
-    let corpos = [];               // {x, y, dono, sprite, reportado}
-    let estado = "jogando";        // "jogando" | "reuniao" | "fim"
-    let teclas, teclaE, teclaR, teclaEspaco;
+    let bots = [];
+    let tarefas = [];
+    let corpos = [];
+    let estado = "roleta"; // "roleta" | "jogando" | "reuniao" | "fim"
+    let teclas, teclaE, teclaR, teclaEspaco, teclaF;
     let proximoKill = 0;
+    let proximaAcaoXerife = 0;
     let textoUI, dicaInteracao;
     let barraTarefa, barraTarefaBg, fazendoTarefa = null, tempoTarefa = 0;
-    let overlayReuniao = null;
     let mensagemFim = null;
     let toques = { x: 0, y: 0, ativo: false };
     let usandoTouch = false;
+    let audioCtx = null, drone = null;
 
     const config = {
       type: Phaser.AUTO,
@@ -71,93 +97,91 @@
       backgroundColor: "#1a1a2e",
       scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
       physics: { default: "arcade", arcade: { gravity: { y: 0 }, debug: false } },
-      scene: { create, update },
+      scene: { preload, create, update },
     };
 
     new Phaser.Game(config);
+
+    function preload() {
+      PERSONAGENS.forEach(p => this.load.image(p.key, p.asset));
+      ASSETS_DECORACAO.forEach((url, i) => this.load.image(`deco${i}`, url));
+      Object.entries(SONS).forEach(([k, url]) => this.load.audio(k, url));
+    }
 
     function create() {
       const scene = this;
       this.physics.world.setBounds(0, 0, MAPA_W, MAPA_H);
       this.cameras.main.setBounds(0, 0, MAPA_W, MAPA_H);
 
-      // ===== Mapa (fundo + paredes decorativas) =====
       desenharMapa(this);
+      espalharDecoracao(this);
 
-      // ===== Paredes =====
       const paredes = this.physics.add.staticGroup();
       criarParedesDoMapa(this, paredes);
 
-      // ===== Texturas dos personagens =====
-      criarTexturaTripulante(this, "tripVoce", COR_VOCE);
-      COR_BOTS.forEach((cor, i) => criarTexturaTripulante(this, `tripBot${i}`, cor));
       criarTexturaCorpo(this, "corpo");
 
-      // ===== Você =====
-      jogador = this.physics.add.sprite(MAPA_W / 2, MAPA_H / 2, "tripVoce");
-      jogador.setSize(28, 32);
+      // Jogador (sempre Male adventurer)
+      jogador = this.physics.add.sprite(MAPA_W / 2, MAPA_H / 2, "p_male");
+      jogador.setDisplaySize(40, 54);
+      jogador.setSize(50, 80);
       jogador.setCollideWorldBounds(true);
       jogador.setDepth(10);
       jogador.dataNome = "Você";
-      jogador.dataCor = COR_VOCE;
       jogador.dataVivo = true;
-      jogador.dataIsImpostor = false;
+      jogador.dataPapel = "tripulante";
       this.physics.add.collider(jogador, paredes);
-
-      // Label
-      jogador.dataLabel = this.add.text(jogador.x, jogador.y - 28, "Você", {
+      jogador.dataLabel = this.add.text(jogador.x, jogador.y - 38, "Você", {
         fontSize: "12px", color: "#ffffff",
         backgroundColor: "rgba(0,0,0,0.5)", padding: { x: 4, y: 1 },
       }).setOrigin(0.5).setDepth(11);
 
-      // ===== Bots =====
-      const idxImpostor = Math.floor(Math.random() * N_BOTS);
-      for (let i = 0; i < N_BOTS; i++) {
+      // Bots — usam os outros 4 personagens
+      const bots_data = PERSONAGENS.slice(1);
+      bots_data.forEach((p, i) => {
         const sp = this.physics.add.sprite(
           200 + Math.random() * (MAPA_W - 400),
           200 + Math.random() * (MAPA_H - 400),
-          `tripBot${i}`
+          p.key
         );
-        sp.setSize(28, 32);
+        sp.setDisplaySize(40, 54);
+        sp.setSize(50, 80);
         sp.setCollideWorldBounds(true);
         sp.setDepth(10);
-        sp.dataNome = NOMES_BOTS[i];
-        sp.dataCor = COR_BOTS[i];
+        sp.dataNome = p.label;
         sp.dataVivo = true;
-        sp.dataIsImpostor = (i === idxImpostor);
+        sp.dataPapel = "tripulante";
         sp.dataAlvo = pontoAleatorio();
-        sp.dataLabel = this.add.text(sp.x, sp.y - 28, NOMES_BOTS[i], {
+        sp.dataLabel = this.add.text(sp.x, sp.y - 38, p.label, {
           fontSize: "12px", color: "#ffffff",
           backgroundColor: "rgba(0,0,0,0.5)", padding: { x: 4, y: 1 },
         }).setOrigin(0.5).setDepth(11);
         this.physics.add.collider(sp, paredes);
         bots.push(sp);
-      }
+      });
 
-      // ===== Tarefas =====
+      // Sorteia papéis: 1 impostor, 1 xerife, resto tripulantes
+      sortearPapeis();
+
+      // Tarefas
       const posicoesTarefas = [
-        { x: 200, y: 200 },
-        { x: MAPA_W - 200, y: 200 },
-        { x: 200, y: MAPA_H - 200 },
-        { x: MAPA_W - 200, y: MAPA_H - 200 },
+        { x: 200, y: 200 }, { x: MAPA_W - 200, y: 200 },
+        { x: 200, y: MAPA_H - 200 }, { x: MAPA_W - 200, y: MAPA_H - 200 },
       ];
       posicoesTarefas.forEach((p, i) => {
         const sp = criarSpriteTarefa(this, p.x, p.y, i);
         tarefas.push({ x: p.x, y: p.y, sprite: sp, completa: false });
       });
 
-      // ===== Câmera =====
       this.cameras.main.startFollow(jogador, true, 0.1, 0.1);
 
-      // ===== Teclas =====
       teclas = this.input.keyboard.createCursorKeys();
       teclaE = this.input.keyboard.addKey("E");
       teclaR = this.input.keyboard.addKey("R");
+      teclaF = this.input.keyboard.addKey("F");
       teclaEspaco = this.input.keyboard.addKey("SPACE");
-      // WASD também
       this.input.keyboard.addKeys("W,A,S,D");
 
-      // ===== UI fixa =====
       textoUI = this.add.text(10, 10, "", {
         fontSize: "16px", color: "#ffffff",
         backgroundColor: "rgba(0,0,0,0.6)", padding: { x: 10, y: 6 },
@@ -168,46 +192,180 @@
         backgroundColor: "rgba(0,0,0,0.7)", padding: { x: 12, y: 6 },
       }).setOrigin(0.5).setScrollFactor(0).setDepth(100).setVisible(false);
 
-      // Barra de tarefa
       barraTarefaBg = this.add.rectangle(TELA_W / 2, TELA_H / 2 + 80, 240, 22, 0x000000, 0.7)
         .setScrollFactor(0).setDepth(150).setStrokeStyle(2, 0xffffff).setVisible(false);
       barraTarefa = this.add.rectangle(TELA_W / 2 - 118, TELA_H / 2 + 80, 0, 16, 0x4fdb9b)
         .setOrigin(0, 0.5).setScrollFactor(0).setDepth(151).setVisible(false);
 
-      // Joystick virtual (touch)
       criarJoystickTouch(this);
 
-      // Cooldown inicial do kill
       proximoKill = this.time.now + Phaser.Math.Between(COOLDOWN_KILL_MIN, COOLDOWN_KILL_MAX);
+
+      // Mostra a roleta (estado começa em "roleta")
+      mostrarRoleta(this);
+
+      // Inicia áudio no primeiro clique/tecla (necessário pelo browser)
+      const iniciarAudio = () => {
+        iniciarMusicaDeFundo();
+        scene.input.off("pointerdown", iniciarAudio);
+        document.removeEventListener("keydown", iniciarAudio);
+      };
+      this.input.on("pointerdown", iniciarAudio);
+      document.addEventListener("keydown", iniciarAudio);
     }
 
     function update(_, deltaMs) {
       const dt = deltaMs / 1000;
       const scene = this;
 
-      if (estado === "fim") return;
+      if (estado === "fim" || estado === "roleta") return;
 
       if (estado === "jogando") {
-        // Movimento jogador
         atualizarJogador(scene, dt);
-        // Bots
         bots.forEach(b => atualizarBot(scene, b, dt));
-        // Impostor tenta matar
         tentarKillImpostor(scene);
-        // Interações
         atualizarInteracoes(scene);
-        // Tarefas
         atualizarTarefas(scene);
+        atualizarHabilidadeJogador(scene);
       }
 
-      // Atualiza labels
       atualizarLabels();
-
-      // UI
       atualizarUI();
-
-      // Verifica condições de vitória/derrota
       verificarFim(scene);
+    }
+
+    // ============================================
+    // SORTEIO DE PAPÉIS
+    // ============================================
+    function sortearPapeis() {
+      const todos = [jogador, ...bots];
+      // Embaralha
+      for (let i = todos.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [todos[i], todos[j]] = [todos[j], todos[i]];
+      }
+      todos[0].dataPapel = "impostor";
+      todos[1].dataPapel = "xerife";
+      // resto fica como "tripulante" (já é o default)
+    }
+
+    // ============================================
+    // ROLETA (tela inicial)
+    // ============================================
+    function mostrarRoleta(scene) {
+      const grupo = scene.add.container(0, 0).setScrollFactor(0).setDepth(500);
+      const fundo = scene.add.rectangle(TELA_W / 2, TELA_H / 2, TELA_W, TELA_H, 0x000000, 0.92)
+        .setScrollFactor(0);
+      grupo.add(fundo);
+
+      const titulo = scene.add.text(TELA_W / 2, 40, "🎰 SORTEIO DE PAPÉIS 🎰", {
+        fontSize: "24px", color: "#fff04f", fontStyle: "bold",
+      }).setOrigin(0.5).setScrollFactor(0);
+      grupo.add(titulo);
+
+      const sub = scene.add.text(TELA_W / 2, 75, "Quem é impostor? Quem é xerife?", {
+        fontSize: "15px", color: "#ffffff",
+      }).setOrigin(0.5).setScrollFactor(0);
+      grupo.add(sub);
+
+      const todos = [jogador, ...bots];
+      const espacoCol = TELA_W / (todos.length + 1);
+      const ySprite = 220;
+      const yPapel = 320;
+
+      const items = [];
+      todos.forEach((p, i) => {
+        const x = espacoCol * (i + 1);
+        // Avatar
+        const avatar = scene.add.image(x, ySprite, p.texture.key);
+        avatar.setDisplaySize(72, 96);
+        avatar.setScrollFactor(0);
+        // Nome
+        const nome = scene.add.text(x, ySprite + 60, p.dataNome, {
+          fontSize: "14px", color: "#ffffff", fontStyle: "bold",
+        }).setOrigin(0.5).setScrollFactor(0);
+        // Texto do papel (vai mudando rápido)
+        const txtPapel = scene.add.text(x, yPapel, "?", {
+          fontSize: "16px", color: "#fff04f", fontStyle: "bold",
+        }).setOrigin(0.5).setScrollFactor(0);
+        grupo.add(avatar);
+        grupo.add(nome);
+        grupo.add(txtPapel);
+        items.push({ p, txtPapel });
+      });
+
+      const opcoes = ["Tripulante", "Impostor 😈", "Xerife 🤠"];
+
+      // Animação: cada slot muda rapidinho
+      const intervalos = items.map((_, i) =>
+        scene.time.addEvent({
+          delay: 60 + i * 8,
+          loop: true,
+          callback: () => {
+            const r = opcoes[Math.floor(Math.random() * opcoes.length)];
+            items[i].txtPapel.setText(r);
+            tocarSomCurto(scene, "click", 0.3);
+          },
+        })
+      );
+
+      // Para gradualmente cada slot e mostra o papel real
+      const ordemRevelacao = items.map((_, i) => i).sort(() => Math.random() - 0.5);
+      ordemRevelacao.forEach((idx, n) => {
+        scene.time.delayedCall(2200 + n * 700, () => {
+          intervalos[idx].remove();
+          const it = items[idx];
+          const papelReal = it.p.dataPapel;
+          let texto = "Tripulante";
+          let cor = "#4fdb9b";
+          if (papelReal === "impostor") { texto = "Impostor 😈"; cor = "#ff4f6f"; }
+          if (papelReal === "xerife") { texto = "Xerife 🤠"; cor = "#fff04f"; }
+          // Para o jogador, mostra o real. Pros bots, esconde de novo!
+          if (it.p === jogador) {
+            it.txtPapel.setText(`👉 ${texto} 👈`).setColor(cor);
+          } else {
+            it.txtPapel.setText("???").setColor("#888888");
+          }
+          tocarSomCurto(scene, "vitoria", 0.4);
+        });
+      });
+
+      // Resumo final + botão começar
+      const totalDelay = 2200 + ordemRevelacao.length * 700 + 500;
+      scene.time.delayedCall(totalDelay, () => {
+        const meuPapel = jogador.dataPapel;
+        let resumoTexto, resumoCor;
+        if (meuPapel === "tripulante") {
+          resumoTexto = "Você é TRIPULANTE!\nFaça as 4 tarefas e ache o impostor.";
+          resumoCor = "#4fdb9b";
+        } else if (meuPapel === "impostor") {
+          resumoTexto = "Você é IMPOSTOR! 😈\nMate os tripulantes (F) sem ser pego.";
+          resumoCor = "#ff4f6f";
+        } else {
+          resumoTexto = "Você é XERIFE! 🤠\nAtire (F) no impostor — mas se errar, morre.";
+          resumoCor = "#fff04f";
+        }
+        const resumo = scene.add.text(TELA_W / 2, 410, resumoTexto, {
+          fontSize: "18px", color: resumoCor, align: "center", fontStyle: "bold",
+          backgroundColor: "rgba(0,0,0,0.6)", padding: { x: 12, y: 8 },
+        }).setOrigin(0.5).setScrollFactor(0);
+        grupo.add(resumo);
+
+        const botao = scene.add.rectangle(TELA_W / 2, 510, 240, 50, 0x4fdb9b, 1)
+          .setScrollFactor(0).setInteractive();
+        const txtBotao = scene.add.text(TELA_W / 2, 510, "COMEÇAR", {
+          fontSize: "20px", color: "#000", fontStyle: "bold",
+        }).setOrigin(0.5).setScrollFactor(0);
+        botao.on("pointerover", () => botao.setStrokeStyle(3, 0xffffff));
+        botao.on("pointerout", () => botao.setStrokeStyle(0));
+        botao.on("pointerdown", () => {
+          tocarSomCurto(scene, "click", 0.5);
+          grupo.destroy();
+          estado = "jogando";
+        });
+        grupo.add(botao);
+        grupo.add(txtBotao);
+      });
     }
 
     // ============================================
@@ -215,38 +373,80 @@
     // ============================================
     function atualizarJogador(scene, dt) {
       if (!jogador.dataVivo && !fantasma) return;
-      // Não pode mexer durante reunião
-      if (estado === "reuniao") {
-        jogador.body.velocity.set(0, 0);
-        return;
-      }
-      // Não pode mexer fazendo tarefa
-      if (fazendoTarefa) {
+      if (estado === "reuniao" || fazendoTarefa) {
         jogador.body.velocity.set(0, 0);
         return;
       }
 
       let vx = 0, vy = 0;
-      const teclasW = scene.input.keyboard.keys[Phaser.Input.Keyboard.KeyCodes.W];
-      const teclasA = scene.input.keyboard.keys[Phaser.Input.Keyboard.KeyCodes.A];
-      const teclasS = scene.input.keyboard.keys[Phaser.Input.Keyboard.KeyCodes.S];
-      const teclasD = scene.input.keyboard.keys[Phaser.Input.Keyboard.KeyCodes.D];
-      if (teclas.left.isDown || (teclasA && teclasA.isDown)) vx = -1;
-      if (teclas.right.isDown || (teclasD && teclasD.isDown)) vx = 1;
-      if (teclas.up.isDown || (teclasW && teclasW.isDown)) vy = -1;
-      if (teclas.down.isDown || (teclasS && teclasS.isDown)) vy = 1;
-
-      // Touch
-      if (toques.ativo) {
-        vx = toques.x;
-        vy = toques.y;
-      }
+      const k = scene.input.keyboard.keys;
+      const W = k[Phaser.Input.Keyboard.KeyCodes.W];
+      const A = k[Phaser.Input.Keyboard.KeyCodes.A];
+      const S = k[Phaser.Input.Keyboard.KeyCodes.S];
+      const D = k[Phaser.Input.Keyboard.KeyCodes.D];
+      if (teclas.left.isDown || (A && A.isDown)) vx = -1;
+      if (teclas.right.isDown || (D && D.isDown)) vx = 1;
+      if (teclas.up.isDown || (W && W.isDown)) vy = -1;
+      if (teclas.down.isDown || (S && S.isDown)) vy = 1;
+      if (toques.ativo) { vx = toques.x; vy = toques.y; }
 
       const norm = Math.hypot(vx, vy);
       if (norm > 0) { vx /= norm; vy /= norm; }
       jogador.body.velocity.set(vx * VEL_JOGADOR, vy * VEL_JOGADOR);
       if (vx < 0) jogador.setFlipX(true);
       else if (vx > 0) jogador.setFlipX(false);
+    }
+
+    function atualizarHabilidadeJogador(scene) {
+      if (!jogador.dataVivo) return;
+      // Tecla F: impostor mata, xerife atira
+      if (Phaser.Input.Keyboard.JustDown(teclaF)) {
+        if (jogador.dataPapel === "impostor") {
+          tentarKillJogadorImpostor(scene);
+        } else if (jogador.dataPapel === "xerife") {
+          tentarTiroXerife(scene);
+        }
+      }
+    }
+
+    function tentarKillJogadorImpostor(scene) {
+      if (scene.time.now < proximaAcaoXerife) return; // reusa cooldown
+      const candidatos = bots.filter(b => b.dataVivo && b.dataPapel !== "impostor");
+      let alvo = null, melhor = ALCANCE_KILL;
+      candidatos.forEach(b => {
+        const d = Math.hypot(b.x - jogador.x, b.y - jogador.y);
+        if (d < melhor) { melhor = d; alvo = b; }
+      });
+      if (alvo) {
+        matar(scene, alvo);
+        proximaAcaoXerife = scene.time.now + 4000;
+      }
+    }
+
+    function tentarTiroXerife(scene) {
+      if (scene.time.now < proximaAcaoXerife) return;
+      // Atira no jogador mais próximo
+      const candidatos = bots.filter(b => b.dataVivo);
+      let alvo = null, melhor = ALCANCE_TIRO_XERIFE;
+      candidatos.forEach(b => {
+        const d = Math.hypot(b.x - jogador.x, b.y - jogador.y);
+        if (d < melhor) { melhor = d; alvo = b; }
+      });
+      if (!alvo) return;
+      tocarSomCurto(scene, "tiro", 0.6);
+      proximaAcaoXerife = scene.time.now + COOLDOWN_XERIFE;
+
+      if (alvo.dataPapel === "impostor") {
+        // Acertou! Mata o impostor.
+        alvo.dataVivo = false;
+        alvo.setVisible(false);
+        if (alvo.dataLabel) alvo.dataLabel.setVisible(false);
+        alvo.body.enable = false;
+      } else {
+        // Errou — xerife morre
+        tocarSomCurto(scene, "morte", 0.6);
+        matar(scene, jogador);
+      }
     }
 
     // ============================================
@@ -257,25 +457,18 @@
       const dx = b.dataAlvo.x - b.x;
       const dy = b.dataAlvo.y - b.y;
       const dist = Math.hypot(dx, dy);
-      if (dist < 30) {
-        b.dataAlvo = pontoAleatorio();
-      }
+      if (dist < 30) b.dataAlvo = pontoAleatorio();
       const ang = Math.atan2(dy, dx);
       b.body.velocity.set(Math.cos(ang) * VEL_BOT, Math.sin(ang) * VEL_BOT);
       if (Math.cos(ang) < 0) b.setFlipX(true);
       else b.setFlipX(false);
     }
 
-    // ============================================
-    // IMPOSTOR
-    // ============================================
     function tentarKillImpostor(scene) {
       if (scene.time.now < proximoKill) return;
-      const impostor = bots.find(b => b.dataIsImpostor && b.dataVivo);
+      const impostor = bots.find(b => b.dataPapel === "impostor" && b.dataVivo);
       if (!impostor) return;
-
-      // Procura tripulante vivo mais próximo (incluindo jogador)
-      const vitimas = [...bots.filter(b => !b.dataIsImpostor && b.dataVivo)];
+      const vitimas = [...bots.filter(b => b !== impostor && b.dataVivo)];
       if (jogador.dataVivo && !fantasma) vitimas.push(jogador);
       let alvo = null, melhorDist = ALCANCE_KILL;
       vitimas.forEach(v => {
@@ -283,17 +476,15 @@
         if (d < melhorDist) { melhorDist = d; alvo = v; }
       });
       if (!alvo) return;
-
-      // Mata
       matar(scene, alvo);
       proximoKill = scene.time.now + Phaser.Math.Between(COOLDOWN_KILL_MIN, COOLDOWN_KILL_MAX);
     }
 
     function matar(scene, vitima) {
       vitima.dataVivo = false;
+      tocarSomCurto(scene, "kill", 0.6);
       const sp = scene.add.image(vitima.x, vitima.y, "corpo");
       sp.setDepth(5);
-      sp.setTint(vitima.dataCor);
       corpos.push({ x: vitima.x, y: vitima.y, dono: vitima.dataNome, sprite: sp, reportado: false });
 
       if (vitima === jogador) {
@@ -307,48 +498,54 @@
     }
 
     // ============================================
-    // INTERAÇÕES (E pra tarefa, R pra reportar)
+    // INTERAÇÕES
     // ============================================
     function atualizarInteracoes(scene) {
       if (!jogador.dataVivo) {
         dicaInteracao.setVisible(false);
         return;
       }
-
-      // Tarefa próxima?
       const tarefaPerto = tarefas.find(t =>
         !t.completa && Math.hypot(t.x - jogador.x, t.y - jogador.y) < ALCANCE_TAREFA
       );
-      // Corpo próximo?
       const corpoPerto = corpos.find(c =>
         !c.reportado && Math.hypot(c.x - jogador.x, c.y - jogador.y) < ALCANCE_TAREFA
       );
 
-      if (corpoPerto) {
-        dicaInteracao.setText("[R] REPORTAR CORPO").setVisible(true);
-        if (Phaser.Input.Keyboard.JustDown(teclaR)) {
-          corpoPerto.reportado = true;
-          abrirReuniao(scene, "Você reportou o corpo de " + corpoPerto.dono);
-        }
-      } else if (tarefaPerto && !fazendoTarefa) {
-        dicaInteracao.setText("[E] FAZER TAREFA").setVisible(true);
-        if (Phaser.Input.Keyboard.JustDown(teclaE)) {
-          fazendoTarefa = tarefaPerto;
-          tempoTarefa = 0;
-          barraTarefaBg.setVisible(true);
-          barraTarefa.setVisible(true);
-          barraTarefa.width = 0;
-        }
-      } else if (!fazendoTarefa) {
-        dicaInteracao.setVisible(false);
+      let dica = "";
+      if (corpoPerto) dica = "[R] REPORTAR";
+      else if (tarefaPerto && !fazendoTarefa && jogador.dataPapel !== "impostor") dica = "[E] FAZER TAREFA";
+
+      // Habilidade do jogador
+      const cooldownRestante = Math.max(0, proximaAcaoXerife - scene.time.now);
+      if (jogador.dataPapel === "impostor") {
+        if (cooldownRestante > 0) dica += `   [F] matar (${(cooldownRestante/1000).toFixed(1)}s)`;
+        else dica += "   [F] matar";
+      } else if (jogador.dataPapel === "xerife") {
+        if (cooldownRestante > 0) dica += `   [F] tiro (${(cooldownRestante/1000).toFixed(1)}s)`;
+        else dica += "   [F] tiro";
+      }
+
+      dicaInteracao.setText(dica.trim()).setVisible(dica.trim() !== "");
+
+      if (corpoPerto && Phaser.Input.Keyboard.JustDown(teclaR)) {
+        corpoPerto.reportado = true;
+        tocarSomCurto(scene, "reportar", 0.6);
+        abrirReuniao(scene, "Você reportou o corpo de " + corpoPerto.dono);
+      }
+      if (tarefaPerto && jogador.dataPapel !== "impostor"
+          && !fazendoTarefa && Phaser.Input.Keyboard.JustDown(teclaE)) {
+        fazendoTarefa = tarefaPerto;
+        tempoTarefa = 0;
+        barraTarefaBg.setVisible(true);
+        barraTarefa.setVisible(true);
+        barraTarefa.width = 0;
       }
     }
 
     function atualizarTarefas(scene) {
       if (!fazendoTarefa) return;
-      const segurandoEspaco = teclaEspaco.isDown;
-      if (!segurandoEspaco) {
-        // Cancelou
+      if (!teclaEspaco.isDown) {
         fazendoTarefa = null;
         tempoTarefa = 0;
         barraTarefaBg.setVisible(false);
@@ -359,9 +556,9 @@
       const progresso = Math.min(1, tempoTarefa / TEMPO_TAREFA);
       barraTarefa.width = 236 * progresso;
       if (progresso >= 1) {
-        // Tarefa completa
         fazendoTarefa.completa = true;
         fazendoTarefa.sprite.setTint(0x666666);
+        tocarSomCurto(scene, "tarefa", 0.6);
         fazendoTarefa = null;
         tempoTarefa = 0;
         barraTarefaBg.setVisible(false);
@@ -375,87 +572,79 @@
     function abrirReuniao(scene, titulo) {
       estado = "reuniao";
       jogador.body.velocity.set(0, 0);
-      bots.forEach(b => b.body.velocity.set(0, 0));
+      bots.forEach(b => b.body && b.body.velocity.set(0, 0));
 
-      // Overlay
       const c = scene.add;
       const grupo = c.container(0, 0).setScrollFactor(0).setDepth(300);
-      const fundo = c.rectangle(TELA_W / 2, TELA_H / 2, TELA_W, TELA_H, 0x000000, 0.8).setScrollFactor(0).setDepth(300);
+      const fundo = c.rectangle(TELA_W / 2, TELA_H / 2, TELA_W, TELA_H, 0x000000, 0.85).setScrollFactor(0);
       grupo.add(fundo);
 
-      const titleText = c.text(TELA_W / 2, 60, titulo, {
+      const titleText = c.text(TELA_W / 2, 50, titulo, {
         fontSize: "20px", color: "#ffffff", align: "center",
         wordWrap: { width: TELA_W - 60 },
-      }).setOrigin(0.5).setScrollFactor(0).setDepth(301);
+      }).setOrigin(0.5).setScrollFactor(0);
       grupo.add(titleText);
 
-      const subTitulo = c.text(TELA_W / 2, 110, "QUEM É O IMPOSTOR? (clique pra ejetar)", {
+      const subTitulo = c.text(TELA_W / 2, 90, "QUEM É O IMPOSTOR? (clique pra ejetar)", {
         fontSize: "16px", color: "#fff04f",
-      }).setOrigin(0.5).setScrollFactor(0).setDepth(301);
+      }).setOrigin(0.5).setScrollFactor(0);
       grupo.add(subTitulo);
 
-      // Lista jogadores vivos (exceto você se vivo? Não, você não pode votar em você)
       const vivos = [...bots.filter(b => b.dataVivo)];
-      // Não inclui você (você não pode se votar)
-      // Mas precisa ter opção "Pular voto"
-
-      const startY = 180;
-      const itemH = 50;
+      const startY = 150, itemH = 60;
       vivos.forEach((b, i) => {
         const y = startY + i * itemH;
-        const fundoBtn = c.rectangle(TELA_W / 2, y, 360, 40, b.dataCor, 1)
-          .setScrollFactor(0).setDepth(301).setInteractive();
-        const txt = c.text(TELA_W / 2, y, b.dataNome, {
-          fontSize: "18px", color: "#000", fontStyle: "bold",
-        }).setOrigin(0.5).setScrollFactor(0).setDepth(302);
+        const fundoBtn = c.rectangle(TELA_W / 2, y, 380, 50, 0x222244, 1)
+          .setScrollFactor(0).setInteractive();
+        const avatar = c.image(TELA_W / 2 - 160, y, b.texture.key)
+          .setDisplaySize(36, 48).setScrollFactor(0);
+        const txt = c.text(TELA_W / 2 - 100, y, b.dataNome, {
+          fontSize: "18px", color: "#ffffff", fontStyle: "bold",
+        }).setOrigin(0, 0.5).setScrollFactor(0);
         fundoBtn.on("pointerover", () => fundoBtn.setStrokeStyle(3, 0xffffff));
         fundoBtn.on("pointerout", () => fundoBtn.setStrokeStyle(0));
-        fundoBtn.on("pointerdown", () => votar(scene, grupo, b));
-        grupo.add(fundoBtn);
-        grupo.add(txt);
+        fundoBtn.on("pointerdown", () => {
+          tocarSomCurto(scene, "click", 0.5);
+          votar(scene, grupo, b);
+        });
+        grupo.add(fundoBtn); grupo.add(avatar); grupo.add(txt);
       });
 
-      // Botão "pular"
       const yPular = startY + vivos.length * itemH;
-      const btnPular = c.rectangle(TELA_W / 2, yPular, 360, 40, 0x444444, 1)
-        .setScrollFactor(0).setDepth(301).setInteractive();
+      const btnPular = c.rectangle(TELA_W / 2, yPular, 380, 40, 0x444444, 1)
+        .setScrollFactor(0).setInteractive();
       const txtPular = c.text(TELA_W / 2, yPular, "Pular votação", {
         fontSize: "16px", color: "#ffffff",
-      }).setOrigin(0.5).setScrollFactor(0).setDepth(302);
-      btnPular.on("pointerdown", () => votar(scene, grupo, null));
-      grupo.add(btnPular);
-      grupo.add(txtPular);
-
-      overlayReuniao = grupo;
+      }).setOrigin(0.5).setScrollFactor(0);
+      btnPular.on("pointerdown", () => {
+        tocarSomCurto(scene, "click", 0.5);
+        votar(scene, grupo, null);
+      });
+      grupo.add(btnPular); grupo.add(txtPular);
     }
 
     function votar(scene, grupo, alvo) {
       grupo.destroy();
-      overlayReuniao = null;
-
       let mensagem;
       if (alvo) {
-        // Ejeta o alvo
         alvo.dataVivo = false;
         alvo.setVisible(false);
         if (alvo.dataLabel) alvo.dataLabel.setVisible(false);
         alvo.body.enable = false;
+        const eraImpostor = alvo.dataPapel === "impostor";
         mensagem = `${alvo.dataNome} foi ejetado.\n` +
-          (alvo.dataIsImpostor ? "🎉 Era o impostor!" : "😱 Não era o impostor!");
+          (eraImpostor ? "🎉 Era o impostor!" : `😱 Era ${alvo.dataPapel === "xerife" ? "o xerife" : "tripulante"}!`);
       } else {
         mensagem = "Ninguém foi ejetado.";
       }
-
       const txt = scene.add.text(TELA_W / 2, TELA_H / 2, mensagem, {
         fontSize: "22px", color: "#ffffff",
         backgroundColor: "rgba(0,0,0,0.85)",
         padding: { x: 20, y: 16 }, align: "center",
       }).setOrigin(0.5).setScrollFactor(0).setDepth(300);
-
       scene.time.delayedCall(2200, () => {
         txt.destroy();
         estado = "jogando";
-        // Reset cooldown do kill
         proximoKill = scene.time.now + 6000;
       });
     }
@@ -465,29 +654,37 @@
     // ============================================
     function verificarFim(scene) {
       if (estado === "fim") return;
-
-      const tripsVivos = bots.filter(b => !b.dataIsImpostor && b.dataVivo).length + (jogador.dataVivo ? 1 : 0);
-      const impostorVivo = bots.some(b => b.dataIsImpostor && b.dataVivo);
+      const tripsVivos = bots.filter(b => b.dataPapel !== "impostor" && b.dataVivo).length
+        + (jogador.dataVivo && jogador.dataPapel !== "impostor" ? 1 : 0);
+      const impostorVivo = (jogador.dataPapel === "impostor" && jogador.dataVivo)
+        || bots.some(b => b.dataPapel === "impostor" && b.dataVivo);
       const tarefasCompletas = tarefas.every(t => t.completa);
+      const meuPapel = jogador.dataPapel;
 
-      if (!impostorVivo) return mostrarFim(scene, "🎉 VITÓRIA!", "Vocês ejetaram o impostor!");
-      if (tarefasCompletas) return mostrarFim(scene, "🎉 VITÓRIA!", "Todas as tarefas foram completas!");
-      if (tripsVivos <= 1) return mostrarFim(scene, "💀 DERROTA", "O impostor venceu!");
+      if (!impostorVivo) {
+        return mostrarFim(scene, meuPapel === "impostor" ? "💀 DERROTA" : "🎉 VITÓRIA!", "O impostor foi eliminado!");
+      }
+      if (tarefasCompletas) {
+        return mostrarFim(scene, meuPapel === "impostor" ? "💀 DERROTA" : "🎉 VITÓRIA!", "Tarefas completas!");
+      }
+      if (tripsVivos <= 1) {
+        return mostrarFim(scene, meuPapel === "impostor" ? "🎉 VITÓRIA!" : "💀 DERROTA", "O impostor venceu!");
+      }
     }
 
     function mostrarFim(scene, titulo, sub) {
       estado = "fim";
       jogador.body.velocity.set(0, 0);
       bots.forEach(b => b.body && b.body.velocity.set(0, 0));
-
-      const fundo = scene.add.rectangle(TELA_W / 2, TELA_H / 2, TELA_W, TELA_H, 0x000000, 0.85)
+      const ehVitoria = titulo.includes("VITÓRIA");
+      tocarSomCurto(scene, ehVitoria ? "vitoria" : "derrota", 0.7);
+      pararMusica();
+      scene.add.rectangle(TELA_W / 2, TELA_H / 2, TELA_W, TELA_H, 0x000000, 0.85)
         .setScrollFactor(0).setDepth(400);
-      const txt = scene.add.text(TELA_W / 2, TELA_H / 2,
+      scene.add.text(TELA_W / 2, TELA_H / 2,
         `${titulo}\n\n${sub}\n\nAperta R pra jogar de novo`, {
-        fontSize: "26px", color: "#ffffff", align: "center",
-        padding: { x: 24, y: 20 },
+        fontSize: "26px", color: "#ffffff", align: "center", padding: { x: 24, y: 20 },
       }).setOrigin(0.5).setScrollFactor(0).setDepth(401);
-
       scene.input.keyboard.once("keydown-R", () => location.reload());
     }
 
@@ -496,26 +693,81 @@
     // ============================================
     function atualizarUI() {
       const completas = tarefas.filter(t => t.completa).length;
-      const tripsVivos = bots.filter(b => !b.dataIsImpostor && b.dataVivo).length + (jogador.dataVivo ? 1 : 0);
-      let status = jogador.dataVivo ? "Vivo" : "👻 Fantasma";
+      const tripsVivos = bots.filter(b => b.dataPapel !== "impostor" && b.dataVivo).length
+        + (jogador.dataVivo && jogador.dataPapel !== "impostor" ? 1 : 0);
+      const status = jogador.dataVivo ? "Vivo" : "👻 Fantasma";
+      const papelEmoji = jogador.dataPapel === "impostor" ? "😈"
+        : jogador.dataPapel === "xerife" ? "🤠" : "👨‍🚀";
       textoUI.setText(
+        `${papelEmoji} ${jogador.dataPapel.toUpperCase()}\n` +
         `Tarefas: ${completas} / ${tarefas.length}\n` +
         `Tripulantes vivos: ${tripsVivos}\n` +
-        `Status: ${status}\n` +
-        `[E] tarefa  [R] reportar  [ESPAÇO] segurar`
+        `Status: ${status}`
       );
     }
 
     function atualizarLabels() {
       if (jogador.dataLabel) {
-        jogador.dataLabel.setPosition(jogador.x, jogador.y - 28);
+        jogador.dataLabel.setPosition(jogador.x, jogador.y - 38);
         jogador.dataLabel.setVisible(jogador.dataVivo);
       }
       bots.forEach(b => {
-        if (b.dataLabel && b.dataVivo) {
-          b.dataLabel.setPosition(b.x, b.y - 28);
-        }
+        if (b.dataLabel && b.dataVivo) b.dataLabel.setPosition(b.x, b.y - 38);
       });
+    }
+
+    // ============================================
+    // ÁUDIO
+    // ============================================
+    function tocarSomCurto(scene, key, vol = 0.5) {
+      try {
+        scene.sound.play(key, { volume: vol });
+      } catch (e) { /* ignora se o som não carregou */ }
+    }
+
+    function iniciarMusicaDeFundo() {
+      if (drone) return;
+      try {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const now = audioCtx.currentTime;
+        // Drone com 3 osciladores graves
+        const osc1 = audioCtx.createOscillator();
+        const osc2 = audioCtx.createOscillator();
+        const osc3 = audioCtx.createOscillator();
+        osc1.type = "sine";    osc1.frequency.value = 110;
+        osc2.type = "sine";    osc2.frequency.value = 165;
+        osc3.type = "triangle";osc3.frequency.value = 220;
+
+        const gain = audioCtx.createGain();
+        gain.gain.value = 0;
+        gain.gain.linearRampToValueAtTime(0.05, now + 2);
+
+        // LFO pra dar movimento
+        const lfo = audioCtx.createOscillator();
+        const lfoGain = audioCtx.createGain();
+        lfo.frequency.value = 0.2;
+        lfoGain.gain.value = 0.012;
+        lfo.connect(lfoGain).connect(gain.gain);
+
+        osc1.connect(gain);
+        osc2.connect(gain);
+        osc3.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc1.start(); osc2.start(); osc3.start(); lfo.start();
+        drone = { osc1, osc2, osc3, lfo, gain };
+      } catch (e) { /* sem áudio */ }
+    }
+
+    function pararMusica() {
+      if (!drone) return;
+      const now = audioCtx.currentTime;
+      drone.gain.gain.linearRampToValueAtTime(0, now + 1);
+      setTimeout(() => {
+        try {
+          drone.osc1.stop(); drone.osc2.stop(); drone.osc3.stop(); drone.lfo.stop();
+        } catch (e) {}
+        drone = null;
+      }, 1100);
     }
 
     // ============================================
@@ -531,36 +783,40 @@
     function desenharMapa(scene) {
       const g = scene.add.graphics();
       g.setDepth(0);
-      // Fundo da nave
       g.fillStyle(0x2a2a44, 1);
       g.fillRect(0, 0, MAPA_W, MAPA_H);
-      // Piso quadriculado
       g.lineStyle(1, 0x3a3a55, 0.4);
-      for (let x = 0; x <= MAPA_W; x += 80) {
-        g.lineBetween(x, 0, x, MAPA_H);
-      }
-      for (let y = 0; y <= MAPA_H; y += 80) {
-        g.lineBetween(0, y, MAPA_W, y);
-      }
-      // Salas (retângulos coloridos no fundo)
+      for (let x = 0; x <= MAPA_W; x += 80) g.lineBetween(x, 0, x, MAPA_H);
+      for (let y = 0; y <= MAPA_H; y += 80) g.lineBetween(0, y, MAPA_W, y);
       g.fillStyle(0x3a3a66, 0.5);
-      g.fillRect(80, 80, 380, 280);   // sala 1 (canto sup esq)
-      g.fillRect(MAPA_W - 460, 80, 380, 280);     // sup dir
-      g.fillRect(80, MAPA_H - 360, 380, 280);     // inf esq
-      g.fillRect(MAPA_W - 460, MAPA_H - 360, 380, 280); // inf dir
-      // Sala central
+      g.fillRect(80, 80, 380, 280);
+      g.fillRect(MAPA_W - 460, 80, 380, 280);
+      g.fillRect(80, MAPA_H - 360, 380, 280);
+      g.fillRect(MAPA_W - 460, MAPA_H - 360, 380, 280);
       g.fillStyle(0x44446b, 0.6);
       g.fillRect(MAPA_W / 2 - 200, MAPA_H / 2 - 150, 400, 300);
     }
 
+    function espalharDecoracao(scene) {
+      // Espalha 30 sprites decorativos aleatórios pelo mapa
+      for (let i = 0; i < 30; i++) {
+        const idx = Math.floor(Math.random() * ASSETS_DECORACAO.length);
+        const x = 60 + Math.random() * (MAPA_W - 120);
+        const y = 60 + Math.random() * (MAPA_H - 120);
+        // Evita centro (onde personagens spawnam)
+        if (Math.abs(x - MAPA_W/2) < 100 && Math.abs(y - MAPA_H/2) < 100) continue;
+        const sp = scene.add.image(x, y, `deco${idx}`);
+        sp.setScale(2.5); // tile 16x16 → 40x40
+        sp.setDepth(1);
+      }
+    }
+
     function criarParedesDoMapa(scene, paredes) {
-      // Bordas externas
       const e = 20;
       paredes.add(criarParedeRect(scene, MAPA_W / 2, e/2, MAPA_W, e));
       paredes.add(criarParedeRect(scene, MAPA_W / 2, MAPA_H - e/2, MAPA_W, e));
       paredes.add(criarParedeRect(scene, e/2, MAPA_H / 2, e, MAPA_H));
       paredes.add(criarParedeRect(scene, MAPA_W - e/2, MAPA_H / 2, e, MAPA_H));
-      // Algumas paredes internas pra dar formato (não bloqueiam totalmente)
       paredes.add(criarParedeRect(scene, 500, 240, 20, 200));
       paredes.add(criarParedeRect(scene, MAPA_W - 500, 240, 20, 200));
       paredes.add(criarParedeRect(scene, 500, MAPA_H - 240, 20, 200));
@@ -574,39 +830,12 @@
       return r;
     }
 
-    function criarTexturaTripulante(scene, key, cor) {
-      const W = 28, H = 36;
-      const g = scene.add.graphics();
-      // Corpo
-      g.fillStyle(cor, 1);
-      g.fillRoundedRect(2, 8, W - 4, H - 12, 6);
-      // Capacete (visor)
-      g.fillStyle(0x88ddff, 1);
-      g.fillEllipse(W/2 + 3, 14, 14, 10);
-      g.lineStyle(2, 0x000000, 0.4);
-      g.strokeEllipse(W/2 + 3, 14, 14, 10);
-      // Mochila
-      g.fillStyle(cor, 1);
-      g.fillRoundedRect(0, 14, 6, 12, 2);
-      // Pés
-      g.fillStyle(0x111122, 1);
-      g.fillRect(4, H - 4, 6, 4);
-      g.fillRect(W - 10, H - 4, 6, 4);
-      // Contorno
-      g.lineStyle(2, 0x000000, 0.5);
-      g.strokeRoundedRect(2, 8, W - 4, H - 12, 6);
-      g.generateTexture(key, W, H);
-      g.destroy();
-    }
-
     function criarTexturaCorpo(scene, key) {
       const W = 36, H = 24;
       const g = scene.add.graphics();
-      // Corpo deitado (com base branca pra receber tint)
-      g.fillStyle(0xffffff, 1);
+      g.fillStyle(0xffeeaa, 1);
       g.fillRoundedRect(2, 6, W - 4, H - 10, 6);
       g.fillStyle(0xff2222, 1);
-      // Sangue
       g.fillCircle(W - 6, H - 4, 5);
       g.fillCircle(W - 14, H - 6, 3);
       g.lineStyle(2, 0x000000, 0.6);
@@ -625,78 +854,63 @@
       g.strokeCircle(x, y, 22);
       g.fillStyle(0xffffff, 1);
       g.fillCircle(x, y, 6);
-      // Texto "TAREFA"
-      const t = scene.add.text(x, y + 38, "TAREFA", {
+      scene.add.text(x, y + 38, "TAREFA", {
         fontSize: "12px", color: "#ffffff",
         backgroundColor: "rgba(0,0,0,0.5)", padding: { x: 4, y: 1 },
       }).setOrigin(0.5).setDepth(3);
-      // Retornamos o graphics pra poder dar tint quando completar
       return { setTint: (cor) => g.alpha = 0.4 };
     }
 
     function criarJoystickTouch(scene) {
       const temTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
       if (!temTouch) return;
-
       const cx = 100, cy = TELA_H - 100, raio = 60;
       const base = scene.add.circle(cx, cy, raio, 0xffffff, 0.25)
         .setScrollFactor(0).setDepth(200).setInteractive();
       const stick = scene.add.circle(cx, cy, raio * 0.5, 0xffffff, 0.5)
         .setScrollFactor(0).setDepth(201);
-
       scene.input.on("pointerdown", (p) => {
-        if (Math.hypot(p.x - cx, p.y - cy) < raio + 30) {
-          usandoTouch = true;
-        }
+        if (Math.hypot(p.x - cx, p.y - cy) < raio + 30) usandoTouch = true;
       });
       scene.input.on("pointermove", (p) => {
         if (!usandoTouch) return;
         const dx = p.x - cx, dy = p.y - cy;
-        const d = Math.hypot(dx, dy);
-        const max = raio;
-        if (d > max) {
-          stick.x = cx + (dx / d) * max;
-          stick.y = cy + (dy / d) * max;
-        } else {
-          stick.x = p.x;
-          stick.y = p.y;
-        }
+        const d = Math.hypot(dx, dy), max = raio;
+        if (d > max) { stick.x = cx + (dx/d)*max; stick.y = cy + (dy/d)*max; }
+        else { stick.x = p.x; stick.y = p.y; }
         toques.x = (stick.x - cx) / raio;
         toques.y = (stick.y - cy) / raio;
         toques.ativo = Math.hypot(toques.x, toques.y) > 0.15;
       });
       scene.input.on("pointerup", () => {
-        usandoTouch = false;
-        toques.ativo = false;
-        stick.x = cx;
-        stick.y = cy;
+        usandoTouch = false; toques.ativo = false;
+        stick.x = cx; stick.y = cy;
       });
-
-      // Botões E e R em telas touch
-      const btnE = scene.add.circle(TELA_W - 90, TELA_H - 150, 35, 0x4fdb9b, 0.6)
+      const btnE = scene.add.circle(TELA_W - 90, TELA_H - 200, 35, 0x4fdb9b, 0.6)
         .setScrollFactor(0).setDepth(200).setInteractive();
       scene.add.text(btnE.x, btnE.y, "E", { fontSize: "22px", color: "#000" })
         .setOrigin(0.5).setScrollFactor(0).setDepth(201);
-      const btnR = scene.add.circle(TELA_W - 90, TELA_H - 80, 35, 0xff4f6f, 0.6)
+      const btnR = scene.add.circle(TELA_W - 90, TELA_H - 130, 35, 0xff4f6f, 0.6)
         .setScrollFactor(0).setDepth(200).setInteractive();
       scene.add.text(btnR.x, btnR.y, "R", { fontSize: "22px", color: "#000" })
         .setOrigin(0.5).setScrollFactor(0).setDepth(201);
-      const btnEsp = scene.add.circle(TELA_W - 170, TELA_H - 80, 35, 0x4f9bff, 0.6)
+      const btnF = scene.add.circle(TELA_W - 90, TELA_H - 60, 35, 0xfff04f, 0.6)
+        .setScrollFactor(0).setDepth(200).setInteractive();
+      scene.add.text(btnF.x, btnF.y, "F", { fontSize: "22px", color: "#000" })
+        .setOrigin(0.5).setScrollFactor(0).setDepth(201);
+      const btnEsp = scene.add.circle(TELA_W - 170, TELA_H - 60, 35, 0x4f9bff, 0.6)
         .setScrollFactor(0).setDepth(200).setInteractive();
       scene.add.text(btnEsp.x, btnEsp.y, "⏵", { fontSize: "22px", color: "#000" })
         .setOrigin(0.5).setScrollFactor(0).setDepth(201);
-
-      btnE.on("pointerdown", () => simularTecla(scene, "E", true));
-      btnE.on("pointerup", () => simularTecla(scene, "E", false));
-      btnR.on("pointerdown", () => simularTecla(scene, "R", true));
-      btnR.on("pointerup", () => simularTecla(scene, "R", false));
-      btnEsp.on("pointerdown", () => simularTecla(scene, "SPACE", true));
-      btnEsp.on("pointerup", () => simularTecla(scene, "SPACE", false));
-    }
-
-    function simularTecla(scene, key, pressionado) {
-      const evt = new KeyboardEvent(pressionado ? "keydown" : "keyup", { key, code: "Key" + key });
-      window.dispatchEvent(evt);
+      const sim = (key) => ({
+        down: () => window.dispatchEvent(new KeyboardEvent("keydown", { key, code: "Key" + key })),
+        up: () => window.dispatchEvent(new KeyboardEvent("keyup", { key, code: "Key" + key })),
+      });
+      const e = sim("E"), r = sim("R"), f = sim("F"), s = sim("SPACE");
+      btnE.on("pointerdown", e.down); btnE.on("pointerup", e.up);
+      btnR.on("pointerdown", r.down); btnR.on("pointerup", r.up);
+      btnF.on("pointerdown", f.down); btnF.on("pointerup", f.up);
+      btnEsp.on("pointerdown", s.down); btnEsp.on("pointerup", s.up);
     }
   </script>
 </body>
