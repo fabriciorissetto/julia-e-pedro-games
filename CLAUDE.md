@@ -135,3 +135,18 @@ vercel dev
 Abre `http://localhost:3000`. Hot reload incluso.
 
 Alternativa sem Vercel CLI: `npx serve` (baixa na hora, sem instalar global).
+
+### Garantir que o servidor está rodando (regra pro Claude)
+
+**Antes de pedir pra criança testar um jogo no navegador, sempre verificar se tem servidor rodando em `localhost:3000`.** Se não tiver, subir um automaticamente — sem perguntar, sem esperar a criança reclamar que "não abre".
+
+Como verificar:
+```
+curl -s -o /dev/null -w "%{http_code}" http://localhost:3000
+```
+Se não responder `200`, suba o servidor em background a partir da raiz do repo:
+```
+npx --yes serve -l 3000 .
+```
+
+O servidor fica de pé entre conversas. Só precisa subir quando realmente não tiver nenhum respondendo.
