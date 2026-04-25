@@ -41,10 +41,38 @@
     let foodColor;    // cor da bolinha atual
     let stepTimer = 0;
     const STEP_MS = 280;
+    const META = 10;
     let scoreText;
     let score = 0;
     let graphics;
     let pulseTime = 0;
+    let venceu = false;
+    let winText, winSubText;
+    let confetes = [];
+
+    // sons fofos
+    let audioCtx = null;
+    function ensureAudio() {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+    }
+    function tom(freq, dur, type = 'sine', vol = 0.18) {
+      if (!audioCtx) return;
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.connect(g); g.connect(audioCtx.destination);
+      o.type = type;
+      o.frequency.setValueAtTime(freq, audioCtx.currentTime);
+      g.gain.setValueAtTime(vol, audioCtx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + dur);
+      o.start();
+      o.stop(audioCtx.currentTime + dur);
+    }
+    function somComeu() { tom(880, 0.1); setTimeout(() => tom(1320, 0.13), 70); }
+    function somVitoria() {
+      [523, 659, 784, 1047, 1319].forEach((f, i) =>
+        setTimeout(() => tom(f, 0.22, 'triangle', 0.22), i * 110));
+    }
 
     // paleta fofa pra bolinhas
     const FOOD_COLORS = [
@@ -72,7 +100,7 @@
       score = 0;
       placeFood();
 
-      scoreText = this.add.text(12, 10, 'Pontos: 0', {
+      scoreText = this.add.text(12, 10, 'Pontos: 0 / ' + META, {
         fontSize: '26px',
         color: '#ffffff',
         fontFamily: 'sans-serif',
@@ -81,18 +109,29 @@
       scoreText.setShadow(2, 2, '#000000', 4, true, true);
 
       // teclado
-      this.input.keyboard.on('keydown-LEFT',  () => setDir(-1, 0));
-      this.input.keyboard.on('keydown-RIGHT', () => setDir( 1, 0));
-      this.input.keyboard.on('keydown-UP',    () => setDir( 0,-1));
-      this.input.keyboard.on('keydown-DOWN',  () => setDir( 0, 1));
+      this.input.keyboard.on('keydown-LEFT',  () => { ensureAudio(); setDir(-1, 0); });
+      this.input.keyboard.on('keydown-RIGHT', () => { ensureAudio(); setDir( 1, 0); });
+      this.input.keyboard.on('keydown-UP',    () => { ensureAudio(); setDir( 0,-1); });
+      this.input.keyboard.on('keydown-DOWN',  () => { ensureAudio(); setDir( 0, 1); });
 
       // swipe / toque pra celular
       let startX = 0, startY = 0;
       this.input.on('pointerdown', (p) => {
+        ensureAudio();
         startX = p.x;
         startY = p.y;
       });
       this.input.on('pointerup', (p) => {
+        if (venceu) {
+          // toca pra jogar de novo
+          venceu = false;
+          if (winText) { winText.destroy(); winText = null; }
+          if (winSubText) { winSubText.destroy(); winSubText = null; }
+          confetes.forEach(c => c.destroy());
+          confetes = [];
+          reset();
+          return;
+        }
         const dx = p.x - startX;
         const dy = p.y - startY;
         if (Math.abs(dx) < 20 && Math.abs(dy) < 20) return;
@@ -132,18 +171,19 @@
       nextDir = { x: 1, y: 0 };
       score = 0;
       placeFood();
-      scoreText.setText('Pontos: 0');
+      scoreText.setText('Pontos: 0 / ' + META);
     }
 
     function step() {
       dir = nextDir;
       const head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
 
-      // bateu na parede -> reseta suave
-      if (head.x < 0 || head.x >= COLS || head.y < 0 || head.y >= ROWS) {
-        reset();
-        return;
-      }
+      // atravessa a parede e aparece do outro lado (não morre mais)
+      if (head.x < 0) head.x = COLS - 1;
+      if (head.x >= COLS) head.x = 0;
+      if (head.y < 0) head.y = ROWS - 1;
+      if (head.y >= ROWS) head.y = 0;
+
       // bateu no próprio corpo -> reseta suave
       if (snake.some(s => s.x === head.x && s.y === head.y)) {
         reset();
@@ -154,10 +194,62 @@
 
       if (head.x === food.x && head.y === food.y) {
         score += 1;
-        scoreText.setText('Pontos: ' + score);
+        scoreText.setText('Pontos: ' + score + ' / ' + META);
+        somComeu();
+        if (score >= META) {
+          vencer.call(this);
+          return;
+        }
         placeFood();
       } else {
         snake.pop();
+      }
+    }
+
+    function vencer() {
+      venceu = true;
+      somVitoria();
+      winText = this.add.text(W / 2, H / 2 - 40, 'VOCÊ\nCHEGOU!\n🏰🎉', {
+        fontSize: '92px',
+        color: '#ffffff',
+        fontFamily: 'sans-serif',
+        fontStyle: 'bold',
+        align: 'center',
+        stroke: '#ff6fb5',
+        strokeThickness: 10
+      }).setOrigin(0.5).setDepth(20).setScale(0.3);
+      this.tweens.add({
+        targets: winText, scale: 1, duration: 600, ease: 'Back.out'
+      });
+      winSubText = this.add.text(W / 2, H / 2 + 200, '✨ Toca pra jogar de novo ✨', {
+        fontSize: '34px',
+        color: '#ffffff',
+        fontFamily: 'sans-serif',
+        fontStyle: 'bold',
+        stroke: '#b56fff',
+        strokeThickness: 6
+      }).setOrigin(0.5).setDepth(20).setAlpha(0);
+      this.tweens.add({
+        targets: winSubText, alpha: 1, duration: 500, delay: 1200
+      });
+      // chuva de confete
+      const emojis = ['💖', '⭐', '🌸', '✨', '🎉', '💫', '🌟', '🎀'];
+      for (let i = 0; i < 40; i++) {
+        this.time.delayedCall(i * 60, () => {
+          const c = this.add.text(
+            Phaser.Math.Between(0, W), -30,
+            emojis[Phaser.Math.Between(0, emojis.length - 1)],
+            { fontSize: '40px' }
+          ).setDepth(15);
+          confetes.push(c);
+          this.tweens.add({
+            targets: c,
+            y: H + 30,
+            angle: Phaser.Math.Between(-360, 360),
+            duration: Phaser.Math.Between(2200, 3500),
+            onComplete: () => c.destroy()
+          });
+        });
       }
     }
 
@@ -243,10 +335,12 @@
 
     function update(time, delta) {
       pulseTime += delta;
-      stepTimer += delta;
-      if (stepTimer >= STEP_MS) {
-        stepTimer = 0;
-        step();
+      if (!venceu) {
+        stepTimer += delta;
+        if (stepTimer >= STEP_MS) {
+          stepTimer = 0;
+          step();
+        }
       }
       draw();
     }
