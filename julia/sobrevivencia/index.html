@@ -1699,10 +1699,19 @@
       mostrarToast('🔥 BOOOM!');
     }
 
+    function ehInvencivel() {
+      return (perfil.nome || '').trim().toLowerCase() === 'julia';
+    }
+
     function levarDano(player, monstro) {
       const t = scene.time.now;
       if (t < invulnAte) return;
       invulnAte = t + 700;
+      if (ehInvencivel()) {
+        // modo Julia: invencível — só pisca rosinha, sem perder vida
+        scene.tweens.add({ targets: player, alpha: 0.5, duration: 80, yoyo: true, repeat: 1 });
+        return;
+      }
       inv.vida -= 1;
       somDano();
       scene.cameras.main.shake(180, 0.012);
@@ -1850,11 +1859,15 @@
         const t = scene.time.now;
         if (t > invulnAte) {
           invulnAte = t + 800;
-          inv.vida -= 2; // dano grande
-          somDano();
-          scene.tweens.add({ targets: player, alpha: 0.3, duration: 100, yoyo: true, repeat: 2 });
-          atualizarHUD();
-          if (inv.vida <= 0) perder();
+          if (ehInvencivel()) {
+            scene.tweens.add({ targets: player, alpha: 0.5, duration: 80, yoyo: true, repeat: 1 });
+          } else {
+            inv.vida -= 2; // dano grande
+            somDano();
+            scene.tweens.add({ targets: player, alpha: 0.3, duration: 100, yoyo: true, repeat: 2 });
+            atualizarHUD();
+            if (inv.vida <= 0) perder();
+          }
         }
       }
     }
