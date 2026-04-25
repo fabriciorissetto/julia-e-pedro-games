@@ -229,24 +229,21 @@
         .map(([nick, pontos]) => ({ nick, pontos }))
         .sort((a, b) => b.pontos - a.pontos);
     }
-    async function publicarRecordeOnline(nick, pontos) {
+    async function publicarOnline(nick, pontos, total) {
       if (!salaGlobal) return;
       try {
-        const atual = (salaGlobal.lastState && salaGlobal.lastState.recordes) || {};
-        if ((atual[nick] || 0) >= pontos) return;
         const estado = salaGlobal.lastState || {};
-        const novo = { ...estado, recordes: { ...atual, [nick]: pontos } };
-        await salaGlobal.setState(novo);
-      } catch (e) { /* offline */ }
-    }
-    async function publicarTotaisOnline(nick, total) {
-      if (!salaGlobal) return;
-      try {
-        const atual = (salaGlobal.lastState && salaGlobal.lastState.totais) || {};
-        if ((atual[nick] || 0) >= total) return;
-        const estado = salaGlobal.lastState || {};
-        const novo = { ...estado, totais: { ...atual, [nick]: total } };
-        await salaGlobal.setState(novo);
+        const recordesAtual = estado.recordes || {};
+        const totaisAtual = estado.totais || {};
+        const meuRecorde = recordesAtual[nick] || 0;
+        const meuTotal = totaisAtual[nick] || 0;
+        const novoRecorde = pontos > meuRecorde;
+        const novoTotal = total > meuTotal;
+        if (!novoRecorde && !novoTotal) return; // nada mudou
+        const recordes = novoRecorde ? { ...recordesAtual, [nick]: pontos } : recordesAtual;
+        const totais = novoTotal ? { ...totaisAtual, [nick]: total } : totaisAtual;
+        // 1 único POST que atualiza ambos os campos juntos
+        await salaGlobal.setState({ ...estado, recordes, totais });
       } catch (e) { /* offline */ }
     }
     // Wrappers que falam com o usuário atual
@@ -659,9 +656,8 @@
       });
       telaMenu.add(cardFundo);
 
-      const onlineFlag = recordeGlobalOnline() !== null;
       const tituloRG = scene.add.text(TELA_W / 2, cardY - 24,
-        onlineFlag ? "🌍 RECORDE GLOBAL" : "👑 RECORDE", {
+        "🌍 RECORDE GLOBAL", {
         fontSize: "13px", color: "#fff04f", fontStyle: "bold",
       }).setOrigin(0.5);
       telaMenu.add(tituloRG);
@@ -696,8 +692,6 @@
     function atualizarCardRecorde() {
       if (!cardRecordeRefs || estado !== "menu") return;
       const rg = recordeGlobal();
-      const onlineFlag = recordeGlobalOnline() !== null;
-      cardRecordeRefs.tituloRG.setText(onlineFlag ? "🌍 RECORDE GLOBAL" : "👑 RECORDE");
       cardRecordeRefs.pontosRG.setText(`${rg.pontos || 0}`);
       cardRecordeRefs.nickRG.setText(
         rg.nick ? `— ${rg.nick} —  (toque pra ver ranking)` : "(ninguém ainda)"
@@ -719,10 +713,9 @@
       }).setOrigin(0.5);
       telaRanking.add(titulo);
 
-      const onlineFlag = recordeGlobalOnline() !== null;
       const sub = scene.add.text(TELA_W / 2, 50,
-        onlineFlag ? "🌍 ao vivo (todos os jogadores)" : "(offline — só desse navegador)", {
-        fontSize: "11px", color: onlineFlag ? "#4fdb9b" : "#aaaaaa",
+        "🌍 ao vivo (todos os jogadores)", {
+        fontSize: "11px", color: "#4fdb9b",
       }).setOrigin(0.5);
       telaRanking.add(sub);
 
@@ -1187,10 +1180,9 @@
         melhor = pontos;
         salvarMelhor(melhor);
         novoRecorde = true;
-        publicarRecordeOnline(getUsuarioAtual(), pontos);
       }
-      // Publica pontos acumulados (sempre, no fim da partida)
-      publicarTotaisOnline(getUsuarioAtual(), pontosTotal);
+      // Publica recorde + total juntos num único POST (evita race condition)
+      publicarOnline(getUsuarioAtual(), pontos, pontosTotal);
 
       const tit = novoRecorde ? "🏆 NOVO RECORDE!" : "💥 GAME OVER";
       textoFim = scene.add.container(0, 0).setDepth(50);
