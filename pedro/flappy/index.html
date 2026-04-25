@@ -86,6 +86,8 @@
     let bird;
     let canos;
     let chao;
+    let fundoCeu;
+    let nuvens = [];
     let pontos = 0;
     let pontosTotal = carregarPontosTotal();
     let melhor = carregarMelhor();
@@ -129,7 +131,7 @@
       const scene = this;
 
       // ===== Fundo =====
-      this.add.tileSprite(TELA_W / 2, TELA_H / 2, TELA_W, TELA_H, "fundoCeu").setDepth(0);
+      fundoCeu = this.add.tileSprite(TELA_W / 2, TELA_H / 2, TELA_W, TELA_H, "fundoCeu").setDepth(0);
       desenharNuvens(this);
 
       // ===== Animações de cada skin =====
@@ -423,10 +425,18 @@
 
     function update(_, deltaMs) {
       const scene = this;
-      if (estado !== "jogando") return;
       const dt = deltaMs / 1000;
 
-      chao.tilePositionX += 100 * dt;
+      // Parallax: fundo bem devagar, nuvens média, chão rápido
+      // (mexem sempre — até no menu — pra dar movimento na tela)
+      fundoCeu.tilePositionX += 12 * dt;
+      nuvens.forEach(n => {
+        n.x -= n.dataVel * dt;
+        if (n.x < -40) n.x = TELA_W + 40;
+      });
+      if (estado === "jogando") chao.tilePositionX += 100 * dt;
+
+      if (estado !== "jogando") return;
 
       const v = bird.body.velocity.y;
       const ang = Phaser.Math.Clamp(v / 8, -25, 90);
@@ -539,16 +549,23 @@
     }
 
     function desenharNuvens(scene) {
-      for (let i = 0; i < 6; i++) {
+      // Cria textura de nuvem uma vez
+      if (!scene.textures.exists("nuvem")) {
+        const g = scene.add.graphics();
+        g.fillStyle(0xffffff, 0.85);
+        g.fillCircle(20, 20, 14);
+        g.fillCircle(34, 14, 12);
+        g.fillCircle(48, 20, 14);
+        g.fillCircle(34, 24, 16);
+        g.generateTexture("nuvem", 70, 40);
+        g.destroy();
+      }
+      for (let i = 0; i < 5; i++) {
         const x = Math.random() * TELA_W;
         const y = 30 + Math.random() * 200;
-        const g = scene.add.graphics();
-        g.fillStyle(0xffffff, 0.7);
-        g.fillCircle(x, y, 14);
-        g.fillCircle(x + 14, y - 6, 12);
-        g.fillCircle(x + 28, y, 14);
-        g.fillCircle(x + 14, y + 4, 16);
-        g.setDepth(1);
+        const n = scene.add.image(x, y, "nuvem").setDepth(1);
+        n.dataVel = 20 + Math.random() * 25; // velocidade individual (parallax variado)
+        nuvens.push(n);
       }
     }
   </script>
