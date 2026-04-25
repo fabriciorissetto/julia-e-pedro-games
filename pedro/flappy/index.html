@@ -477,20 +477,21 @@
       const paredeCima = scene.add.rectangle(x, alturaCima / 2, LARGURA_CANO, alturaCima, 0x8a6a4a);
       paredeCima.setStrokeStyle(4, 0x4a3520);
       scene.physics.add.existing(paredeCima);
-      paredeCima.body.setVelocityX(VEL_CANO);
-      paredeCima.body.allowGravity = false;
       paredeCima.dataParCima = true;
       paredeCima.dataPontuou = false;
       canos.add(paredeCima);
+      // Setar AQUI (depois do group.add) — caso contrário o group reseta o body
+      paredeCima.body.setAllowGravity(false);
+      paredeCima.body.setVelocity(VEL_CANO, 0);
 
       // Parede de baixo
       const yBaixo = TELA_H - CHAO_H - alturaBaixo / 2;
       const paredeBaixo = scene.add.rectangle(x, yBaixo, LARGURA_CANO, alturaBaixo, 0x8a6a4a);
       paredeBaixo.setStrokeStyle(4, 0x4a3520);
       scene.physics.add.existing(paredeBaixo);
-      paredeBaixo.body.setVelocityX(VEL_CANO);
-      paredeBaixo.body.allowGravity = false;
       canos.add(paredeBaixo);
+      paredeBaixo.body.setAllowGravity(false);
+      paredeBaixo.body.setVelocity(VEL_CANO, 0);
     }
 
     function bater(scene) {
