@@ -451,7 +451,7 @@
   </div>
 
   <div class="controles" id="controles">
-    Setas/WASD = mover · E = cortar/abrir · F = comer · B = construir · ESPAÇO = atacar
+    Setas/WASD = mover · M = cortar · A = abrir baú · E = comer · B = construir · ESPAÇO = atacar
   </div>
 
   <div class="bag" id="bag">
@@ -582,7 +582,7 @@
 
     // ===== estado =====
     let player;
-    let cursors, wasd, ePrev=false, fPrev=false, bPrev=false, spPrev=false;
+    let cursors, wasd, mPrev=false, aPrev=false, ePrev=false, bPrev=false, spPrev=false;
     let arvores, baus, monstros, paredes;
     let inv = {
       madeira: 5, comida: 3, vida: 10, moedas: 0,
@@ -854,8 +854,10 @@
 
       // teclado
       cursors = this.input.keyboard.createCursorKeys();
-      wasd = this.input.keyboard.addKeys('W,A,S,D,E,F,B,SPACE');
+      wasd = this.input.keyboard.addKeys('W,A,S,D,E,M,B,SPACE');
       this.input.keyboard.on('keydown', () => ensureAudio());
+      // desabilita teclado enquanto a tela inicial está aberta (pra não bloquear digitação no input do nome)
+      this.input.keyboard.enabled = false;
 
       // touch buttons
       const setupBotao = (id, callback) => {
@@ -913,6 +915,7 @@
         aplicarSkin();
         document.getElementById('hudNome').innerHTML = `${skin.emoji} ${perfil.nome}`;
         document.getElementById('telaInicio').classList.add('escondido');
+        this.input.keyboard.enabled = true;
         // se era noite, atualiza visual
         const elDia = document.getElementById('hudDiaItem');
         if (ehNoite) {
@@ -1076,9 +1079,13 @@
       const inputNome = document.getElementById('inputNome');
       inputNome.value = perfil.nome || '';
       inputNome.focus();
+      // captura primeiro pra impedir que o Phaser engula 'A', 'W', 'S', 'D', etc.
       inputNome.addEventListener('keydown', (e) => {
+        e.stopPropagation();
         if (e.key === 'Enter') comecarJogo();
-      });
+      }, true);
+      inputNome.addEventListener('keyup', (e) => e.stopPropagation(), true);
+      inputNome.addEventListener('keypress', (e) => e.stopPropagation(), true);
       document.getElementById('btnComecar').onclick = comecarJogo;
     }
 
@@ -1094,6 +1101,7 @@
       document.getElementById('hudNome').innerHTML = `${skin.emoji} ${perfil.nome}`;
       document.getElementById('telaInicio').classList.add('escondido');
       jogoIniciado = true;
+      if (scene && scene.input && scene.input.keyboard) scene.input.keyboard.enabled = true;
       atualizarHUD();
       renderBag();
     }
@@ -1145,12 +1153,13 @@
       atualizarEquipamentosVisuais(time);
 
       // teclas (edge detection)
-      const eDown = wasd.E.isDown, fDown = wasd.F.isDown, bDown = wasd.B.isDown, spDown = wasd.SPACE.isDown;
-      if (eDown && !ePrev) acaoInteragir();
-      if (fDown && !fPrev) acaoComer();
+      const mDown = wasd.M.isDown, aDown = wasd.A.isDown, eDown = wasd.E.isDown, bDown = wasd.B.isDown, spDown = wasd.SPACE.isDown;
+      if (mDown && !mPrev) acaoCortar();
+      if (aDown && !aPrev) acaoAbrirBau();
+      if (eDown && !ePrev) acaoComer();
       if (bDown && !bPrev) acaoConstruir();
       if (spDown && !spPrev) acaoAtacar();
-      ePrev = eDown; fPrev = fDown; bPrev = bDown; spPrev = spDown;
+      mPrev = mDown; aPrev = aDown; ePrev = eDown; bPrev = bDown; spPrev = spDown;
 
       // ciclo dia/noite — noites ficam mais longas pós-dia 5
       cicloMs += delta;
@@ -1215,9 +1224,9 @@
       if (alvo) {
         interactHint.x = alvo.x;
         interactHint.y = alvo.y - 18;
-        interactHint.setText(alvo.tipo === 'arvore' ? 'E: cortar' :
+        interactHint.setText(alvo.tipo === 'arvore' ? 'M: cortar' :
                              alvo.aberto ? '✓ baú vazio' :
-                             alvo.tipo === 'bau-dourado' ? 'E: abrir baú dourado' : 'E: abrir baú');
+                             alvo.tipo === 'bau-dourado' ? 'A: abrir baú dourado' : 'A: abrir baú');
         interactHint.setVisible(true);
       } else interactHint.setVisible(false);
 
@@ -1365,43 +1374,52 @@
     }
 
     // ===== ações =====
-    function acaoInteragir() {
+    function acaoCortar() {
+      ensureAudio();
+      const alvo = encontrarAlvoInteracao();
+      if (!alvo || alvo.tipo !== 'arvore') return;
+      somCortar();
+      alvo.hpArvore -= 1;
+      scene.tweens.add({ targets: alvo, scaleX: SCALE*1.15, scaleY: SCALE*0.85, duration: 80, yoyo: true });
+      if (alvo.hpArvore <= 0) {
+        inv.madeira += 2;
+        somMadeira();
+        mostrarToast('+2 🪵 madeira');
+        scene.tweens.add({
+          targets: alvo, alpha: 0, scaleY: 0,
+          duration: 250, onComplete: () => alvo.destroy()
+        });
+        atualizarHUD();
+      }
+    }
+
+    function acaoAbrirBau() {
       ensureAudio();
       const alvo = encontrarAlvoInteracao();
       if (!alvo) return;
-      if (alvo.tipo === 'arvore') {
-        somCortar();
-        alvo.hpArvore -= 1;
-        scene.tweens.add({ targets: alvo, scaleX: SCALE*1.15, scaleY: SCALE*0.85, duration: 80, yoyo: true });
-        if (alvo.hpArvore <= 0) {
-          inv.madeira += 2;
-          somMadeira();
-          mostrarToast('+2 🪵 madeira');
-          scene.tweens.add({
-            targets: alvo, alpha: 0, scaleY: 0,
-            duration: 250, onComplete: () => alvo.destroy()
-          });
-          atualizarHUD();
+      if (alvo.tipo !== 'bau-facil' && alvo.tipo !== 'bau-dourado') return;
+      if (alvo.aberto) return;
+      alvo.aberto = true;
+      somAbrirBau();
+      scene.tweens.add({
+        targets: alvo, scaleY: SCALE*0.55, duration: 220, yoyo: true,
+        onComplete: () => {
+          alvo.setTint(0x666666);
+          alvo.setAlpha(0.55);
+          const x = scene.add.text(alvo.x, alvo.y, '✓', {
+            fontSize: '22px', color: '#88ff88', fontStyle: 'bold',
+            stroke: '#0a3a0a', strokeThickness: 3
+          }).setOrigin(0.5).setDepth(15);
+          alvo.checkSprite = x;
         }
-      } else if (alvo.tipo === 'bau-facil' || alvo.tipo === 'bau-dourado') {
-        if (alvo.aberto) return;
-        alvo.aberto = true;
-        somAbrirBau();
-        scene.tweens.add({
-          targets: alvo, scaleY: SCALE*0.55, duration: 220, yoyo: true,
-          onComplete: () => {
-            // visual de aberto: acinzenta e adiciona um marquinha
-            alvo.setTint(0x666666);
-            alvo.setAlpha(0.55);
-            const x = scene.add.text(alvo.x, alvo.y, '✓', {
-              fontSize: '22px', color: '#88ff88', fontStyle: 'bold',
-              stroke: '#0a3a0a', strokeThickness: 3
-            }).setOrigin(0.5).setDepth(15);
-            alvo.checkSprite = x;
-          }
-        });
-        sortearRecompensa(alvo);
-      }
+      });
+      sortearRecompensa(alvo);
+    }
+
+    // botão único pra mobile (touch): tenta cortar e abrir
+    function acaoInteragir() {
+      acaoCortar();
+      acaoAbrirBau();
     }
 
     function sortearRecompensa(bau) {
