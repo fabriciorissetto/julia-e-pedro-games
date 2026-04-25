@@ -464,6 +464,12 @@
       coelho:      { tipo: 'pet', nome: 'Coelho',      emoji: '🐰', raridade: 'raro' },
       passarinho:  { tipo: 'pet', nome: 'Passarinho',  emoji: '🐤' },
       cachorrinho: { tipo: 'pet', nome: 'Cachorrinho', emoji: '🐶' },
+
+      // === itens de pet (raros, equipam no slot petItem) ===
+      garrasPet:   { tipo: 'petItem', nome: 'Garras do Pet',  emoji: '🐾', raridade: 'raro', habilidade: 'arranhar' },
+      coleirinha:  { tipo: 'petItem', nome: 'Coleirinha',     emoji: '🎗️', raridade: 'raro' },
+      asasPet:     { tipo: 'petItem', nome: 'Asinhas do Pet', emoji: '🧚', raridade: 'lendario' },
+      lacoPet:     { tipo: 'petItem', nome: 'Laço do Pet',    emoji: '💝', raridade: 'raro' },
     };
 
     // ===== estado =====
@@ -473,7 +479,7 @@
     let inv = {
       madeira: 5, comida: 3, vida: 10,
       itens: [],          // [{id, key}] — coletados
-      equipado: { arma: null, chapeu: null, rosto: null, escudo: null, capa: null, veiculo: null, pet: null }
+      equipado: { arma: null, chapeu: null, rosto: null, escudo: null, capa: null, veiculo: null, pet: null, petItem: null }
     };
     const VIDA_MAX = 10;
     let proxItemId = 1;
@@ -487,8 +493,9 @@
     let scene;
     let nightOverlay;
     let interactHint;
-    let armaSprite, chapeuSprite, rostoSprite, escudoSprite, capaSprite, veiculoSprite, petSprite;
+    let armaSprite, chapeuSprite, rostoSprite, escudoSprite, capaSprite, veiculoSprite, petSprite, petAcessorioSprite;
     let petPos = { x: 0, y: 0 };
+    let proxArranhada = 0;
     let magiaProntoEm = 0; // timestamp em que a magia volta a poder ser usada
     let atacando = false;
 
@@ -654,19 +661,20 @@
       player.setDepth(10);
 
       // sprites de equipamento (escondidos até equipar)
-      veiculoSprite = this.add.text(0, 0, '', { fontSize: '24px' }).setOrigin(0.5).setDepth(8).setVisible(false);
-      capaSprite = this.add.text(0, 0, '', { fontSize: '20px' }).setOrigin(0.5).setDepth(9).setVisible(false);
-      chapeuSprite = this.add.text(0, 0, '', { fontSize: '18px' }).setOrigin(0.5).setDepth(11).setVisible(false);
-      rostoSprite = this.add.text(0, 0, '', { fontSize: '14px' }).setOrigin(0.5).setDepth(11).setVisible(false);
-      armaSprite = this.add.text(0, 0, '', { fontSize: '20px' }).setOrigin(0.5, 0.5).setDepth(11).setVisible(false);
-      escudoSprite = this.add.text(0, 0, '', { fontSize: '18px' }).setOrigin(0.5).setDepth(11).setVisible(false);
+      veiculoSprite = this.add.text(0, 0, '', { fontSize: '20px' }).setOrigin(0.5).setDepth(8).setVisible(false);
+      capaSprite = this.add.text(0, 0, '', { fontSize: '16px' }).setOrigin(0.5).setDepth(9).setVisible(false);
+      chapeuSprite = this.add.text(0, 0, '', { fontSize: '15px' }).setOrigin(0.5).setDepth(11).setVisible(false);
+      rostoSprite = this.add.text(0, 0, '', { fontSize: '11px' }).setOrigin(0.5).setDepth(11).setVisible(false);
+      armaSprite = this.add.text(0, 0, '', { fontSize: '16px' }).setOrigin(0.5, 0.5).setDepth(11).setVisible(false);
+      escudoSprite = this.add.text(0, 0, '', { fontSize: '14px' }).setOrigin(0.5).setDepth(11).setVisible(false);
       petSprite = this.add.text(0, 0, '', { fontSize: '20px' }).setOrigin(0.5).setDepth(9).setVisible(false);
+      petAcessorioSprite = this.add.text(0, 0, '', { fontSize: '12px' }).setOrigin(0.5).setDepth(10).setVisible(false);
       petPos.x = WORLD_W/2; petPos.y = WORLD_H/2;
 
       // câmera
       this.cameras.main.setBounds(0, 0, WORLD_W, WORLD_H);
       this.cameras.main.startFollow(player, true, 0.1, 0.1);
-      this.cameras.main.setZoom(1.4);
+      this.cameras.main.setZoom(1.7);
 
       // colisões
       this.physics.add.collider(player, arvores);
@@ -859,6 +867,21 @@
         }
       });
 
+      // pet com garras arranha monstros perto
+      if (inv.equipado.pet && inv.equipado.petItem === 'garrasPet' && time > proxArranhada) {
+        const RAIO_PET = 80;
+        let arranhou = false;
+        monstros.children.iterate(m => {
+          if (!m || !m.active || arranhou) return;
+          const d = Phaser.Math.Distance.Between(petPos.x, petPos.y, m.x, m.y);
+          if (d < RAIO_PET) {
+            arranharMonstro(m);
+            arranhou = true;
+          }
+        });
+        if (arranhou) proxArranhada = time + 900;
+      }
+
       // dica
       const alvo = encontrarAlvoInteracao();
       if (alvo) {
@@ -896,78 +919,89 @@
         playerSkinSprite.setScale(player.flipX ? -1 : 1, 1);
       }
 
-      // veículo (embaixo do player)
+      // veículo bem embaixo do player
       if (inv.equipado.veiculo) {
         const v = CATALOGO[inv.equipado.veiculo];
         veiculoSprite.setText(v.emoji);
         veiculoSprite.setVisible(true);
         veiculoSprite.x = player.x;
-        veiculoSprite.y = player.y + 12;
+        veiculoSprite.y = player.y + 18;
         veiculoSprite.setScale(player.flipX ? -1 : 1, 1);
       } else veiculoSprite.setVisible(false);
 
-      // capa atrás
+      // capa atrás (depth menor que player)
       if (inv.equipado.capa) {
         const c = CATALOGO[inv.equipado.capa];
         capaSprite.setText(c.emoji);
         capaSprite.setVisible(true);
-        capaSprite.x = player.x - 4 * flip;
-        capaSprite.y = player.y + 4;
+        capaSprite.x = player.x - 8 * flip;
+        capaSprite.y = player.y + 2;
       } else capaSprite.setVisible(false);
 
-      // chapéu na cabeça
+      // chapéu bem em cima da cabeça
       if (inv.equipado.chapeu) {
         const c = CATALOGO[inv.equipado.chapeu];
         chapeuSprite.setText(c.emoji);
         chapeuSprite.setVisible(true);
         chapeuSprite.x = player.x;
-        chapeuSprite.y = player.y - 14;
+        chapeuSprite.y = player.y - 17;
       } else chapeuSprite.setVisible(false);
 
-      // óculos no rosto
+      // óculos no rosto (entre o chapéu e a boca)
       if (inv.equipado.rosto) {
         const c = CATALOGO[inv.equipado.rosto];
         rostoSprite.setText(c.emoji);
         rostoSprite.setVisible(true);
         rostoSprite.x = player.x;
-        rostoSprite.y = player.y - 4;
+        rostoSprite.y = player.y - 8;
       } else rostoSprite.setVisible(false);
 
-      // arma na mão
+      // arma na mão direita
       if (inv.equipado.arma) {
         const a = CATALOGO[inv.equipado.arma];
         if (!atacando) {
           armaSprite.setText(a.emoji);
           armaSprite.setVisible(true);
           armaSprite.setRotation(0);
-          armaSprite.x = player.x + 11 * flip;
-          armaSprite.y = player.y + 4 + Math.sin(time/180)*1.2;
+          armaSprite.x = player.x + 14 * flip;
+          armaSprite.y = player.y + 6 + Math.sin(time/180)*1.2;
           armaSprite.setScale(player.flipX ? -1 : 1, 1);
         }
       } else if (!atacando) armaSprite.setVisible(false);
 
-      // escudo do lado oposto
+      // escudo na mão esquerda
       if (inv.equipado.escudo) {
         const c = CATALOGO[inv.equipado.escudo];
         escudoSprite.setText(c.emoji);
         escudoSprite.setVisible(true);
-        escudoSprite.x = player.x - 11 * flip;
-        escudoSprite.y = player.y + 4;
+        escudoSprite.x = player.x - 14 * flip;
+        escudoSprite.y = player.y + 6;
       } else escudoSprite.setVisible(false);
 
-      // pet seguindo
+      // pet seguindo um pouquinho longe
       if (inv.equipado.pet) {
         const p = CATALOGO[inv.equipado.pet];
         petSprite.setText(p.emoji);
         petSprite.setVisible(true);
-        // segue suave atrás do player
-        const alvoX = player.x - 22 * flip;
-        const alvoY = player.y + 8;
+        const alvoX = player.x - 30 * flip;
+        const alvoY = player.y + 14;
         petPos.x += (alvoX - petPos.x) * 0.08;
         petPos.y += (alvoY - petPos.y) * 0.08;
         petSprite.x = petPos.x;
         petSprite.y = petPos.y + Math.sin(time/200)*2;
-      } else petSprite.setVisible(false);
+
+        // acessório do pet (em cima da cabecinha)
+        if (inv.equipado.petItem) {
+          const it = CATALOGO[inv.equipado.petItem];
+          petAcessorioSprite.setText(it.emoji);
+          petAcessorioSprite.setVisible(true);
+          petAcessorioSprite.x = petSprite.x;
+          petAcessorioSprite.y = petSprite.y - 12;
+        } else petAcessorioSprite.setVisible(false);
+      } else {
+        petSprite.setVisible(false);
+        petAcessorioSprite.setVisible(false);
+      }
     }
 
     // ===== ações =====
@@ -1017,14 +1051,18 @@
 
       if (dourado) {
         // baú dourado: sempre item legal + bônus + recursos
-        if (r < 0.22) {
+        if (r < 0.18) {
           adicionarItem('magiaFogo'); dropsTexto.push('🔥 MAGIA DE FOGO!');
+        } else if (r < 0.30) {
+          // item RARO de pet
+          const pet = Phaser.Math.RND.pick(['garrasPet','asasPet']);
+          adicionarItem(pet); dropsTexto.push('🌟 ' + CATALOGO[pet].nome);
         } else if (r < 0.55) {
           const arma = Phaser.Math.RND.pick(['martelo','machado','espadaMag','lanca','varinha']);
           adicionarItem(arma); dropsTexto.push('⚔️ ' + CATALOGO[arma].nome);
         } else {
           // 2 visuais raros de uma vez!
-          const pool = ['coroa','tiara','escudoOuro','capaVerm','bicicleta','unicornio','asas','oculosCoracao','gatinho','coelho'];
+          const pool = ['coroa','tiara','escudoOuro','capaVerm','bicicleta','unicornio','asas','oculosCoracao','gatinho','coelho','coleirinha','lacoPet'];
           const visu1 = Phaser.Math.RND.pick(pool);
           const visu2 = Phaser.Math.RND.pick(pool.filter(x=>x!==visu1));
           adicionarItem(visu1); adicionarItem(visu2);
@@ -1038,17 +1076,21 @@
         const poolVisuais = ['chapeuBruxa','bone','laco','chapeuPirata','chapeuChef','escudoAzul','capaAzul','oculos','oculosArco','skate','patins','carrinho','passarinho'];
         const poolArmas = ['espadinha','espada','varinha'];
 
-        if (r < 0.55) {
+        if (r < 0.50) {
           const visu = Phaser.Math.RND.pick(poolVisuais);
           adicionarItem(visu); dropsTexto.push('✨ ' + CATALOGO[visu].nome);
-        } else if (r < 0.85) {
+        } else if (r < 0.80) {
           const arma = Phaser.Math.RND.pick(poolArmas);
           adicionarItem(arma); dropsTexto.push('🗡️ ' + CATALOGO[arma].nome);
-        } else {
-          // raríssimo: até item raro num baú simples
-          const raros = ['coroa','asas','bicicleta','gatinho'];
+        } else if (r < 0.92) {
+          // raríssimo: item raro num baú simples
+          const raros = ['coroa','asas','bicicleta','gatinho','coelho'];
           const raro = Phaser.Math.RND.pick(raros);
           adicionarItem(raro); dropsTexto.push('🌟 ' + CATALOGO[raro].nome);
+        } else {
+          // raríssimo: item de pet num baú simples
+          const pet = Phaser.Math.RND.pick(['coleirinha','lacoPet']);
+          adicionarItem(pet); dropsTexto.push('🐾 ' + CATALOGO[pet].nome);
         }
         // recursos extras
         const r2 = Math.random();
@@ -1269,6 +1311,31 @@
       if (inv.vida <= 0) perder();
     }
 
+    function arranharMonstro(m) {
+      const dano = 1;
+      m.hp = (m.hp ?? 3) - dano;
+      somAcertar();
+      m.setTint(0xffaa30);
+      scene.time.delayedCall(120, () => { if (m.active) m.clearTint(); });
+      // pulinho do pet
+      scene.tweens.add({
+        targets: petSprite,
+        y: petSprite.y - 8,
+        duration: 100, yoyo: true, ease: 'Cubic.easeOut'
+      });
+      // efeito de garra
+      const claw = scene.add.text(m.x, m.y - 6, '🐾', { fontSize: '20px' }).setOrigin(0.5).setDepth(20);
+      scene.tweens.add({
+        targets: claw, alpha: 0, scale: 1.6, y: claw.y - 16,
+        duration: 380, onComplete: () => claw.destroy()
+      });
+      if (m.hp <= 0) {
+        const burst = scene.add.text(m.x, m.y, '💥', { fontSize: '24px' }).setOrigin(0.5).setDepth(30);
+        scene.tweens.add({ targets: burst, alpha: 0, scale: 1.6, duration: 400, onComplete: () => burst.destroy() });
+        m.destroy();
+      }
+    }
+
     function spawnMonstro() {
       const lado = Phaser.Math.Between(0,3);
       let x, y;
@@ -1331,8 +1398,8 @@
     function renderBag() {
       const cont = document.getElementById('bagSlots');
       cont.innerHTML = '';
-      // ordena: arma/magia primeiro, depois chapéu, rosto, escudo, capa, veículo, pet
-      const ordem = { magia:0, arma:1, chapeu:2, rosto:3, escudo:4, capa:5, veiculo:6, pet:7 };
+      // ordem dos slots na mochila
+      const ordem = { magia:0, arma:1, chapeu:2, rosto:3, escudo:4, capa:5, veiculo:6, pet:7, petItem:8 };
       const ordenados = inv.itens.slice().sort((a,b) =>
         (ordem[CATALOGO[a.key].tipo] ?? 9) - (ordem[CATALOGO[b.key].tipo] ?? 9)
       );
