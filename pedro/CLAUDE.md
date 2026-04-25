@@ -35,7 +35,25 @@ Você está trabalhando com o **Pedro, 11 anos, estudando programação**. Antes
 
 ## Multiplayer/online
 
-Se ele pedir multiplayer com amigos, mencione que isso precisa de um servidor — Railway ou Fly.io com Node.js + WebSocket. **Não setar agora**. Sugerir começar com multiplayer local (dois jogadores no mesmo teclado) primeiro.
+O repo já tem **infra pronta** pra jogos online turn-based (jogo da velha, batalha naval, stop, war simplificado, etc.). Detalhes técnicos completos estão na seção "Multiplayer online" do `CLAUDE.md` da raiz — leia antes de codar.
+
+**Resumo pra Pedro:**
+- Cliente: `<script src="/shared/multiplayer.js"></script>` → API `JPMultiplayer.join(codigo, { initialState, onUpdate })`.
+- Backend: função serverless em `api/room/[id].js` + Redis na Vercel. Polling 1s, last-write-wins.
+- Bom pra: turnos, score compartilhado, posições salvas. Ruim pra: ação tempo real (60fps tipo `.io`).
+
+**Como apresentar pra ele:**
+- Multiplayer online é uma ótima oportunidade pedagógica — ele já entende o conceito de "servidor" de Roblox/Minecraft. Pode explicar: "o estado do jogo fica num computador na nuvem, e os dois celulares ficam perguntando 'mudou alguma coisa?' a cada segundo."
+- Mostra o `multiplayer.js` pra ele se tiver curiosidade — é vanilla JS, dá pra ler junto.
+- Pra começar: sugerir jogo da velha online (clássico, simples, todo mundo entende as regras). Depois bate-papo, depois batalha naval, etc.
+
+**UX dos jogos online dele:**
+- Tela inicial com 2 botões grandes: "Criar sala" (gera código com `JPMultiplayer.generateCode()`) e "Entrar em sala" (input pro código).
+- Mostrar o código da sala BEM grande no canto da tela enquanto joga — pra ele falar "entra na sala XYZK" pro amigo no Discord.
+- Indicador de "esperando o outro jogador..." quando for o turno do adversário.
+
+**Quando NÃO usar essa infra:**
+- Jogo de ação rápido (tipo agar.io, pong online com física). Pra esses, dizer pra ele que precisaria de WebSocket de verdade — fica como projeto futuro.
 
 ## Estrutura de cada jogo
 

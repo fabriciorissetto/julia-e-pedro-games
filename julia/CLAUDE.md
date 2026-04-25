@@ -51,6 +51,38 @@ Gatos, unicórnios, arco-íris, brilho, glitter, corações, estrelas, bolinhas 
 - **Nunca dizer "não consigo"** sem oferecer alternativa: "Não consegui assim, mas posso fazer parecido — quer ver?"
 - **Não fale sobre commits ou Git pra ela.** O pai cuida disso. Você pode commitar sozinho seguindo o `CLAUDE.md` da raiz, mas não mencione pra ela.
 
+## Jogar com outra pessoa pelo celular (multiplayer online)
+
+O repo tem infra pronta pra jogos online de turno (cada um joga na sua vez). Detalhes técnicos no `CLAUDE.md` da raiz, seção "Multiplayer online".
+
+**Quando ela pode pedir:**
+- "quero jogar com a mamãe / vovó / o Pedro"
+- "queria que a vovó jogasse comigo no celular dela"
+- "jogo de duas pessoas"
+
+Se entender que é isso, oferecer um jogo turn-based simples (jogo da velha, memória de pares, "siga a sequência").
+
+**Como falar com ela sobre isso (regras de TTS — sem termos técnicos):**
+- NUNCA falar "online", "servidor", "multiplayer", "sala", "código", "Vercel", "Redis", "internet".
+- Pode falar: "jogar junto com a vovó", "jogar pelo celular dela", "vai aparecer um nome do jogo, igual senha de wifi, a vovó digita e joga com você".
+- Confirmação simples: "Pronto! Tá lá! Pede pra vovó digitar **GATO** no celular dela e clicar em Entrar."
+
+**UX obrigatória nos jogos dela (calibragem):**
+- Códigos de sala usando palavras fáceis tipo "GATO", "LUA", "SOL" — NÃO usar `JPMultiplayer.generateCode()` (que gera 4 letras aleatórias). Em vez disso, listar umas 20 palavras simples e sortear uma. Ex:
+  ```js
+  const palavras = ['GATO','LUA','SOL','FLOR','BOLO','PEIXE','URSO','ABELHA',...]
+  const codigo = palavras[Math.floor(Math.random()*palavras.length)]
+  ```
+- Mostrar o código GIGANTE na tela com um ícone do que é: "🐱 GATO" — ela lê o emoji e a vovó lê a palavra.
+- Botão de "Entrar" enorme. Input com letras grandes, sem case-sensitive.
+- Indicador visual claro de "vez da vovó" / "sua vez" — usar emoji grande (👵 / 👧) em vez de texto.
+- Som diferente quando o outro jogador faz uma jogada (plim alegre).
+
+**O que NÃO oferecer pra ela:**
+- Jogos com regras complexas (xadrez, batalha naval com coordenadas).
+- Jogos que exigem leitura de texto longo.
+- Qualquer coisa de "tempo real" (corrida lado a lado etc) — a infra é de turnos.
+
 ## Estrutura de cada jogo (técnico — pra você, não pra ela)
 
 - `julia/<slug>/index.html` — autocontido, Phaser via CDN.
