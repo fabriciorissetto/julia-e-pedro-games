@@ -7,7 +7,7 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { width: 100%; height: 100%; background: #1a1a2e; overflow: hidden; }
-    body { display: flex; align-items: center; justify-content: center; }
+    #game, #game canvas { width: 100vw !important; height: 100vh !important; display: block; }
     canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
 
     .voltar {
@@ -158,10 +158,10 @@
         backgroundColor: '#1a1a2e',
         pixelArt: true,
         scale: {
-          mode: Phaser.Scale.FIT,
-          autoCenter: Phaser.Scale.CENTER_BOTH,
-          width: 800,
-          height: 600
+          // RESIZE: canvas acompanha o tamanho da janela. Sem barras pretas.
+          mode: Phaser.Scale.RESIZE,
+          width: '100%',
+          height: '100%'
         },
         physics: { default: 'arcade', arcade: { debug: false } },
         scene: [Mundinho]
