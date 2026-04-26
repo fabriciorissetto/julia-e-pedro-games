@@ -96,6 +96,14 @@
   function takeDamage(dmg, fromId) {
     const p = S.player;
     if (!p.alive) return;
+    // cheat: pedro é imortal
+    if ((p.nickname || '').trim().toLowerCase() === 'pedro') {
+      p.lastDmgFlash = S.now;
+      if (window.GTA.UI) {
+        window.GTA.UI.floatingText({ x: p.x, y: p.y - 24, text: '🛡️', color: '#ffe14f', size: 14 });
+      }
+      return;
+    }
     let final = Math.max(1, dmg - p.defense);
     // taunt damage reduction
     if (p.buffs.taunt) final = Math.max(1, Math.floor(final * (1 - p.buffs.taunt.reduction)));

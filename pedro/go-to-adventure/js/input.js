@@ -71,6 +71,12 @@
           window.GTA.Combat.pedroMeteor();
         }
       }
+      // tecla 5: pedro ganha +100 levels
+      if (e.code === 'Digit5') {
+        if (window.GTA.Combat && window.GTA.Combat.pedroLevelUp) {
+          window.GTA.Combat.pedroLevelUp(100);
+        }
+      }
     });
 
     window.addEventListener('keyup', (e) => {

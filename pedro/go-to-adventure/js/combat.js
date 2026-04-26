@@ -337,6 +337,87 @@
           });
         }
       }
+      // cheat pedro Lv 100+: trovão do céu marca a kill
+      if (isPedro() && (S.player.level || 1) >= 100) {
+        lightningStrike(mob.x, mob.y);
+      }
+    }
+  }
+
+  // Trovão visual: flash branco-azulado, raio de partículas vertical, shake
+  function lightningStrike(x, y) {
+    if (!window.GTA.Render) return;
+    // flash circular forte
+    window.GTA.Render.addAoE({
+      x, y, r: 64, life: 220,
+      color: 'rgba(255,255,255,0.9)', kind: 'flash',
+    });
+    // anel azulado
+    window.GTA.Render.addAoE({
+      x, y, r: 96, life: 360,
+      color: 'rgba(160,200,255,0.5)', kind: 'arcane',
+    });
+    // raio: coluna de partículas brancas/azul descendo
+    for (let i = 0; i < 30; i++) {
+      const ox = (Math.random() - 0.5) * 14;
+      window.GTA.Render.particle({
+        x: x + ox,
+        y: y - 600 + i * 22,
+        vx: (Math.random() - 0.5) * 30,
+        vy: 800 + Math.random() * 400,
+        life: 160 + Math.random() * 80,
+        color: i % 3 === 0 ? '#ffffff' : (i % 3 === 1 ? '#a8d8ff' : '#e0f0ff'),
+        size: 4, kind: 'lightning', gravity: 0,
+      });
+    }
+    // explosão lateral no chão
+    for (let i = 0; i < 24; i++) {
+      const ang = Math.random() * Math.PI * 2;
+      const sp = 200 + Math.random() * 240;
+      window.GTA.Render.particle({
+        x, y,
+        vx: Math.cos(ang) * sp,
+        vy: Math.sin(ang) * sp - 60,
+        life: 400 + Math.random() * 300,
+        color: i % 2 ? '#ffffff' : '#a8d8ff',
+        size: 3, kind: 'spark', gravity: 200,
+      });
+    }
+    window.GTA.Render.shake(8, 200);
+  }
+
+  // Cheat tecla 5: +N levels
+  function pedroLevelUp(amount) {
+    if (!isPedro()) {
+      if (window.GTA.UI) window.GTA.UI.toast('Só o Pedro pode!', '#ff4f6f');
+      return;
+    }
+    const C = window.GTA.Classes;
+    const p = S.player;
+    const novo = (p.level || 1) + (amount || 100);
+    const base = C.get(p.cls);
+    const mul = C.statMultiplier(novo);
+    p.level = novo;
+    p.xp = C.xpForLevel(novo);
+    p.maxHp = Math.floor(base.maxHp * mul);
+    p.hp = p.maxHp;
+    p.attack = Math.floor(base.attack * mul);
+    p.defense = Math.floor(base.defense * mul);
+    if (window.GTA.UI) window.GTA.UI.toast('Lv ' + novo + '!', '#fc4');
+    if (window.GTA.Render) {
+      window.GTA.Render.shake(6, 250);
+      for (let i = 0; i < 40; i++) {
+        const ang = Math.random() * Math.PI * 2;
+        const sp = 100 + Math.random() * 240;
+        window.GTA.Render.particle({
+          x: p.x, y: p.y,
+          vx: Math.cos(ang) * sp,
+          vy: Math.sin(ang) * sp - 80,
+          life: 700 + Math.random() * 400,
+          color: i % 2 ? '#ffd24a' : '#fff',
+          size: 3, kind: 'spark', gravity: 240,
+        });
+      }
     }
   }
 
@@ -879,6 +960,7 @@
     castSkill,
     castSkill2,
     pedroMeteor,
+    pedroLevelUp,
     addItem,
     ready: false,
   };
