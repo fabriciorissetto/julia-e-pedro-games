@@ -2138,6 +2138,9 @@
 
   function init() {
     if (Sprites.ready) return;
+    // dispara carregamento de atlas Kenney em paralelo — substitui entries
+    // procedural quando os PNGs chegam (drop-in replacement)
+    loadAtlas();
 
     // Tiles — 4 variações por tipo. Render escolhe variação determinística por (tx,ty).
     Sprites._reg['tile_grass'] = { frames: makeGrassFrames(101, false), w: 32, h: 32 };
@@ -2290,12 +2293,107 @@
     return { canvas: arr[(frame | 0) % arr.length], forceFlip: false };
   }
 
+  // ============================== ATLAS LOADER (Kenney) ==============================
+  // cache de versões tintadas pra evitar redesenhar a cada frame
+  const _atlasTintCache = new Map();
+  function getTintedAtlas(entry, key, color) {
+    if (_atlasTintCache.has(key)) return _atlasTintCache.get(key);
+    const c = makeCanvas(entry.sw, entry.sh);
+    const g = c.getContext('2d');
+    g.imageSmoothingEnabled = false;
+    g.drawImage(entry.img, entry.sx, entry.sy, entry.sw, entry.sh, 0, 0, entry.sw, entry.sh);
+    g.globalCompositeOperation = 'source-atop';
+    g.fillStyle = color;
+    g.fillRect(0, 0, entry.sw, entry.sh);
+    g.globalCompositeOperation = 'source-over';
+    // wrap como "img" com sx=0, sy=0
+    const wrapped = c;
+    // armazenamos o canvas direto, mas fingimos sx=0,sy=0 ao desenhar:
+    // pra simplificar, retornamos um proxy: na verdade, canvas é desenhável via drawImage(canvas, sx, sy, ...).
+    // Como entry.sx/sy ainda apontam pro sheet original, vamos guardar um canvas de mesmo offset.
+    _atlasTintCache.set(key, wrapped);
+    return wrapped;
+  }
+
+  function loadAtlas() {
+    if (Sprites._atlasStarted) return;
+    Sprites._atlasStarted = true;
+    Sprites._atlasImages = {};
+    const sheets = {
+      dungeon: 'assets/sprites/dungeon.png',
+      town:    'assets/sprites/town.png',
+    };
+    let pending = Object.keys(sheets).length;
+    const done = () => {
+      pending--;
+      if (pending <= 0) applyAtlas();
+    };
+    for (const k of Object.keys(sheets)) {
+      const img = new Image();
+      img.onload  = () => { Sprites._atlasImages[k] = img; done(); };
+      img.onerror = () => { done(); /* fica fallback procedural */ };
+      img.src = sheets[k];
+    }
+  }
+
+  function applyAtlas() {
+    const ATLAS = (window.GTA && window.GTA.Atlas) || {};
+    for (const name of Object.keys(ATLAS)) {
+      const e = ATLAS[name];
+      const img = Sprites._atlasImages && Sprites._atlasImages[e.sheet];
+      if (!img) continue;
+      Sprites._reg[name] = {
+        atlas:     true,
+        img:       img,
+        sx:        e.col * 16,
+        sy:        e.row * 16,
+        sw:        16,
+        sh:        16,
+        w:         e.w || 32,
+        h:         e.h || 32,
+        flipForLeft: true, // sprites Kenney são single-frame; flipX pra esquerda
+      };
+    }
+  }
+
   function draw(ctx, name, x, y, frame, opts) {
     if (!Sprites.ready) return;
     const entry = Sprites._reg[name];
     if (!entry) return;
     frame = frame | 0;
     opts = opts || {};
+
+    // ── ramo atlas (Kenney) ────────────────────────────────────────────────
+    if (entry.atlas) {
+      const flip = (opts.dir === 'left') && entry.flipForLeft && !opts.flipX
+                   ? true : !!opts.flipX;
+      const scale = opts.scale || 1;
+      const w = opts.drawW != null ? opts.drawW : entry.w * scale;
+      const h = opts.drawH != null ? opts.drawH : entry.h * scale;
+      const alpha = (opts.alpha == null) ? 1 : opts.alpha;
+      const prev = ctx.globalAlpha;
+      if (alpha !== 1) ctx.globalAlpha = prev * alpha;
+
+      let img = entry.img;
+      let srcX = entry.sx, srcY = entry.sy;
+      if (opts.tint) {
+        const tintKey = `${name}|${opts.tint}`;
+        img = getTintedAtlas(entry, tintKey, opts.tint);
+        srcX = 0; srcY = 0; // canvas já é só o sprite
+      }
+
+      if (flip) {
+        ctx.save();
+        ctx.translate(x + w, y);
+        ctx.scale(-1, 1);
+        ctx.drawImage(img, srcX, srcY, entry.sw, entry.sh, 0, 0, w, h);
+        ctx.restore();
+      } else {
+        ctx.drawImage(img, srcX, srcY, entry.sw, entry.sh, x, y, w, h);
+      }
+      if (alpha !== 1) ctx.globalAlpha = prev;
+      return;
+    }
 
     const picked = pickFrame(entry, name, frame, opts);
     let img = picked.canvas;
@@ -2348,9 +2446,10 @@
   function getFrameCount(name) {
     const e = Sprites._reg[name];
     if (!e) return 0;
+    if (e.atlas) return 1;
     if (e.actions) return e.actions.down.walk.length;
     if (e.dirs) return e.dirs.down.length;
-    return e.frames.length;
+    return e.frames ? e.frames.length : 1;
   }
 
   function getSize(name) {
