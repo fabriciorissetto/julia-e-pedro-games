@@ -679,6 +679,37 @@
     const t = clamp(1 - a.life / a.maxLife, 0, 1);
     const pulse = 0.5 + 0.5 * Math.sin(state.now / 100);
 
+    // VFX especial pros kinds de fogo do mago — múltiplas camadas borradas e ondulantes
+    if (a.kind === 'fire' || a.kind === 'fire-core') {
+      const lifeT = a.life / a.maxLife;
+      ctx.save();
+      // anel externo: laranja borrado, ondula com tempo
+      const wobble = Math.sin(state.now / 50) * 3;
+      const layers = a.kind === 'fire-core'
+        ? [{ r: a.r * 0.6, c: 'rgba(255,255,180,0.85)' }, { r: a.r * 0.85, c: 'rgba(255,200,80,0.6)' }, { r: a.r, c: 'rgba(255,140,40,0.4)' }]
+        : [{ r: a.r * 0.5, c: 'rgba(255,180,60,0.55)' }, { r: a.r * 0.8, c: 'rgba(255,90,30,0.45)' }, { r: a.r, c: 'rgba(180,30,10,0.35)' }];
+      for (const l of layers) {
+        ctx.globalAlpha = lifeT * (l.c.includes('0.85') ? 0.85 : 0.7);
+        ctx.fillStyle = l.c;
+        ctx.beginPath();
+        ctx.arc(x, y, l.r + wobble, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+      return;
+    }
+    if (a.kind === 'burn') {
+      // marca queimada no chão — escura, sem pulso
+      ctx.save();
+      ctx.globalAlpha = (a.life / a.maxLife) * 0.5;
+      ctx.fillStyle = a.color || 'rgba(40,15,5,0.45)';
+      ctx.beginPath();
+      ctx.arc(x, y, a.r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      return;
+    }
+
     // círculo translúcido pulsante (indicador)
     ctx.save();
     ctx.globalAlpha = 0.25 + 0.2 * pulse;

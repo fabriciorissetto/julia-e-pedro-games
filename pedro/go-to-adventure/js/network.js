@@ -322,18 +322,74 @@
       }
       const cx = msg.x, cy = msg.y;
       const r = (msg.raio || 3) * TILE;
-      const colors = { taunt: 'rgba(255,210,74,0.32)', arcane: 'rgba(255,140,80,0.4)', heal: 'rgba(80,255,160,0.35)', arrowRain: 'rgba(120,200,255,0.32)' };
-      Render && Render.addAoE && Render.addAoE({ x: cx, y: cy, r: r, life: 800, color: colors[msg.skillId] || 'rgba(255,255,255,0.3)', kind: msg.skillId });
-      Render && Render.shake && Render.shake(4, 200);
-      for (let i = 0; i < 18; i++) {
-        const a = Math.random() * Math.PI * 2;
-        const rr = Math.random() * r;
-        Render && Render.particle && Render.particle({
-          x: cx + Math.cos(a) * rr, y: cy + Math.sin(a) * rr,
-          vx: 0, vy: -60 - Math.random() * 80, life: 500 + Math.random() * 300,
-          color: msg.skillId === 'heal' ? '#5cf78a' : (msg.skillId === 'arcane' ? '#ffb84a' : '#ffd24a'),
-          size: 2, kind: 'spark', gravity: -40,
+
+      if (msg.skillId === 'arcane') {
+        // FOGO INFERNAL DO MAGO — visível pra todos, gigante e bem destrutivo
+        const visualR = r * 1.6; // visual maior que o raio de dano pra parecer impacto enorme
+        // anel base laranja
+        Render && Render.addAoE && Render.addAoE({
+          x: cx, y: cy, r: visualR, life: 1400,
+          color: 'rgba(255,90,30,0.55)', kind: 'fire',
         });
+        // núcleo branco-amarelo
+        Render && Render.addAoE && Render.addAoE({
+          x: cx, y: cy, r: visualR * 0.6, life: 900,
+          color: 'rgba(255,220,80,0.65)', kind: 'fire-core',
+        });
+        // marca queimada que persiste mais
+        Render && Render.addAoE && Render.addAoE({
+          x: cx, y: cy, r: visualR * 0.85, life: 2400,
+          color: 'rgba(40,15,5,0.45)', kind: 'burn',
+        });
+        Render && Render.shake && Render.shake(10, 450);
+        // 80 partículas de fogo com cores variadas e movimento ascendente
+        const fireColors = ['#ffeb6a', '#ffb84a', '#ff7a30', '#e83a18', '#ffffff'];
+        for (let i = 0; i < 80; i++) {
+          const a = Math.random() * Math.PI * 2;
+          const rr = Math.sqrt(Math.random()) * visualR; // mais denso no centro
+          const speed = 100 + Math.random() * 180;
+          Render && Render.particle && Render.particle({
+            x: cx + Math.cos(a) * rr,
+            y: cy + Math.sin(a) * rr,
+            vx: Math.cos(a) * 30 * Math.random(),
+            vy: -speed,
+            life: 700 + Math.random() * 600,
+            color: fireColors[Math.floor(Math.random() * fireColors.length)],
+            size: 2 + Math.floor(Math.random() * 3),
+            kind: 'spark',
+            gravity: -60,
+          });
+        }
+        // fagulhas que sobem altas (tipo brasa)
+        for (let i = 0; i < 25; i++) {
+          const a = Math.random() * Math.PI * 2;
+          const rr = Math.random() * visualR * 0.6;
+          Render && Render.particle && Render.particle({
+            x: cx + Math.cos(a) * rr,
+            y: cy + Math.sin(a) * rr,
+            vx: (Math.random() - 0.5) * 60,
+            vy: -200 - Math.random() * 150,
+            life: 1500,
+            color: '#ffeb6a',
+            size: 1,
+            kind: 'spark',
+            gravity: 80,
+          });
+        }
+      } else {
+        const colors = { taunt: 'rgba(255,210,74,0.32)', heal: 'rgba(80,255,160,0.35)', arrowRain: 'rgba(120,200,255,0.32)' };
+        Render && Render.addAoE && Render.addAoE({ x: cx, y: cy, r: r, life: 800, color: colors[msg.skillId] || 'rgba(255,255,255,0.3)', kind: msg.skillId });
+        Render && Render.shake && Render.shake(4, 200);
+        for (let i = 0; i < 18; i++) {
+          const a = Math.random() * Math.PI * 2;
+          const rr = Math.random() * r;
+          Render && Render.particle && Render.particle({
+            x: cx + Math.cos(a) * rr, y: cy + Math.sin(a) * rr,
+            vx: 0, vy: -60 - Math.random() * 80, life: 500 + Math.random() * 300,
+            color: msg.skillId === 'heal' ? '#5cf78a' : '#ffd24a',
+            size: 2, kind: 'spark', gravity: -40,
+          });
+        }
       }
     } else if (k === 'dano') {
       // floating text no alvo
