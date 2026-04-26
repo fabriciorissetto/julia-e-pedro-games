@@ -159,7 +159,11 @@
           // o personagem ocupa só uma parte. Ajusta esses números se a
           // colisão com árvores/casas ficar esquisita (player passando
           // por cima ou batendo no ar).
-          this.player.body.setSize(24, 16).setOffset(36, 72);
+          // Hitbox calibrada por análise pixel-a-pixel do sprite schwarnhild
+          // (frame 96x96). Personagem real ocupa x=31-63, y=10-63 — tem
+          // ~32px de espaço vazio embaixo dentro do frame!
+          // Body 22x12 cobrindo os pés (y 51-63 do frame, x 36-58).
+          this.player.body.setSize(22, 12).setOffset(36, 51);
           this.player.facing = 'down';
           this.player.anims.play('idle_down');
 
