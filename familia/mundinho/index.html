@@ -37,12 +37,16 @@
   <script>
     const VELOCIDADE = 180;
 
+    // Cache-busting: força o browser a sempre buscar a versão mais nova do
+    // mapa e tilesets. Sem isso, Cmd+S no Tiled nem sempre reflete no F5.
+    const noCache = `?t=${Date.now()}`;
+
     // Lê o .tmj antes de iniciar pra descobrir quais imagens de tileset
     // precisam ser pré-carregadas (Tiled embute o caminho da imagem).
     async function init() {
       let mapaJson;
       try {
-        const r = await fetch('./assets/maps/mundinho.tmj');
+        const r = await fetch(`./assets/maps/mundinho.tmj${noCache}`);
         if (!r.ok) throw new Error('fail');
         mapaJson = await r.json();
       } catch {
@@ -53,12 +57,12 @@
         constructor() { super('Mundinho'); }
 
         preload() {
-          this.load.tilemapTiledJSON('mapa', './assets/maps/mundinho.tmj');
+          this.load.tilemapTiledJSON('mapa', `./assets/maps/mundinho.tmj${noCache}`);
           // Cada tileset embutido no .tmj tem um campo "image" relativo ao
           // próprio .tmj. Carrega cada um com a key "ts_<nome>".
           mapaJson.tilesets.forEach(ts => {
             if (ts.image) {
-              this.load.image(`ts_${ts.name}`, './assets/maps/' + ts.image);
+              this.load.image(`ts_${ts.name}`, './assets/maps/' + ts.image + noCache);
             }
           });
         }
