@@ -48,4 +48,11 @@ window.GAMES = [
     color: "#ff69b4",
     description: "Anda entre as paredes pegando estrelinhas"
   },
+  {
+    slug: "aquario",
+    title: "Peixinho no Aquário",
+    emoji: "🐠",
+    color: "#6fb5ff",
+    description: "A dona joga comida e você pega"
+  },
 ];

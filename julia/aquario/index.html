@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Peixinho no Aquário</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #001a33;
+    overflow: hidden;
+    height: 100%;
+    font-family: -apple-system, sans-serif;
+    touch-action: none;
+  }
+  #game { width: 100vw; height: 100vh; }
+  #voltar {
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    z-index: 10;
+    background: rgba(255,255,255,0.85);
+    color: #b56fff;
+    border: none;
+    border-radius: 20px;
+    padding: 10px 16px;
+    font-size: 18px;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+  }
+</style>
+</head>
+<body>
+<button id="voltar" onclick="window.location.href='/julia/'">← Voltar</button>
+<div id="game"></div>
+<script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+<script>
+const W = window.innerWidth;
+const H = window.innerHeight;
+
+class Aquario extends Phaser.Scene {
+  constructor() { super('Aquario'); }
+
+  create() {
+    // fundo do aquário (gradiente azul)
+    const grad = this.add.graphics();
+    for (let i = 0; i < H; i++) {
+      const t = i / H;
+      const r = Math.floor(110 + (60 - 110) * t);
+      const g = Math.floor(200 + (140 - 200) * t);
+      const b = Math.floor(255 + (220 - 255) * t);
+      grad.fillStyle((r << 16) | (g << 8) | b, 1);
+      grad.fillRect(0, i, W, 1);
+    }
+
+    // raios de luz vindo de cima
+    const luz = this.add.graphics();
+    luz.fillStyle(0xffffff, 0.08);
+    for (let i = 0; i < 5; i++) {
+      const x = Phaser.Math.Between(50, W - 50);
+      luz.fillTriangle(x, 0, x - 30, H * 0.6, x + 30, H * 0.6);
+    }
+
+    // areia no fundo
+    const areia = this.add.graphics();
+    areia.fillStyle(0xffe9b0, 1);
+    areia.fillEllipse(W / 2, H + 30, W * 1.4, 120);
+    areia.fillStyle(0xffd98a, 1);
+    for (let i = 0; i < 30; i++) {
+      areia.fillCircle(Phaser.Math.Between(0, W), H - Phaser.Math.Between(5, 25), Phaser.Math.Between(2, 5));
+    }
+
+    // plantinhas no fundo
+    this.desenharPlanta(80, H - 40, 0x3fa86a);
+    this.desenharPlanta(W - 100, H - 50, 0x5ec97f);
+    this.desenharPlanta(W / 2 - 60, H - 35, 0x3fa86a);
+    this.desenharPlanta(W / 2 + 80, H - 45, 0x5ec97f);
+    this.desenharPlanta(W / 4, H - 40, 0x5ec97f);
+    this.desenharPlanta(W * 0.75, H - 35, 0x3fa86a);
+
+    // pedrinhas e conchinhas
+    for (let i = 0; i < 8; i++) {
+      const px = Phaser.Math.Between(20, W - 20);
+      const cor = Phaser.Utils.Array.GetRandom([0xff9bd3, 0xb56fff, 0xffd16f, 0xffffff]);
+      this.add.circle(px, H - Phaser.Math.Between(10, 25), Phaser.Math.Between(6, 12), cor);
+    }
+
+    // dona do aquário (em cima)
+    this.dona = this.add.container(W / 2, 40);
+    // cabeça
+    const cabeca = this.add.circle(0, 0, 28, 0xffd6b5);
+    // cabelo (loira ondulado)
+    const cabelo = this.add.graphics();
+    cabelo.fillStyle(0xffcc4d, 1);
+    cabelo.fillEllipse(0, -14, 56, 30);
+    cabelo.fillEllipse(-22, -2, 18, 20);
+    cabelo.fillEllipse(22, -2, 18, 20);
+    // olhos
+    const olhoE = this.add.circle(-8, 2, 3, 0x222222);
+    const olhoD = this.add.circle(8, 2, 3, 0x222222);
+    // bochecha rosa
+    const bochE = this.add.circle(-12, 10, 4, 0xff9bb5, 0.7);
+    const bochD = this.add.circle(12, 10, 4, 0xff9bb5, 0.7);
+    // sorriso
+    const sorriso = this.add.graphics();
+    sorriso.lineStyle(2, 0x884422, 1);
+    sorriso.beginPath();
+    sorriso.arc(0, 12, 6, 0, Math.PI, false);
+    sorriso.strokePath();
+    // braço (pote de comida)
+    this.bracoDona = this.add.graphics();
+    this.bracoDona.fillStyle(0xffd6b5, 1);
+    this.bracoDona.fillRoundedRect(-6, 18, 12, 20, 4);
+    // pote de ração
+    this.poteDona = this.add.container(0, 45);
+    const pote = this.add.rectangle(0, 0, 36, 22, 0xff6fb5);
+    const tampa = this.add.rectangle(0, -10, 40, 6, 0xb53fa0);
+    const labelComida = this.add.text(0, 0, '🐟', { fontSize: '14px' }).setOrigin(0.5);
+    this.poteDona.add([pote, tampa, labelComida]);
+
+    this.dona.add([cabelo, cabeca, olhoE, olhoD, bochE, bochD, sorriso, this.bracoDona, this.poteDona]);
+
+    // nuvenzinha de fala da dona
+    this.nuvem = this.add.container(W / 2 + 80, 50);
+    const balao = this.add.graphics();
+    balao.fillStyle(0xffffff, 0.9);
+    balao.fillRoundedRect(-50, -18, 100, 36, 12);
+    balao.fillTriangle(-40, 16, -30, 16, -35, 26);
+    this.balaoTexto = this.add.text(0, 0, 'Vem comer!', {
+      fontSize: '16px',
+      color: '#b56fff',
+      fontStyle: 'bold'
+    }).setOrigin(0.5);
+    this.nuvem.add([balao, this.balaoTexto]);
+    this.nuvem.setAlpha(0);
+
+    // peixinho da Julia (controlado)
+    this.peixe = this.add.container(W / 2, H / 2);
+    this.peixeCorpo = this.add.graphics();
+    this.desenharPeixe(this.peixeCorpo, 0xff6fb5, 0xff9bd3);
+    // olho
+    this.peixeOlho = this.add.circle(8, -3, 4, 0xffffff);
+    this.peixePupila = this.add.circle(9, -3, 2, 0x222222);
+    this.peixe.add([this.peixeCorpo, this.peixeOlho, this.peixePupila]);
+    this.peixe.setSize(50, 30);
+
+    // tamanho atual do peixe (cresce comendo)
+    this.tamanhoPeixe = 1;
+
+    // peixinhos amigos (decoração, nadando aleatório)
+    this.amigos = [];
+    const cores = [
+      [0xffd16f, 0xffe7a8],
+      [0x6fb5ff, 0xa8d2ff],
+      [0xb56fff, 0xd2a8ff]
+    ];
+    for (let i = 0; i < 3; i++) {
+      const a = this.add.container(Phaser.Math.Between(80, W - 80), Phaser.Math.Between(120, H - 120));
+      const corpo = this.add.graphics();
+      this.desenharPeixe(corpo, cores[i][0], cores[i][1]);
+      const olho = this.add.circle(8, -3, 3, 0xffffff);
+      const pup = this.add.circle(9, -3, 1.5, 0x222222);
+      a.add([corpo, olho, pup]);
+      a.setScale(0.7);
+      a.dirX = Phaser.Math.Between(0, 1) ? 1 : -1;
+      a.velocidade = Phaser.Math.FloatBetween(0.5, 1.2);
+      if (a.dirX < 0) a.scaleX = -0.7;
+      this.amigos.push(a);
+    }
+
+    // bolhinhas
+    this.bolhas = [];
+    this.time.addEvent({
+      delay: 600,
+      loop: true,
+      callback: () => this.criarBolha()
+    });
+
+    // comidinhas (pellets de ração)
+    this.comidas = [];
+
+    // dona joga comida em intervalos
+    this.time.addEvent({
+      delay: 1500,
+      loop: true,
+      callback: () => this.donaJogaComida()
+    });
+
+    // mostra fala da dona às vezes
+    this.time.addEvent({
+      delay: 5000,
+      loop: true,
+      callback: () => this.donaFala()
+    });
+
+    // pontuação
+    this.pontos = 0;
+    this.placar = this.add.text(W / 2, 110, '⭐ 0', {
+      fontSize: '32px',
+      color: '#ffffff',
+      fontStyle: 'bold',
+      stroke: '#b56fff',
+      strokeThickness: 5
+    }).setOrigin(0.5).setScrollFactor(0);
+
+    // controles: setas + mouse/toque
+    this.cursors = this.input.keyboard.createCursorKeys();
+    this.alvo = null;
+    this.input.on('pointerdown', (p) => {
+      this.alvo = { x: p.x, y: p.y };
+    });
+    this.input.on('pointermove', (p) => {
+      if (p.isDown) this.alvo = { x: p.x, y: p.y };
+    });
+
+    // sons (oscillator simples)
+    this.audioCtx = null;
+
+    // movimento de respiração da dona
+    this.tweens.add({
+      targets: this.dona,
+      y: 50,
+      duration: 1500,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut'
+    });
+  }
+
+  desenharPlanta(x, y, cor) {
+    const g = this.add.graphics();
+    g.fillStyle(cor, 1);
+    for (let i = 0; i < 5; i++) {
+      g.fillEllipse(x + Math.sin(i) * 8, y - i * 18, 16 - i * 2, 28);
+    }
+    this.tweens.add({
+      targets: g,
+      angle: 4,
+      duration: 2000,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut'
+    });
+  }
+
+  desenharPeixe(g, corPrincipal, corClara) {
+    g.clear();
+    // corpo
+    g.fillStyle(corPrincipal, 1);
+    g.fillEllipse(0, 0, 40, 24);
+    // barriga clara
+    g.fillStyle(corClara, 1);
+    g.fillEllipse(0, 4, 30, 14);
+    // rabo
+    g.fillStyle(corPrincipal, 1);
+    g.fillTriangle(-18, 0, -30, -10, -30, 10);
+    // nadadeira de cima
+    g.fillTriangle(-2, -10, -10, -18, 6, -12);
+    // nadadeira de baixo
+    g.fillTriangle(-2, 10, -10, 16, 6, 12);
+  }
+
+  criarBolha() {
+    const x = Phaser.Math.Between(20, W - 20);
+    const b = this.add.circle(x, H + 10, Phaser.Math.Between(3, 8), 0xffffff, 0.4);
+    b.setStrokeStyle(1, 0xffffff, 0.6);
+    this.bolhas.push(b);
+    this.tweens.add({
+      targets: b,
+      y: -20,
+      duration: Phaser.Math.Between(4000, 7000),
+      ease: 'Sine.easeInOut',
+      onComplete: () => {
+        b.destroy();
+        this.bolhas = this.bolhas.filter(x => x !== b);
+      }
+    });
+  }
+
+  donaJogaComida() {
+    // animação do braço sacudindo
+    this.tweens.add({
+      targets: this.poteDona,
+      angle: -20,
+      duration: 200,
+      yoyo: true,
+      ease: 'Sine.easeInOut'
+    });
+
+    // joga 1-3 pellets
+    const qtd = Phaser.Math.Between(1, 3);
+    for (let i = 0; i < qtd; i++) {
+      this.time.delayedCall(i * 150, () => {
+        const x = this.dona.x + Phaser.Math.Between(-30, 30);
+        const y = 90;
+        const c = this.add.circle(x, y, 7, 0xff8833);
+        c.setStrokeStyle(1, 0xaa4400);
+        c.brilho = this.add.circle(x - 2, y - 2, 2, 0xffdd99);
+        this.comidas.push(c);
+        this.tocarSom(440, 0.05);
+      });
+    }
+  }
+
+  donaFala() {
+    const falas = ['Vem comer!', 'Olha o lanche!', 'Que fome!', 'Pega pega!', 'Nhami nhami!'];
+    this.balaoTexto.setText(Phaser.Utils.Array.GetRandom(falas));
+    this.tweens.add({
+      targets: this.nuvem,
+      alpha: 1,
+      duration: 300,
+      yoyo: true,
+      hold: 1500
+    });
+  }
+
+  tocarSom(freq, duracao = 0.1, tipo = 'sine') {
+    try {
+      if (!this.audioCtx) this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = this.audioCtx.createOscillator();
+      const gain = this.audioCtx.createGain();
+      osc.type = tipo;
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.2, this.audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, this.audioCtx.currentTime + duracao);
+      osc.connect(gain);
+      gain.connect(this.audioCtx.destination);
+      osc.start();
+      osc.stop(this.audioCtx.currentTime + duracao);
+    } catch (e) {}
+  }
+
+  tocarPlim() {
+    this.tocarSom(880, 0.1);
+    this.time.delayedCall(80, () => this.tocarSom(1320, 0.12));
+  }
+
+  update() {
+    // movimento do peixe — setas
+    let vx = 0, vy = 0;
+    if (this.cursors.left.isDown) vx = -3.5;
+    if (this.cursors.right.isDown) vx = 3.5;
+    if (this.cursors.up.isDown) vy = -3.5;
+    if (this.cursors.down.isDown) vy = 3.5;
+
+    // ou mouse/toque
+    if (this.alvo && vx === 0 && vy === 0) {
+      const dx = this.alvo.x - this.peixe.x;
+      const dy = this.alvo.y - this.peixe.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist > 5) {
+        vx = (dx / dist) * 3.5;
+        vy = (dy / dist) * 3.5;
+      }
+    }
+
+    this.peixe.x += vx;
+    this.peixe.y += vy;
+
+    // limites do aquário
+    this.peixe.x = Phaser.Math.Clamp(this.peixe.x, 30, W - 30);
+    this.peixe.y = Phaser.Math.Clamp(this.peixe.y, 100, H - 50);
+
+    // vira o peixe pra direção certa
+    if (vx > 0.1) this.peixe.scaleX = Math.abs(this.peixe.scaleX);
+    if (vx < -0.1) this.peixe.scaleX = -Math.abs(this.peixe.scaleX);
+
+    // ondinha sutil quando parado
+    if (Math.abs(vx) < 0.1 && Math.abs(vy) < 0.1) {
+      this.peixe.y += Math.sin(this.time.now / 400) * 0.3;
+    }
+
+    // peixinhos amigos nadam
+    for (const a of this.amigos) {
+      a.x += a.dirX * a.velocidade;
+      if (a.x < 30 || a.x > W - 30) {
+        a.dirX *= -1;
+        a.scaleX *= -1;
+      }
+      a.y += Math.sin(this.time.now / 500 + a.x) * 0.4;
+    }
+
+    // pupila do peixe segue o alvo (efeito fofo)
+    const targetPupX = vx > 0 ? 10 : (vx < 0 ? 8 : 9);
+    this.peixePupila.x = targetPupX;
+
+    // comidas caem e checam colisão
+    for (let i = this.comidas.length - 1; i >= 0; i--) {
+      const c = this.comidas[i];
+      c.y += 1.2;
+      if (c.brilho) {
+        c.brilho.x = c.x - 2;
+        c.brilho.y = c.y - 2;
+      }
+      // balança lateral suave
+      c.x += Math.sin((this.time.now + i * 100) / 300) * 0.5;
+
+      // colisão com peixe
+      const dx = c.x - this.peixe.x;
+      const dy = c.y - this.peixe.y;
+      const distP = Math.sqrt(dx * dx + dy * dy);
+      const raioPeixe = 22 * this.tamanhoPeixe;
+      if (distP < raioPeixe) {
+        // comeu!
+        this.comerComida(c);
+        this.comidas.splice(i, 1);
+        continue;
+      }
+
+      // saiu da tela ou caiu na areia
+      if (c.y > H - 30) {
+        if (c.brilho) c.brilho.destroy();
+        c.destroy();
+        this.comidas.splice(i, 1);
+      }
+    }
+  }
+
+  comerComida(c) {
+    if (c.brilho) c.brilho.destroy();
+    c.destroy();
+    this.pontos++;
+    this.placar.setText('⭐ ' + this.pontos);
+    this.tocarPlim();
+
+    // anima o placar pulando
+    this.tweens.add({
+      targets: this.placar,
+      scale: 1.4,
+      duration: 150,
+      yoyo: true,
+      ease: 'Back.easeOut'
+    });
+
+    // peixe cresce um tiquinho a cada comida (até um limite)
+    if (this.tamanhoPeixe < 1.6) {
+      this.tamanhoPeixe += 0.04;
+      this.tweens.add({
+        targets: this.peixe,
+        scaleX: this.peixe.scaleX > 0 ? this.tamanhoPeixe : -this.tamanhoPeixe,
+        scaleY: this.tamanhoPeixe,
+        duration: 200,
+        ease: 'Back.easeOut'
+      });
+    }
+
+    // emoji de coração subindo
+    const coracao = this.add.text(this.peixe.x, this.peixe.y - 20, '💖', { fontSize: '24px' }).setOrigin(0.5);
+    this.tweens.add({
+      targets: coracao,
+      y: this.peixe.y - 60,
+      alpha: 0,
+      duration: 800,
+      onComplete: () => coracao.destroy()
+    });
+  }
+}
+
+const config = {
+  type: Phaser.AUTO,
+  parent: 'game',
+  width: W,
+  height: H,
+  backgroundColor: '#6fc8ff',
+  scene: [Aquario],
+  scale: {
+    mode: Phaser.Scale.RESIZE,
+    autoCenter: Phaser.Scale.CENTER_BOTH
+  }
+};
+
+new Phaser.Game(config);
+</script>
+</body>
+</html>
