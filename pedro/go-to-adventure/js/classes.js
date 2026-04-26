@@ -35,12 +35,12 @@
     archer: {
       id: 'archer',
       name: 'Arqueiro',
-      desc: 'Alcance longo, ataque automático.',
+      desc: 'Alcance enorme — atira a tela inteira.',
       color: '#2a8',
       maxHp: 90,
       attack: 12,
       defense: 6,
-      atkRange: 6,           // tiles
+      atkRange: 20,          // tiles — atinge praticamente tudo na tela visível
       atkSpeed: 700,
       atkProjectile: 'arrow',
       sprite: 'archer',

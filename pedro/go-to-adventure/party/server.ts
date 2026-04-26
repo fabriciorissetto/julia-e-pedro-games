@@ -109,7 +109,7 @@ const CLASSES: Record<Classe, ClassDef> = {
   },
   archer: {
     maxHp: 90, attack: 12, defense: 6,
-    atkRange: 6, atkSpeed: 700, atkProjectile: "arrow",
+    atkRange: 20, atkSpeed: 700, atkProjectile: "arrow",
     skill: { id: "arrowRain", cooldown: 8000, range: 7, radius: 5, duration: 3000, dps: 8, slow: 0.5 },
     skill2: { id: "piercingShot", cooldown: 10000, length: 16, widthTiles: 1.2, damageMul: 4.0 },
   },
