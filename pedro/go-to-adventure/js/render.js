@@ -583,11 +583,25 @@
   }
 
   function wrapText(text, maxChars) {
+    // quebra por palavras, mas força quebra dentro de palavras maiores que maxChars
+    // (senão um "asdfghjklasdfghjkl" sem espaço estoura o balão)
     if (text.length <= maxChars) return [text];
     const words = text.split(' ');
     const lines = [];
     let cur = '';
-    for (const w of words) {
+    const pushChunkedWord = (word) => {
+      while (word.length > maxChars) {
+        lines.push(word.slice(0, maxChars));
+        word = word.slice(maxChars);
+      }
+      cur = word;
+    };
+    for (let w of words) {
+      if (w.length > maxChars) {
+        if (cur) { lines.push(cur); cur = ''; }
+        pushChunkedWord(w);
+        continue;
+      }
       if ((cur + ' ' + w).trim().length > maxChars) {
         if (cur) lines.push(cur);
         cur = w;
