@@ -419,6 +419,7 @@
     if (S.net.mode === 'online' && S.net.connected) {
       const ax = (sk.id === 'arrowRain') ? S.input.mouseWorldX : p.x;
       const ay = (sk.id === 'arrowRain') ? S.input.mouseWorldY : p.y;
+      if (window.GTA.Audio) window.GTA.Audio.play(sk.id === 'arcane' ? 'skillFire' : 'skillCast');
       window.GTA.Net.sendSkill(ax, ay);
       p.skillCooldown = sk.cooldown; // otimismo local
       return;
@@ -565,7 +566,9 @@
           p.atkCooldown = p.atkSpeed;
           if (window.GTA.World && window.GTA.World.harvestResource) {
             const res = window.GTA.World.harvestResource(bestR.id);
+            if (window.GTA.Audio) window.GTA.Audio.play('harvest');
             if (res && res.drop) {
+              if (window.GTA.Audio) window.GTA.Audio.play('pickup');
               addItem(res.drop.item, res.drop.qty || 1);
               if (window.GTA.UI) {
                 window.GTA.UI.floatingText({
@@ -642,6 +645,7 @@
       // animação local imediata pra feedback
       p.animState = 'attack';
       p.animUntil = S.now + 220;
+      if (window.GTA.Audio) window.GTA.Audio.play('attack');
       window.GTA.Net.sendAttack(mob ? mob.id : null);
       return;
     }

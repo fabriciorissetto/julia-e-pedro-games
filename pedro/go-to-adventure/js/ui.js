@@ -1026,6 +1026,7 @@
     for (const k in recipe.req) removeItemQty(k, recipe.req[k]);
     // adiciona resultado
     addItem(recipe.id, 1);
+    if (window.GTA.Audio) window.GTA.Audio.play('craft');
     toast('Craftado: ' + recipe.name, '#4fdb9b');
     // auto-equipa se nada equipado
     if (recipe.gives.type === 'weapon' && !S.equipped.weapon) {
@@ -1113,6 +1114,7 @@
     floatingText({ x: S.player.x, y: S.player.y - 24, text: `+${healed || info.heal}`, color: '#4fdb9b', size: 12 });
     slot.qty -= 1;
     if (slot.qty <= 0) S.inventory[slotIdx] = null;
+    if (window.GTA.Audio) window.GTA.Audio.play('pickup');
     toast('Usou poção (+' + info.heal + ' HP)', '#4fdb9b');
     return true;
   }

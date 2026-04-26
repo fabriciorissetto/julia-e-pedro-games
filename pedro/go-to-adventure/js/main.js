@@ -170,6 +170,10 @@
         setTimeout(() => nickEl.classList.remove('err'), 1500);
         return;
       }
+      if (window.GTA.Audio) {
+        window.GTA.Audio.unlock();
+        window.GTA.Audio.play('levelUp'); // som triunfal de início
+      }
       startGame(nick, chosen);
     });
 

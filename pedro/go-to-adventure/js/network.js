@@ -91,10 +91,13 @@
             for (const j of msg.jogadores) {
               if (j.id === state.net.myServerId) {
                 // só atualiza HP/level/xp do server; posição/cd ficam client-side
+                const oldLevel = state.player.level;
                 state.player.hp = j.hp; state.player.maxHp = j.maxHp;
                 state.player.xp = j.xp; state.player.level = j.level;
                 state.player.attack = j.attack; state.player.defense = j.defense;
                 state.player.alive = j.alive !== false;
+                // som triunfal de level up
+                if (j.level > oldLevel && window.GTA.Audio) window.GTA.Audio.play('levelUp');
                 continue;
               }
               seen.add(j.id);
@@ -151,6 +154,10 @@
             state.chat.history.push({ nick: msg.nickname || '?', text: msg.texto, t: now });
             if (state.chat.history.length > 30) state.chat.history.shift();
             state.chat.bubbles.set(msg.playerId, { text: msg.texto, until: now + BUBBLE_MS });
+            // som apenas se NÃO é meu eco (eu já vi via local-echo em sendChat)
+            if (window.GTA.Audio && msg.playerId !== state.net.myServerId) {
+              window.GTA.Audio.play('chatRecv');
+            }
           }
           break;
 
@@ -208,6 +215,7 @@
       state.chat.bubbles.set(myId, { text: t, until: Date.now() + BUBBLE_MS });
       state.chat.history.push({ nick: state.player.nickname, text: t, t: Date.now() });
       if (state.chat.history.length > 30) state.chat.history.shift();
+      if (window.GTA.Audio) window.GTA.Audio.play('chat');
       Net.send({ tipo: 'chat', texto: t });
     },
 
@@ -323,6 +331,11 @@
       const cx = msg.x, cy = msg.y;
       const r = (msg.raio || 3) * TILE;
 
+      // som: pra OUTROS jogadores (eu já toquei localmente em castSkill pra latência baixa)
+      if (window.GTA.Audio && !isMe) {
+        window.GTA.Audio.play(msg.skillId === 'arcane' ? 'skillFire' : 'skillCast');
+      }
+
       if (msg.skillId === 'arcane') {
         // FOGO INFERNAL DO MAGO — visível pra todos, gigante e bem destrutivo
         const visualR = r * 1.6; // visual maior que o raio de dano pra parecer impacto enorme
@@ -398,7 +411,16 @@
       if (UI && UI.floatingText) {
         UI.floatingText({ x: msg.x, y: msg.y - 16, text: '-' + msg.dano, color: msg.alvoTipo === 'jogador' ? '#ff5566' : '#ffeecc', size: 11 });
       }
+      // som: levei dano (se sou eu) ou bati em mob
+      if (window.GTA.Audio) {
+        if (msg.alvoTipo === 'jogador' && msg.alvoId === state.net.myServerId) {
+          window.GTA.Audio.play('playerHurt');
+        } else if (msg.alvoTipo === 'mob') {
+          window.GTA.Audio.play('hit');
+        }
+      }
     } else if (k === 'morte') {
+      if (window.GTA.Audio) window.GTA.Audio.play(msg.alvoTipo === 'mob' ? 'mobDie' : 'playerHurt');
       if (msg.alvoTipo === 'mob') {
         const m = state.mobs.get(msg.alvoId);
         if (m) m.alive = false;

@@ -34,17 +34,22 @@
       // toggles
       if (e.code === 'KeyI' || e.code === 'KeyB') {
         S.ui.inventoryOpen = !S.ui.inventoryOpen;
+        if (window.GTA.Audio) window.GTA.Audio.play(S.ui.inventoryOpen ? 'openPanel' : 'closePanel');
       }
       if (e.code === 'KeyC') {
         S.ui.craftingOpen = !S.ui.craftingOpen;
+        if (window.GTA.Audio) window.GTA.Audio.play(S.ui.craftingOpen ? 'openPanel' : 'closePanel');
       }
       if (e.code === 'KeyH' || e.code === 'F1') {
         S.ui.help = !S.ui.help;
+        if (window.GTA.Audio) window.GTA.Audio.play(S.ui.help ? 'openPanel' : 'closePanel');
       }
       if (e.code === 'Escape') {
+        const wasOpen = S.ui.inventoryOpen || S.ui.craftingOpen || S.ui.help;
         S.ui.inventoryOpen = false;
         S.ui.craftingOpen = false;
         S.ui.help = false;
+        if (wasOpen && window.GTA.Audio) window.GTA.Audio.play('closePanel');
       }
       if (e.code === 'Backquote') {
         S.debug.enabled = !S.debug.enabled;
@@ -77,6 +82,7 @@
       if (S.screen !== 'play') return;
       S.input.mouseDown = true;
       S.input.clicked = true;
+      if (window.GTA.Audio) window.GTA.Audio.play('click');
 
       // primeiro: UI consome clique?
       if (window.GTA.UI && window.GTA.UI.handleClick(S.input.mouseX, S.input.mouseY, e.button)) {
