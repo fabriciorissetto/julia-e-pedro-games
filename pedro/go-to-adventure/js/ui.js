@@ -488,7 +488,7 @@
 
     // tecla
     setFont(ctx, 8);
-    const key = '[ESPAÇO]';
+    const key = '[1]';
     const kw = ctx.measureText(key).width;
     fillTextShadow(ctx, key, r.x + (r.w - kw) / 2, r.y + r.h + 6, ready ? '#ffd24a' : '#8a96b0');
   }
@@ -866,8 +866,9 @@
 
     const lines = [
       ['WASD / Setas',  'Mover'],
-      ['Botão esq.',    'Atacar / Coletar / Menus'],
-      ['ESPAÇO / 1',    'Habilidade da classe'],
+      ['ESPAÇO',        'Ataque básico (auto-mira mais próximo)'],
+      ['1',             'Habilidade da classe'],
+      ['Botão esq.',    'Selecionar alvo / coletar / menus'],
       ['I / B',         'Inventário'],
       ['C',             'Receitas (crafting)'],
       ['H / F1',        'Esta ajuda'],
@@ -915,9 +916,9 @@
     panel(ctx, x, y, w, h, { bg: 'rgba(14,20,36,0.92)' });
     setFont(ctx, 8);
     const lines = [
-      'WASD mover  ·  Clique no inimigo pra ATACAR (auto-attack quando perto)',
-      'Clique numa árvore/pedra/ferro pra COLETAR  ·  ESPAÇO usa habilidade',
-      'I inventário  ·  C receitas  ·  H ajuda',
+      'WASD mover  ·  ESPAÇO ataca o inimigo mais próximo (auto-mira)',
+      '1 usa habilidade da classe  ·  Clique pra escolher um alvo',
+      'Clique numa árvore/pedra/ferro pra COLETAR  ·  I inv  ·  C receitas  ·  H ajuda',
     ];
     for (let i = 0; i < lines.length; i++) {
       const tw = ctx.measureText(lines[i]).width;

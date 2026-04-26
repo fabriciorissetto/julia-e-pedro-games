@@ -597,6 +597,51 @@
     S.player.target = targetId;
   }
 
+  // Ataque básico via espaço: auto-targeta o mob mais perto dentro do range de
+  // detecção (1.5x range da classe, mín 4 tiles). Vira pra ele e ataca já se
+  // estiver em range; se cd ainda ativo, ao menos vira/seleciona/anima swing.
+  function basicAttack() {
+    const p = S.player;
+    if (!p.alive) return;
+    const cls = window.GTA.Classes.get(p.cls) || {};
+    const rangePx = (p.atkRange || 1.4) * TILE;
+    const detectPx = Math.max(4 * TILE, rangePx * 1.5);
+
+    // 1) tenta usar target atual se ainda válido e perto
+    let mob = p.target ? S.mobs.get(p.target) : null;
+    if (!mob || mob.hp <= 0 || U.dist(p.x, p.y, mob.x, mob.y) > detectPx) {
+      mob = null;
+      // 2) auto-targeta mob mais perto
+      let nd = Infinity;
+      S.mobs.forEach(function (m) {
+        if (m.hp <= 0) return;
+        const d = U.dist(p.x, p.y, m.x, m.y);
+        if (d < nd && d <= detectPx) { nd = d; mob = m; }
+      });
+      if (mob) p.target = mob.id;
+    }
+
+    // 3) vira pra direção do alvo (se houver)
+    if (mob) {
+      const dx = mob.x - p.x, dy = mob.y - p.y;
+      if (Math.abs(dx) > Math.abs(dy)) p.facing = dx > 0 ? 'right' : 'left';
+      else p.facing = dy > 0 ? 'down' : 'up';
+    }
+
+    // 4) swing visual sempre — feedback instantâneo
+    p.animState = 'attack';
+    p.animUntil = S.now + 220;
+
+    // 5) se cd ativo ou alvo fora de range, só anima e sai (auto-attack pega depois)
+    if (p.atkCooldown > 0) return;
+    if (!mob) return;
+    const d = U.dist(p.x, p.y, mob.x, mob.y);
+    if (d > rangePx) return; // alvo selecionado mas fora de range — chega perto que o auto-attack pega
+
+    // 6) executa o ataque imediatamente — reaproveita o caminho do auto-attack
+    updatePlayerAttack(0);
+  }
+
   // ----- Update principal ---------------------------------------------------
 
   function update(dt) {
@@ -634,6 +679,7 @@
     spawnMobsInZones,
     handleWorldClick,
     attackTarget,
+    basicAttack,
     castSkill,
     addItem,
     ready: false,

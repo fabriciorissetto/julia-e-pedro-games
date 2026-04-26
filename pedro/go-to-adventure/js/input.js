@@ -37,8 +37,12 @@
       if (e.code === 'Backquote') {
         S.debug.enabled = !S.debug.enabled;
       }
-      // skill
-      if (e.code === 'Space' || e.code === 'Digit1') {
+      // ataque básico (espaço): auto-targeta mob mais perto se nada selecionado
+      if (e.code === 'Space') {
+        if (window.GTA.Combat) window.GTA.Combat.basicAttack();
+      }
+      // habilidade da classe
+      if (e.code === 'Digit1') {
         if (window.GTA.Combat) window.GTA.Combat.castSkill();
       }
     });
