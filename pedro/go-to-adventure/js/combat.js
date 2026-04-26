@@ -4,30 +4,19 @@
   const TILE = window.GTA.TILE;
   const U = window.GTA.util;
 
-  // Tipos base de mob — stats vêm do js/config.js (edite lá!)
-  const M = (window.GTA.Config && window.GTA.Config.MOBS) || {};
-  const NOMES = { slime: 'Slime', wolf: 'Lobo', golem: 'Golem', skeleton: 'Esqueleto', dragon: 'Dragão' };
-  const MOB_TYPES = {};
-  for (const k of Object.keys(M)) {
-    MOB_TYPES[k] = {
-      name: NOMES[k] || k,
-      maxHp: M[k].maxHp,
-      attack: M[k].attack,
-      defense: M[k].defense,
-      speed: M[k].speed,
-      attackRange: M[k].attackRange,
-      sightRange: M[k].sightRange,
-      attackCd: M[k].attackCdMs,
-      xpReward: M[k].xpReward,
-      sprite: k,
-    };
-  }
+  // Tipos base de mob
+  const MOB_TYPES = {
+    slime:    { name: 'Slime',     maxHp: 30,  attack: 6,  defense: 0, speed: 60,  attackRange: 1.0, sightRange: 5, attackCd: 1500, xpReward: 10, sprite: 'slime' },
+    wolf:     { name: 'Lobo',      maxHp: 55,  attack: 11, defense: 2, speed: 120, attackRange: 1.0, sightRange: 7, attackCd: 900,  xpReward: 25, sprite: 'wolf' },
+    golem:    { name: 'Golem',     maxHp: 180, attack: 18, defense: 8, speed: 35,  attackRange: 1.2, sightRange: 5, attackCd: 1800, xpReward: 80, sprite: 'golem' },
+    skeleton: { name: 'Esqueleto', maxHp: 90,  attack: 24, defense: 4, speed: 90,  attackRange: 1.2, sightRange: 8, attackCd: 1100, xpReward: 60, sprite: 'skeleton' },
+  };
 
   // Caps por zona e composição
   const ZONE_CFG = {
     safe:  { cap: 6,  mix: [['slime', 1.0]] },
     mid:   { cap: 12, mix: [['slime', 0.5], ['wolf', 0.5]] },
-    outer: { cap: 18, mix: [['wolf', 0.4], ['golem', 0.25], ['skeleton', 0.25], ['dragon', 0.1]] },
+    outer: { cap: 16, mix: [['wolf', 0.5], ['golem', 0.3], ['skeleton', 0.2]] },
   };
 
   // Multiplicadores de stats por zona
