@@ -524,17 +524,22 @@
     const now = Date.now();
     if (b.until <= now) return;
 
-    setBubbleFont();
-    const text = b.text;
-    // quebra texto em linhas se > 28 chars
-    const lines = wrapText(text, 28);
-    const lineH = 12;
-    const tw = Math.max(...lines.map(l => ctx.measureText(l).width));
-    const padX = 8, padY = 6;
-    const w = Math.ceil(tw) + padX * 2;
-    const h = lines.length * lineH + padY * 2;
+    // configura fonte e mede texto antes do layout
+    const FONT_SIZE = 11;
+    const LINE_H = FONT_SIZE + 4;
+    ctx.font = 'bold ' + FONT_SIZE + 'px monospace';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left';
+
+    const lines = wrapText(b.text, 26);
+    let tw = 0;
+    for (const line of lines) tw = Math.max(tw, Math.ceil(ctx.measureText(line).width));
+
+    const padX = 10, padY = 8;
+    const w = tw + padX * 2;
+    const h = lines.length * LINE_H + padY * 2;
     const x = Math.floor(cx - w / 2);
-    const y = Math.floor(baseY - h - 4);
+    const y = Math.floor(baseY - h - 6);
 
     // fade nos últimos 800ms
     const left = b.until - now;
@@ -564,18 +569,17 @@
     ctx.fillRect(bx - 2, y + h + 2, 1, 1);
     ctx.fillRect(bx + 1, y + h + 2, 1, 1);
 
-    // texto
+    // texto centralizado vertical (baseline middle)
     ctx.fillStyle = '#cfe1ff';
     for (let i = 0; i < lines.length; i++) {
-      const lw = ctx.measureText(lines[i]).width;
-      ctx.fillText(lines[i], Math.floor(x + (w - lw) / 2), y + padY + i * lineH);
+      const lw = Math.ceil(ctx.measureText(lines[i]).width);
+      const tx = Math.floor(x + (w - lw) / 2);
+      const ty = y + padY + i * LINE_H + LINE_H / 2;
+      ctx.fillText(lines[i], tx, ty);
     }
-    ctx.globalAlpha = prev;
-  }
-
-  function setBubbleFont() {
-    ctx.font = 'bold 9px monospace';
+    // restaura defaults pros próximos draws
     ctx.textBaseline = 'top';
+    ctx.globalAlpha = prev;
   }
 
   function wrapText(text, maxChars) {

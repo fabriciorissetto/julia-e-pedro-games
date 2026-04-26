@@ -42,7 +42,7 @@
         desc: 'Área alvo: dano contínuo + slow 50% por 3s.',
         cooldown: 8000,
         range: 7,
-        radius: 2.5,
+        radius: 5,
         duration: 3000,
         dps: 8,
         slow: 0.5,

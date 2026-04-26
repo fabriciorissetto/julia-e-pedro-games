@@ -44,7 +44,7 @@
     skill: { size: 64 },
     hotbar: { slot: 36, gap: 4, count: 6 },
     minimap: { size: 220, pad: 12 },
-    inventory: { w: 640, h: 420, slot: 64, gap: 8, cols: 5, rows: 4 },
+    inventory: { w: 720, h: 420, slot: 60, gap: 8, cols: 5, rows: 4 },
     crafting: { w: 560, h: 500, rowH: 72, gap: 8 },
   };
 
@@ -650,11 +650,19 @@
     const labels = { safe: 'SEGURA', mid: 'MÉDIA', outer: 'PERIGO' };
     const colors = { safe: '#4fdb9b', mid: '#ffd24a', outer: '#ff4f6f' };
     const txt = `ZONA ${labels[zone] || '?'}`;
-    setFont(ctx, 10);
-    const tw = ctx.measureText(txt).width;
-    const x = Math.floor(W / 2 - (tw + 28) / 2);
-    panel(ctx, x, 10, tw + 28, 28, { bg: 'rgba(14,20,36,0.85)' });
-    fillTextShadow(ctx, txt, x + 14, 19, colors[zone] || '#fff');
+    const FONT = 11;
+    setFont(ctx, FONT);
+    const tw = Math.ceil(ctx.measureText(txt).width);
+    const padX = 18, padY = 10;
+    const w = tw + padX * 2;
+    const h = FONT + padY * 2;
+    const x = Math.floor((W - w) / 2);
+    const y = 10;
+    panel(ctx, x, y, w, h, { bg: 'rgba(14,20,36,0.85)' });
+    // centraliza texto vertical e horizontal usando baseline middle
+    ctx.textBaseline = 'middle';
+    fillTextShadow(ctx, txt, x + padX, y + h / 2, colors[zone] || '#fff');
+    ctx.textBaseline = 'top';
   }
 
   // ---------- Toasts ----------
@@ -712,12 +720,7 @@
 
   function drawStatsPanel(ctx, x, y, w) {
     const p = S.player;
-    const padX = 12;
-    panel(ctx, x, y, w, 320, { bg: 'rgba(8,12,22,0.7)' });
-    setFont(ctx, 9);
-    let yy = y + 14;
-    fillTextShadow(ctx, 'ATRIBUTOS', x + padX, yy, '#ffd24a'); yy += 20;
-    setFont(ctx, 8);
+    const padX = 14;
     const lines = [
       ['HP',       `${Math.ceil(p.hp)}/${p.maxHp}`],
       ['ATAQUE',   String(p.attack)],
@@ -727,20 +730,38 @@
       ['NÍVEL',    String(p.level)],
       ['XP',       String(p.xp)],
     ];
+    // dimensiona o painel pelo conteúdo: 28 (header) + linhas + 28 (gap) + 18 (subhdr) + 26 (2 linhas) + padding
+    const totalH = 30 + lines.length * 16 + 24 + 20 + 30 + 14;
+    panel(ctx, x, y, w, totalH, { bg: 'rgba(8,12,22,0.7)' });
+
+    // título centralizado
+    setFont(ctx, 10);
+    const t1 = 'ATRIBUTOS';
+    const t1w = ctx.measureText(t1).width;
+    let yy = y + 14;
+    fillTextShadow(ctx, t1, x + (w - t1w) / 2, yy, '#ffd24a');
+    yy += 24;
+
+    setFont(ctx, 9);
     for (const [k, v] of lines) {
       fillTextShadow(ctx, k, x + padX, yy, '#a8b1c2');
       const vw = ctx.measureText(v).width;
       fillTextShadow(ctx, v, x + w - vw - padX, yy, '#fff');
-      yy += 14;
+      yy += 16;
     }
-    yy += 10;
-    setFont(ctx, 9);
-    fillTextShadow(ctx, 'EQUIPADO', x + padX, yy, '#ffd24a'); yy += 18;
+
+    yy += 14;
+    setFont(ctx, 10);
+    const t2 = 'EQUIPADO';
+    const t2w = ctx.measureText(t2).width;
+    fillTextShadow(ctx, t2, x + (w - t2w) / 2, yy, '#ffd24a');
+    yy += 22;
+
     setFont(ctx, 8);
     const wInfo = S.equipped.weapon ? getItemInfo(S.equipped.weapon) : null;
     const aInfo = S.equipped.armor  ? getItemInfo(S.equipped.armor)  : null;
-    fillTextShadow(ctx, 'Arma: '     + (wInfo ? wInfo.label : '—'), x + padX, yy, wInfo ? RARITY_COLOR[wInfo.rarity] : '#888'); yy += 13;
-    fillTextShadow(ctx, 'Armadura: ' + (aInfo ? aInfo.label : '—'), x + padX, yy, aInfo ? RARITY_COLOR[aInfo.rarity] : '#888'); yy += 13;
+    fillTextShadow(ctx, 'Arma: '     + (wInfo ? wInfo.label : '—'), x + padX, yy, wInfo ? RARITY_COLOR[wInfo.rarity] : '#888'); yy += 14;
+    fillTextShadow(ctx, 'Armadura: ' + (aInfo ? aInfo.label : '—'), x + padX, yy, aInfo ? RARITY_COLOR[aInfo.rarity] : '#888');
   }
 
   // ---------- Crafting ----------
@@ -858,7 +879,7 @@
     const W = S.canvasW, H = S.canvasH;
     ctx.fillStyle = 'rgba(0,0,0,0.55)';
     ctx.fillRect(0, 0, W, H);
-    const w = 420, h = 280;
+    const w = 560, h = 320;
     const x = Math.floor((W - w) / 2), y = Math.floor((H - h) / 2);
     panel(ctx, x, y, w, h);
     setFont(ctx, 12);
@@ -877,14 +898,17 @@
       ['ESC',           'Fechar painéis / chat'],
     ];
     setFont(ctx, 8);
+    const colSplit = x + 200; // coluna de descrição começa aqui (mais espaço pras teclas longas)
     let yy = y + 50;
     for (const [k, v] of lines) {
-      fillTextShadow(ctx, k, x + 26, yy, '#4f9bff');
-      fillTextShadow(ctx, v, x + 200, yy, '#cfe1ff');
-      yy += 18;
+      fillTextShadow(ctx, k, x + 24, yy, '#4f9bff');
+      fillTextShadow(ctx, v, colSplit, yy, '#cfe1ff');
+      yy += 20;
     }
     setFont(ctx, 7);
-    fillTextShadow(ctx, '[H] pra fechar', x + (w - 80) / 2, y + h - 22, '#a8b1c2');
+    const close = '[H] pra fechar';
+    const cw = ctx.measureText(close).width;
+    fillTextShadow(ctx, close, x + (w - cw) / 2, y + h - 22, '#a8b1c2');
   }
 
   // ---------- Death overlay ----------
