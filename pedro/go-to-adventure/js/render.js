@@ -413,12 +413,21 @@
     }
   }
 
+  // Escala do personagem por classe.
+  // +50% pra todos; warrior leva +20% extra (= 1.5 * 1.2 = 1.8).
+  function playerScale(cls) {
+    return cls === 'warrior' ? 1.8 : 1.5;
+  }
+
   function drawPlayerSprite(p, state, camX, camY) {
     const Sprites = window.GTA.Sprites;
     const name = (window.GTA.Classes.get(p.cls) || {}).sprite || 'warrior';
     const sz = Sprites.getSize ? Sprites.getSize(name) : { w: 32, h: 48 };
-    const w = (sz && sz.w) || 32;
-    const h = (sz && sz.h) || 48;
+    const baseW = (sz && sz.w) || 32;
+    const baseH = (sz && sz.h) || 48;
+    const sc = playerScale(p.cls);
+    const w = Math.round(baseW * sc);
+    const h = Math.round(baseH * sc);
     const dir = dirIndex(p.facing);
 
     // animState expira sozinho pra outros players (player local é cuidado em player.js)
@@ -439,9 +448,10 @@
     const frame = (action === 'attack' || action === 'cast')
       ? (p.animActionFrame | 0)
       : (p.moving ? (p.animFrame | 0) : 0);
+    // ancora os pés mesmo com escala — `+ 16` original era margem do sprite
     const px = Math.floor(p.x - camX - w / 2);
-    const py = Math.floor(p.y - camY - h + 16);
-    const opts = { dir: dir, action: action };
+    const py = Math.floor(p.y - camY - h + Math.round(16 * sc));
+    const opts = { dir: dir, action: action, scale: sc };
     if (p.lastDmgFlash && p.lastDmgFlash > state.now - 200) {
       opts.tint = '#f44';
     }
@@ -500,9 +510,10 @@
   function drawPlayerNameplate(p, camX, camY) {
     const Sprites = window.GTA.Sprites;
     const sz = Sprites.getSize ? Sprites.getSize((window.GTA.Classes.get(p.cls) || {}).sprite || 'warrior') : { w: 32, h: 48 };
-    const h = (sz && sz.h) || 48;
+    const sc = playerScale(p.cls);
+    const h = ((sz && sz.h) || 48) * sc;
     const cx = Math.floor(p.x - camX);
-    const top = Math.floor(p.y - camY - h + 8);
+    const top = Math.floor(p.y - camY - h + Math.round(8 * sc));
     const name = p.nickname || 'Hero';
     const lvl = 'Lv ' + (p.level || 1);
     drawText(lvl, cx, top - 32, '#ffd24a', 9, 'center');
