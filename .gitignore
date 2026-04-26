@@ -10,3 +10,4 @@ Thumbs.db
 .claude/settings.local.json
 .claude/scripts/
 .partykit/
+*.tiled-session
