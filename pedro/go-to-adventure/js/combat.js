@@ -247,6 +247,8 @@
 
     const cls = window.GTA.Classes.get(p.cls);
     p.atkCooldown = p.atkSpeed;
+    p.animState = 'attack';
+    p.animUntil = S.now + 220;
 
     if (!cls.atkProjectile) {
       // melee — hit instantâneo
@@ -409,6 +411,9 @@
     const cls = window.GTA.Classes.get(p.cls);
     if (!cls || !cls.skill) return;
     const sk = cls.skill;
+
+    p.animState = 'cast';
+    p.animUntil = S.now + 380;
 
     if (sk.id === 'taunt') {
       p.buffs.taunt = { until: S.now + sk.duration, reduction: sk.damageReduction };

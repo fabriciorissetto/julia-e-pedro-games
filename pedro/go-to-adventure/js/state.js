@@ -39,6 +39,9 @@
       facing: 'down', // 'up'|'down'|'left'|'right'
       moving: false,
       animFrame: 0,
+      animState: 'idle', // 'idle'|'walk'|'attack'|'cast'
+      animUntil: 0,      // ms — quando 'attack'/'cast' expira voltando pra 'idle'/'walk'
+      animActionFrame: 0, // 0..N-1 dentro da action de attack/cast
       hp: 100, maxHp: 100,
       xp: 0,
       level: 1,
@@ -71,8 +74,8 @@
     projectiles: [],       // {x,y,tx,ty,speed,kind,fromId,target,damage,life}
     shake: { mag: 0, until: 0 },
 
-    // câmera
-    camera: { x: 0, y: 0, zoom: 1 },
+    // câmera (zoom 1.25 = um pouco mais perto do player)
+    camera: { x: 0, y: 0, zoom: 1.25 },
 
     // input
     input: {

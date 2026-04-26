@@ -38,6 +38,16 @@
       p.animFrame = 0;
     }
 
+    // animState: attack/cast têm prioridade sobre walk/idle até expirar
+    if (p.animUntil > S.now) {
+      const total = p.animState === 'attack' ? 220 : 380;
+      const elapsed = total - (p.animUntil - S.now);
+      p.animActionFrame = window.GTA.util.clamp(Math.floor(elapsed / total * 4), 0, 3);
+    } else {
+      p.animState = moving ? 'walk' : 'idle';
+      p.animActionFrame = 0;
+    }
+
     // limita ao mundo
     p.x = window.GTA.util.clamp(p.x, TILE * 0.5, (window.GTA.WORLD_W - 0.5) * TILE);
     p.y = window.GTA.util.clamp(p.y, TILE * 0.5, (window.GTA.WORLD_H - 0.5) * TILE);

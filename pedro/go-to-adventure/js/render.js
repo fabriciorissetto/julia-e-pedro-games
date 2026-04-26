@@ -209,15 +209,18 @@
       fpsCount = 0;
     }
 
-    // (a) câmera com lerp + clamp ao mundo
-    const targetX = player.x - cw / 2;
-    const targetY = player.y - ch / 2;
+    // (a) câmera com lerp + clamp ao mundo. zoom 1.25x via scale.
+    const zoom = (state.camera && state.camera.zoom) || 1.25;
+    const vw = cw / zoom;
+    const vh = ch / zoom;
+    const targetX = player.x - vw / 2;
+    const targetY = player.y - vh / 2;
     state.camera.x = lerp(state.camera.x, targetX, 0.15);
     state.camera.y = lerp(state.camera.y, targetY, 0.15);
     const worldPxW = state.world.w * TILE;
     const worldPxH = state.world.h * TILE;
-    state.camera.x = clamp(state.camera.x, 0, Math.max(0, worldPxW - cw));
-    state.camera.y = clamp(state.camera.y, 0, Math.max(0, worldPxH - ch));
+    state.camera.x = clamp(state.camera.x, 0, Math.max(0, worldPxW - vw));
+    state.camera.y = clamp(state.camera.y, 0, Math.max(0, worldPxH - vh));
 
     // (b) screen shake
     let shakeX = 0, shakeY = 0;
@@ -240,9 +243,13 @@
       return;
     }
 
+    // mundo+entidades em espaço escalado; UI fica fora pra manter tamanho real
+    ctx.save();
+    ctx.scale(zoom, zoom);
+
     // (d) tiles visíveis
     const waterFrame = Math.floor(state.now / 200) % 4;
-    const rect = World.getTilesPxRect(camX, camY, cw, ch);
+    const rect = World.getTilesPxRect(camX, camY, vw, vh);
     for (let ty = rect.ty0; ty <= rect.ty1; ty++) {
       for (let tx = rect.tx0; tx <= rect.tx1; tx++) {
         const code = World.tileAt(tx, ty);
@@ -263,8 +270,8 @@
     const margin = TILE * 2;
     const viewL = camX - margin;
     const viewT = camY - margin;
-    const viewR = camX + cw + margin;
-    const viewB = camY + ch + margin;
+    const viewR = camX + vw + margin;
+    const viewB = camY + vh + margin;
 
     const drawables = [];
 
@@ -348,6 +355,9 @@
       ctx.globalAlpha = 1;
     }
 
+    // sai do espaço escalado: UI desenha em coords reais
+    ctx.restore();
+
     // (o) UI/HUD
     if (window.GTA.UI && window.GTA.UI.draw) {
       window.GTA.UI.draw(ctx);
@@ -408,14 +418,18 @@
     const w = (sz && sz.w) || 32;
     const h = (sz && sz.h) || 48;
     const dir = dirIndex(p.facing);
-    const animFrame = p.moving ? (p.animFrame | 0) : 0;
+    // frame depende de animState: walk usa animFrame; attack/cast usa animActionFrame
+    const action = p.animState || (p.moving ? 'walk' : 'idle');
+    const frame = (action === 'attack' || action === 'cast')
+      ? (p.animActionFrame | 0)
+      : (p.moving ? (p.animFrame | 0) : 0);
     const px = Math.floor(p.x - camX - w / 2);
     const py = Math.floor(p.y - camY - h + 16);
-    const opts = { dir: dir };
+    const opts = { dir: dir, action: action };
     if (p.lastDmgFlash && p.lastDmgFlash > state.now - 200) {
       opts.tint = '#f44';
     }
-    Sprites.draw(ctx, name, px, py, animFrame, opts);
+    Sprites.draw(ctx, name, px, py, frame, opts);
   }
 
   function drawPlayer(p, state, camX, camY) {
@@ -435,6 +449,20 @@
     const frame = Math.floor(state.now / 150) % 4;
     const px = Math.floor(m.x - camX - w / 2);
     const py = Math.floor(m.y - camY - h + 16);
+
+    // aro pulsante embaixo se for o alvo do player
+    if (state.player && state.player.target === m.id) {
+      const pulse = (Math.sin(state.now / 180) + 1) * 0.5;
+      const baseY = py + h - 4;
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255, 79, 111, ' + (0.55 + pulse * 0.4) + ')';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(px + w / 2, baseY, 14 + pulse * 3, 5 + pulse, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
     const opts = {};
     if (m.lastDmgFlash && m.lastDmgFlash > state.now - 150) opts.tint = '#fff';
     if (m.stunUntil && m.stunUntil > state.now) opts.tint = '#ff0';

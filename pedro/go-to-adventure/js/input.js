@@ -16,6 +16,8 @@
         e.preventDefault();
       }
       S.input.keys.add(e.code);
+      // ignora auto-repeat pra toggles/skill — só age na 1ª pressão
+      if (e.repeat) return;
 
       // toggles
       if (e.code === 'KeyI' || e.code === 'KeyB') {

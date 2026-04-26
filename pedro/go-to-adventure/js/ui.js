@@ -44,7 +44,7 @@
     skill: { size: 64 },
     hotbar: { slot: 36, gap: 4, count: 6 },
     minimap: { size: 160, pad: 12 },
-    inventory: { w: 480, h: 440, slot: 64, gap: 8, cols: 5, rows: 4 },
+    inventory: { w: 640, h: 420, slot: 64, gap: 8, cols: 5, rows: 4 },
     crafting: { w: 560, h: 500, rowH: 72, gap: 8 },
   };
 
@@ -54,7 +54,8 @@
 
   // Tutorial inicial
   let tutorialStart = 0;
-  const TUTORIAL_MS = 5000;
+  const TUTORIAL_MS = 9000;
+  let craftingNotified = false; // primeira vez que dá pra craftar uma poção, avisa
 
   // ---------- Helpers de desenho ----------
 
@@ -360,6 +361,7 @@
     if (S.ui.craftingOpen)  drawCraftingPanel(ctx);
 
     drawTutorial(ctx);
+    drawContextHint(ctx);
 
     if (S.ui.help) drawHelpOverlay(ctx);
 
@@ -486,7 +488,7 @@
 
     // tecla
     setFont(ctx, 8);
-    const key = '[SPACE]';
+    const key = '[ESPAÇO]';
     const kw = ctx.measureText(key).width;
     fillTextShadow(ctx, key, r.x + (r.w - kw) / 2, r.y + r.h + 6, ready ? '#ffd24a' : '#8a96b0');
   }
@@ -506,7 +508,7 @@
       fillTextShadow(ctx, String(i + 1), sx + 2, r.y + 2, '#cfe1ff');
     }
     setFont(ctx, 7);
-    fillTextShadow(ctx, '[I] Inventário · [C] Crafting', r.x, r.y + r.h + 8, '#a8b1c2');
+    fillTextShadow(ctx, '[I] Inventário · [C] Receitas', r.x, r.y + r.h + 8, '#a8b1c2');
   }
 
   function drawSlot(ctx, sx, sy, size, slot, hovered) {
@@ -645,9 +647,9 @@
     if (window.GTA.World && window.GTA.World.getZone) {
       zone = window.GTA.World.getZone(Math.floor(S.player.x / TILE), Math.floor(S.player.y / TILE));
     }
-    const labels = { safe: 'SAFE', mid: 'MID', outer: 'OUTER' };
+    const labels = { safe: 'SEGURA', mid: 'MÉDIA', outer: 'PERIGO' };
     const colors = { safe: '#4fdb9b', mid: '#ffd24a', outer: '#ff4f6f' };
-    const txt = `Zona: ${labels[zone] || '?'}`;
+    const txt = `ZONA ${labels[zone] || '?'}`;
     setFont(ctx, 10);
     const tw = ctx.measureText(txt).width;
     const x = Math.floor(W / 2 - (tw + 28) / 2);
@@ -710,34 +712,35 @@
 
   function drawStatsPanel(ctx, x, y, w) {
     const p = S.player;
+    const padX = 12;
     panel(ctx, x, y, w, 320, { bg: 'rgba(8,12,22,0.7)' });
+    setFont(ctx, 9);
+    let yy = y + 14;
+    fillTextShadow(ctx, 'ATRIBUTOS', x + padX, yy, '#ffd24a'); yy += 20;
     setFont(ctx, 8);
-    let yy = y + 12;
-    fillTextShadow(ctx, 'STATS', x + 10, yy, '#ffd24a'); yy += 16;
-    setFont(ctx, 7);
     const lines = [
-      ['HP',     `${Math.ceil(p.hp)}/${p.maxHp}`],
-      ['ATK',    String(p.attack)],
-      ['DEF',    String(p.defense)],
-      ['RANGE',  String(p.atkRange)],
-      ['ATK SP', String(p.atkSpeed)],
-      ['LVL',    String(p.level)],
-      ['XP',     String(p.xp)],
+      ['HP',       `${Math.ceil(p.hp)}/${p.maxHp}`],
+      ['ATAQUE',   String(p.attack)],
+      ['DEFESA',   String(p.defense)],
+      ['ALCANCE',  String(p.atkRange)],
+      ['VEL ATQ',  String(p.atkSpeed)],
+      ['NÍVEL',    String(p.level)],
+      ['XP',       String(p.xp)],
     ];
     for (const [k, v] of lines) {
-      fillTextShadow(ctx, k, x + 10, yy, '#a8b1c2');
+      fillTextShadow(ctx, k, x + padX, yy, '#a8b1c2');
       const vw = ctx.measureText(v).width;
-      fillTextShadow(ctx, v, x + w - vw - 10, yy, '#fff');
-      yy += 12;
+      fillTextShadow(ctx, v, x + w - vw - padX, yy, '#fff');
+      yy += 14;
     }
-    yy += 8;
+    yy += 10;
+    setFont(ctx, 9);
+    fillTextShadow(ctx, 'EQUIPADO', x + padX, yy, '#ffd24a'); yy += 18;
     setFont(ctx, 8);
-    fillTextShadow(ctx, 'EQUIPADO', x + 10, yy, '#ffd24a'); yy += 14;
-    setFont(ctx, 7);
     const wInfo = S.equipped.weapon ? getItemInfo(S.equipped.weapon) : null;
     const aInfo = S.equipped.armor  ? getItemInfo(S.equipped.armor)  : null;
-    fillTextShadow(ctx, 'arma:  ' + (wInfo ? wInfo.label : '—'), x + 10, yy, wInfo ? RARITY_COLOR[wInfo.rarity] : '#888'); yy += 11;
-    fillTextShadow(ctx, 'arm.:  ' + (aInfo ? aInfo.label : '—'), x + 10, yy, aInfo ? RARITY_COLOR[aInfo.rarity] : '#888'); yy += 11;
+    fillTextShadow(ctx, 'Arma: '     + (wInfo ? wInfo.label : '—'), x + padX, yy, wInfo ? RARITY_COLOR[wInfo.rarity] : '#888'); yy += 13;
+    fillTextShadow(ctx, 'Armadura: ' + (aInfo ? aInfo.label : '—'), x + padX, yy, aInfo ? RARITY_COLOR[aInfo.rarity] : '#888'); yy += 13;
   }
 
   // ---------- Crafting ----------
@@ -746,7 +749,7 @@
     const r = craftingRect();
     panel(ctx, r.x, r.y, r.w, r.h);
     setFont(ctx, 12);
-    fillTextShadow(ctx, 'CRAFTING', r.x + 18, r.y + 18, '#ffd24a');
+    fillTextShadow(ctx, 'RECEITAS', r.x + 18, r.y + 18, '#ffd24a');
     drawCloseButton(ctx, r);
 
     const listX = r.x + 18;
@@ -862,14 +865,14 @@
     fillTextShadow(ctx, 'CONTROLES', x + 18, y + 18, '#ffd24a');
 
     const lines = [
-      ['WASD / Setas', 'Mover'],
-      ['Click esq.',   'Atacar / Coletar / UI'],
-      ['SPACE / 1',    'Skill da classe'],
-      ['I / B',        'Inventário'],
-      ['C',            'Crafting'],
-      ['H / F1',       'Esta ajuda'],
-      ['~',            'Debug'],
-      ['ESC',          'Fechar painéis'],
+      ['WASD / Setas',  'Mover'],
+      ['Botão esq.',    'Atacar / Coletar / Menus'],
+      ['ESPAÇO / 1',    'Habilidade da classe'],
+      ['I / B',         'Inventário'],
+      ['C',             'Receitas (crafting)'],
+      ['H / F1',        'Esta ajuda'],
+      ['~',             'Modo debug'],
+      ['ESC',           'Fechar painéis'],
     ];
     setFont(ctx, 8);
     let yy = y + 50;
@@ -906,15 +909,79 @@
     if (elapsed > TUTORIAL_MS) return;
     const fade = clamp((TUTORIAL_MS - elapsed) / 600, 0, 1);
     const W = S.canvasW, H = S.canvasH;
-    const w = 620, h = 36;
-    const x = Math.floor((W - w) / 2), y = H - 180;
+    const w = 700, h = 50;
+    const x = Math.floor((W - w) / 2), y = H - 200;
     ctx.globalAlpha = fade;
     panel(ctx, x, y, w, h, { bg: 'rgba(14,20,36,0.92)' });
     setFont(ctx, 8);
-    const t = 'Use WASD pra mover · Clique no inimigo pra atacar · SPACE pra skill';
-    const tw = ctx.measureText(t).width;
-    fillTextShadow(ctx, t, x + (w - tw) / 2, y + 14, '#ffd24a');
+    const lines = [
+      'WASD mover  ·  Clique no inimigo pra ATACAR (auto-attack quando perto)',
+      'Clique numa árvore/pedra/ferro pra COLETAR  ·  ESPAÇO usa habilidade',
+      'I inventário  ·  C receitas  ·  H ajuda',
+    ];
+    for (let i = 0; i < lines.length; i++) {
+      const tw = ctx.measureText(lines[i]).width;
+      fillTextShadow(ctx, lines[i], x + (w - tw) / 2, y + 8 + i * 12, '#ffd24a');
+    }
     ctx.globalAlpha = 1;
+  }
+
+  // Hint contextual no rodape: aparece quando player esta perto de um recurso
+  // ou quando tem materiais pra craftar pelo menos 1 receita.
+  function drawContextHint(ctx) {
+    if (S.ui.inventoryOpen || S.ui.craftingOpen || S.ui.help) return;
+    const W = S.canvasW, H = S.canvasH;
+    const p = S.player;
+    const hintY = H - 230;
+
+    // 1) recurso proximo
+    let nearestRes = null, nd = Infinity;
+    const range = (p.atkRange || 1.6) * 32 + 28;
+    if (window.GTA.World && S.resources) {
+      S.resources.forEach(function (r) {
+        if (r.respawnAt > S.now) return;
+        if (r.hits >= r.maxHits) return;
+        const d = Math.hypot(r.x - p.x, r.y - p.y);
+        if (d < range && d < nd) { nd = d; nearestRes = r; }
+      });
+    }
+    if (nearestRes) {
+      const labels = { tree: 'Madeira', rock: 'Pedra', iron: 'Ferro' };
+      const label = labels[nearestRes.type] || nearestRes.type;
+      const t = 'Clique pra coletar ' + label;
+      drawHintLabel(ctx, t, W / 2, hintY, '#5cf78a');
+      return;
+    }
+
+    // 2) tem materiais pra craftar?
+    let craftableName = null;
+    for (let i = 0; i < RECIPES.length; i++) {
+      const rec = RECIPES[i];
+      let ok = true;
+      for (const k in rec.req) {
+        if (countItem(k) < rec.req[k]) { ok = false; break; }
+      }
+      if (ok) { craftableName = rec.name; break; }
+    }
+    if (craftableName) {
+      // toast unico na primeira vez
+      if (!craftingNotified) {
+        craftingNotified = true;
+        toast('Materiais OK! Aperte C pra craftar.', '#ffd24a');
+      }
+      const t = 'C: craftar ' + craftableName;
+      drawHintLabel(ctx, t, W / 2, hintY, '#ffd24a');
+    }
+  }
+
+  function drawHintLabel(ctx, text, cx, cy, color) {
+    setFont(ctx, 9);
+    const padX = 14, padY = 8;
+    const tw = ctx.measureText(text).width;
+    const w = tw + padX * 2, h = 22;
+    const x = Math.floor(cx - w / 2), y = Math.floor(cy);
+    panel(ctx, x, y, w, h, { bg: 'rgba(14,20,36,0.88)' });
+    fillTextShadow(ctx, text, x + padX, y + padY, color);
   }
 
   // ---------- Crafting / equip / use ----------
