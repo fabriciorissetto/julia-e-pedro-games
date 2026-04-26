@@ -18,6 +18,20 @@
     }
     .voltar:hover { background: rgba(0,0,0,0.8); }
 
+    .seletor-mapa {
+      position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+      display: flex; gap: 4px;
+      background: rgba(0,0,0,0.5); padding: 4px; border-radius: 8px;
+      font-family: sans-serif; font-size: 14px; z-index: 10;
+    }
+    .seletor-mapa a {
+      color: white; text-decoration: none;
+      padding: 6px 12px; border-radius: 6px;
+      transition: background 0.15s;
+    }
+    .seletor-mapa a:hover { background: rgba(255,255,255,0.15); }
+    .seletor-mapa a.ativo { background: rgba(255,255,255,0.25); font-weight: bold; }
+
     .aviso {
       color: white; max-width: 600px; padding: 32px;
       background: #2d1b3d; border-radius: 16px; line-height: 1.6;
@@ -31,6 +45,11 @@
 </head>
 <body>
   <a class="voltar" href="../">← Voltar</a>
+  <nav class="seletor-mapa" id="seletor-mapa">
+    <a href="?mapa=inicial" data-mapa="inicial">🏝️ Inicial</a>
+    <a href="?mapa=mundojulia" data-mapa="mundojulia">👧 Julia</a>
+    <a href="?mapa=mundopedro" data-mapa="mundopedro">👦 Pedro</a>
+  </nav>
   <div id="game"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
@@ -38,20 +57,30 @@
     const VELOCIDADE = 180;
 
     // Linha do spritesheet pra cada direção (player_walk.png e player_idle.png).
-    // Cada arquivo é 4x4 frames de 96x96. Se uma direção aparecer errada
-    // no jogo, é só trocar os números aqui.
-    const LINHA_DIRECAO = { down: 0, left: 1, right: 2, up: 3 };
+    // Cada arquivo é 4x4 frames de 96x96.
+    // Layout schwarnhild: row 0=down (frente), row 1=left, row 2=up (costas),
+    // row 3=right. Validado pelo teste "player vira pra direita ao andar pra direita".
+    const LINHA_DIRECAO = { down: 0, left: 1, up: 2, right: 3 };
 
     // Cache-busting: força o browser a sempre buscar a versão mais nova do
     // mapa e tilesets. Sem isso, Cmd+S no Tiled nem sempre reflete no F5.
     const noCache = `?t=${Date.now()}`;
+
+    // Qual mapa carregar — vem do ?mapa=<nome> da URL. Default: inicial.
+    // Validação: só aceita [a-zA-Z0-9_-] pra evitar path traversal.
+    const params = new URLSearchParams(location.search);
+    const mapaNome = (params.get('mapa') || 'inicial').replace(/[^a-zA-Z0-9_-]/g, '');
+
+    // Marca o link do mapa atual como ativo no seletor
+    const linkAtivo = document.querySelector(`#seletor-mapa a[data-mapa="${mapaNome}"]`);
+    if (linkAtivo) linkAtivo.classList.add('ativo');
 
     // Lê o .tmj antes de iniciar pra descobrir quais imagens de tileset
     // precisam ser pré-carregadas (Tiled embute o caminho da imagem).
     async function init() {
       let mapaJson;
       try {
-        const r = await fetch(`./assets/maps/mundinho.tmj${noCache}`);
+        const r = await fetch(`./assets/maps/${mapaNome}.tmj${noCache}`);
         if (!r.ok) throw new Error('fail');
         mapaJson = await r.json();
       } catch {
@@ -62,7 +91,7 @@
         constructor() { super('Mundinho'); }
 
         preload() {
-          this.load.tilemapTiledJSON('mapa', `./assets/maps/mundinho.tmj${noCache}`);
+          this.load.tilemapTiledJSON('mapa', `./assets/maps/${mapaNome}.tmj${noCache}`);
           // Cada tileset embutido no .tmj tem um campo "image" relativo ao
           // próprio .tmj. Carrega cada um com a key "ts_<nome>".
           mapaJson.tilesets.forEach(ts => {
