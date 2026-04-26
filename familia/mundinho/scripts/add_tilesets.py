@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
 """
-Adiciona PNGs de tileset ao mundinho.tmj — calcula firstgid, columns,
+Adiciona PNGs de tileset a um mapa .tmj — calcula firstgid, columns,
 tilecount automaticamente. Funciona sem dependências extras (não usa PIL).
 
 Uso:
-    python3 scripts/add_tilesets.py <pngs...>
+    python3 scripts/add_tilesets.py [--map <nome>] <pngs...>
 
-Cada arg é um caminho pra PNG, relativo à raiz mundinho/ ou absoluto.
+Argumentos:
+    --map <nome>   Mapa alvo (default: inicial). Carrega assets/maps/<nome>.tmj.
+                   Mapas disponíveis: inicial, mundojulia, mundopedro, test-paredes.
+    <pngs...>      Caminhos pra PNGs, relativos à raiz mundinho/ ou absolutos.
+
 Exemplo:
     python3 scripts/add_tilesets.py \\
-        assets/tilesets/caves-dungeons/tiles-all-32x32.png \\
-        assets/tilesets/beach/beach_tiles.png
+        --map mundojulia \\
+        assets/tilesets/caves-dungeons/tiles-all-32x32.png
 
 Comportamento:
 - Pula PNGs cujas dimensões não são múltiplas de 32 (não casam com tiles
@@ -20,13 +24,14 @@ Comportamento:
 - Nome do tileset = nome do arquivo sem extensão, prefixado com a pasta
   pai (ex: "caves-dungeons/tiles-all-32x32.png" → "caves_dungeons_tiles_all_32x32").
 """
+import argparse
 import json
 import struct
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent  # familia/mundinho/
-MAP_PATH = ROOT / "assets" / "maps" / "mundinho.tmj"
+MAPS_DIR = ROOT / "assets" / "maps"
 TILE = 32
 
 
@@ -49,11 +54,29 @@ def nome_amigavel(png_abs: Path) -> str:
 
 
 def main(argv: list[str]) -> int:
-    if not argv:
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--map", dest="mapa", default="inicial")
+    parser.add_argument("pngs", nargs="*")
+    parser.add_argument("-h", "--help", action="store_true")
+    args = parser.parse_args(argv)
+
+    if args.help:
+        print(__doc__)
+        return 0
+
+    map_path = MAPS_DIR / f"{args.mapa}.tmj"
+    if not map_path.is_file():
+        print(f"✗ Mapa não encontrado: {map_path.relative_to(ROOT)}")
+        disponiveis = sorted(p.stem for p in MAPS_DIR.glob("*.tmj"))
+        print(f"  Disponíveis: {', '.join(disponiveis)}")
+        return 1
+
+    if not args.pngs:
         print(__doc__)
         return 1
 
-    mapa = json.loads(MAP_PATH.read_text())
+    mapa = json.loads(map_path.read_text())
+    print(f"  Mapa alvo: {map_path.relative_to(ROOT)}")
 
     # Próximo firstgid disponível e nomes já em uso
     next_gid = 1
@@ -63,7 +86,7 @@ def main(argv: list[str]) -> int:
         next_gid = max(next_gid, ts["firstgid"] + ts["tilecount"])
 
     adicionados = 0
-    for arg in argv:
+    for arg in args.pngs:
         # Aceita absoluto ou relativo a mundinho/
         png_abs = Path(arg) if Path(arg).is_absolute() else (ROOT / arg).resolve()
         if not png_abs.is_file():
@@ -106,8 +129,8 @@ def main(argv: list[str]) -> int:
         print(f"  ✓ {arg} → '{nome}' ({count} tiles, firstgid={next_gid - count})")
 
     if adicionados:
-        MAP_PATH.write_text(json.dumps(mapa, indent=2))
-        print(f"\n{adicionados} tileset(s) gravado(s) em {MAP_PATH.relative_to(ROOT)}")
+        map_path.write_text(json.dumps(mapa, indent=2))
+        print(f"\n{adicionados} tileset(s) gravado(s) em {map_path.relative_to(ROOT)}")
     else:
         print("\nNada adicionado.")
     return 0
