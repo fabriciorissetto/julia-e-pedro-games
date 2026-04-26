@@ -87,8 +87,25 @@ class Aquario extends Phaser.Scene {
       this.add.circle(px, H - Phaser.Math.Between(10, 25), Phaser.Math.Between(6, 12), cor);
     }
 
-    // dona do aquário (em cima)
-    this.dona = this.add.container(W / 2, 40);
+    // céu/relógio em cima do aquário (faixa onde o sol anda)
+    this.faixaCeu = this.add.rectangle(W / 2, 35, W, 70, 0xffe7a8, 0.4);
+    // sol e lua que andam pela faixa (mostram a hora)
+    this.sol = this.add.text(0, 35, '☀️', { fontSize: '40px' }).setOrigin(0.5);
+    this.lua = this.add.text(0, 35, '🌙', { fontSize: '36px' }).setOrigin(0.5);
+
+    // texto grande mostrando a hora do dia
+    this.textoHora = this.add.text(W / 2, 165, '🌅 Manhã', {
+      fontSize: '28px',
+      color: '#ffffff',
+      fontStyle: 'bold',
+      stroke: '#3366aa',
+      strokeThickness: 5
+    }).setOrigin(0.5);
+
+    // dona do aquário (começa escondida — só aparece no almoço)
+    this.dona = this.add.container(W / 2, -120);
+    this.donaVisivel = false;
+    this.donaAlvoY = -120;
     // cabeça
     const cabeca = this.add.circle(0, 0, 28, 0xffd6b5);
     // cabelo (loira ondulado)
@@ -181,23 +198,33 @@ class Aquario extends Phaser.Scene {
     // comidinhas (pellets de ração)
     this.comidas = [];
 
-    // dona joga comida em intervalos
+    // ciclo do dia: 0 a 1 (0 = nascer do sol, 0.5 = meio-dia, 1 = anoitecer)
+    // duração total de um dia: 24 segundos
+    this.duracaoDia = 24000;
+    this.tempoDia = 0;
+    this.faseAtual = 'manha';
+
+    // joga comida só na hora do almoço (a cada 1.2s enquanto a dona estiver lá)
     this.time.addEvent({
-      delay: 1500,
+      delay: 1200,
       loop: true,
-      callback: () => this.donaJogaComida()
+      callback: () => {
+        if (this.donaVisivel) this.donaJogaComida();
+      }
     });
 
-    // mostra fala da dona às vezes
+    // mostra fala da dona às vezes (só quando ela está lá)
     this.time.addEvent({
-      delay: 5000,
+      delay: 4000,
       loop: true,
-      callback: () => this.donaFala()
+      callback: () => {
+        if (this.donaVisivel) this.donaFala();
+      }
     });
 
     // pontuação
     this.pontos = 0;
-    this.placar = this.add.text(W / 2, 110, '⭐ 0', {
+    this.placar = this.add.text(W / 2, 215, '⭐ 0', {
       fontSize: '32px',
       color: '#ffffff',
       fontStyle: 'bold',
@@ -217,16 +244,71 @@ class Aquario extends Phaser.Scene {
 
     // sons (oscillator simples)
     this.audioCtx = null;
+  }
 
-    // movimento de respiração da dona
-    this.tweens.add({
-      targets: this.dona,
-      y: 50,
-      duration: 1500,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut'
-    });
+  atualizarHoraDoDia(delta) {
+    this.tempoDia += delta / this.duracaoDia;
+    if (this.tempoDia >= 1) this.tempoDia -= 1;
+
+    // posiciona sol e lua na faixa do céu (sol durante o dia, lua durante a noite)
+    // dia: tempoDia 0 -> 0.6 (sol nasce na esquerda, vai pra direita)
+    // noite: 0.6 -> 1 (lua aparece)
+    if (this.tempoDia < 0.6) {
+      const t = this.tempoDia / 0.6;
+      this.sol.x = 30 + t * (W - 60);
+      this.sol.y = 35 - Math.sin(t * Math.PI) * 18;
+      this.sol.setVisible(true);
+      this.lua.setVisible(false);
+    } else {
+      const t = (this.tempoDia - 0.6) / 0.4;
+      this.lua.x = 30 + t * (W - 60);
+      this.lua.y = 35 - Math.sin(t * Math.PI) * 18;
+      this.sol.setVisible(false);
+      this.lua.setVisible(true);
+    }
+
+    // define a fase do dia
+    let novaFase;
+    if (this.tempoDia < 0.22) novaFase = 'manha';
+    else if (this.tempoDia < 0.42) novaFase = 'almoco';
+    else if (this.tempoDia < 0.6) novaFase = 'tarde';
+    else novaFase = 'noite';
+
+    if (novaFase !== this.faseAtual) {
+      this.faseAtual = novaFase;
+      this.mudarFase(novaFase);
+    }
+  }
+
+  mudarFase(fase) {
+    if (fase === 'manha') {
+      this.textoHora.setText('🌅 Manhã');
+      this.donaAlvoY = -120;
+      this.donaVisivel = false;
+    } else if (fase === 'almoco') {
+      this.textoHora.setText('🍽️ Hora do Almoço!');
+      this.donaAlvoY = 50;
+      this.donaVisivel = true;
+      // animação de chegada
+      this.tweens.add({
+        targets: this.textoHora,
+        scale: 1.4,
+        duration: 300,
+        yoyo: true,
+        repeat: 2,
+        ease: 'Back.easeOut'
+      });
+      this.tocarSom(660, 0.15);
+      this.time.delayedCall(150, () => this.tocarSom(880, 0.15));
+    } else if (fase === 'tarde') {
+      this.textoHora.setText('🌇 Tarde');
+      this.donaAlvoY = -120;
+      this.donaVisivel = false;
+    } else if (fase === 'noite') {
+      this.textoHora.setText('🌙 Boa Noite');
+      this.donaAlvoY = -120;
+      this.donaVisivel = false;
+    }
   }
 
   desenharPlanta(x, y, cor) {
@@ -337,7 +419,17 @@ class Aquario extends Phaser.Scene {
     this.time.delayedCall(80, () => this.tocarSom(1320, 0.12));
   }
 
-  update() {
+  update(time, delta) {
+    // ciclo do dia
+    this.atualizarHoraDoDia(delta);
+
+    // dona desce/sobe suavemente em direção ao alvo
+    this.dona.y += (this.donaAlvoY - this.dona.y) * 0.05;
+    // respiração da dona quando ela está no aquário
+    if (this.donaVisivel) {
+      this.dona.y += Math.sin(time / 400) * 0.3;
+    }
+
     // movimento do peixe — setas
     let vx = 0, vy = 0;
     if (this.cursors.left.isDown) vx = -3.5;
