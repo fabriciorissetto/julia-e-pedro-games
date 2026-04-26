@@ -406,6 +406,18 @@
       background: #fff;
     }
     .inicio-card input[type="text"]:focus { border-color: #ff6fb5; }
+    .dica-save {
+      margin: 6px 0 0;
+      padding: 8px 12px;
+      background: linear-gradient(180deg, #fff5dc 0%, #ffe9a8 100%);
+      border: 2px solid #ffd16f;
+      border-radius: 12px;
+      color: #6a3a0a;
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 1.3;
+      text-align: center;
+    }
     .skins-grid {
       display: grid;
       grid-template-columns: repeat(5, 1fr);
@@ -547,6 +559,7 @@
 
       <label for="inputNome">✏️ Seu nome</label>
       <input id="inputNome" type="text" maxlength="14" placeholder="Como te chamam?">
+      <p id="dicaSave" class="dica-save" style="display:none"></p>
 
       <label>🎨 Escolha sua skin</label>
       <div class="skins-grid" id="skinsGrid"></div>
@@ -1040,30 +1053,9 @@
       atualizarHUD();
       renderBag();
 
-      // Se há save, retoma jogo direto sem tela inicial
-      const save = carregarSave();
-      if (save) {
-        aplicarSave(save);
-        const skin = SKINS[perfil.skin];
-        aplicarSkin();
-        document.getElementById('hudNome').innerHTML = `${skin.emoji} ${perfil.nome}`;
-        document.getElementById('telaInicio').classList.add('escondido');
-        this.input.keyboard.enabled = true;
-        // se era noite, atualiza visual
-        const elDia = document.getElementById('hudDiaItem');
-        if (ehNoite) {
-          elDia.classList.add('noite');
-          elDia.innerHTML = '🌙 Noite <span id="hudDia">' + dia + '</span>/' + META_DIAS;
-        } else {
-          elDia.innerHTML = '☀️ Dia <span id="hudDia">' + dia + '</span>/' + META_DIAS;
-        }
-        atualizarHUD();
-        renderBag();
-        jogoIniciado = true;
-        conectarMultiplayer();
-      } else {
-        montarTelaInicio();
-      }
+      // sempre mostra a tela inicial pra perguntar quem tá jogando.
+      // se a pessoa digitar o mesmo nome do save → carrega; nome diferente → começa fresh.
+      montarTelaInicio();
 
       // salva periodicamente
       this.time.addEvent({ delay: 3000, loop: true, callback: salvarEstado });
@@ -1211,8 +1203,22 @@
         grid.appendChild(el);
       });
       const inputNome = document.getElementById('inputNome');
-      inputNome.value = perfil.nome || '';
+      const save = carregarSave();
+      const nomeSalvo = save && save.perfil ? (save.perfil.nome || '') : '';
+      inputNome.value = nomeSalvo;
+      // dica embaixo do input se há um jogo salvo
+      const dicaSave = document.getElementById('dicaSave');
+      if (dicaSave) {
+        if (nomeSalvo) {
+          dicaSave.textContent = `✨ Tem um jogo salvo do(a) ${nomeSalvo} no dia ${save.dia || 1}. Manter o nome continua de onde parou. Trocar o nome começa um novo.`;
+          dicaSave.style.display = 'block';
+        } else {
+          dicaSave.style.display = 'none';
+        }
+      }
+      // foca e seleciona o nome pra apertar uma tecla já trocar
       inputNome.focus();
+      inputNome.select();
       // captura primeiro pra impedir que o Phaser engula 'A', 'W', 'S', 'D', etc.
       inputNome.addEventListener('keydown', (e) => {
         e.stopPropagation();
@@ -1228,11 +1234,30 @@
       somVitoria();
       const inputNome = document.getElementById('inputNome');
       const skin = SKINS[perfil.skin];
-      perfil.nome = (inputNome.value.trim() || skin.nome).slice(0, 14);
+      const nomeNovo = (inputNome.value.trim() || skin.nome).slice(0, 14);
+      // se já tem um save com esse mesmo nome, retoma; senão limpa e começa fresh
+      const save = carregarSave();
+      const mesmoJogador = save && save.perfil && (save.perfil.nome || '').toLowerCase() === nomeNovo.toLowerCase();
+      if (save && !mesmoJogador) {
+        limparSave();
+      }
+      perfil.nome = nomeNovo;
       localStorage.setItem('survNome', perfil.nome);
       localStorage.setItem('survSkin', perfil.skin);
+      if (mesmoJogador) {
+        aplicarSave(save);
+      }
       aplicarSkin();
       document.getElementById('hudNome').innerHTML = `${skin.emoji} ${perfil.nome}`;
+      // atualiza visual de dia/noite caso tenha vindo do save
+      const elDia = document.getElementById('hudDiaItem');
+      if (mesmoJogador && ehNoite) {
+        elDia.classList.add('noite');
+        elDia.innerHTML = '🌙 Noite <span id="hudDia">' + dia + '</span>/' + META_DIAS;
+      } else {
+        elDia.classList.remove('noite');
+        elDia.innerHTML = '☀️ Dia <span id="hudDia">' + dia + '</span>/' + META_DIAS;
+      }
       document.getElementById('telaInicio').classList.add('escondido');
       jogoIniciado = true;
       if (scene && scene.input && scene.input.keyboard) scene.input.keyboard.enabled = true;
