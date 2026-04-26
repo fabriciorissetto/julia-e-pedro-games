@@ -357,6 +357,22 @@
         await salaGlobal.setState({ ...estado, recordes, totais });
       } catch (e) { /* offline */ }
     }
+    // Broadcast pra matar um jogador remoto (cheat: window.matarJogador('charlie'))
+    async function matarJogador(nick) {
+      if (!nick) return;
+      if (!salaGlobal) { console.warn("sala não conectada"); return; }
+      try {
+        const estado = salaGlobal.lastState || { recordes: {}, totais: {} };
+        const agora = Date.now();
+        const antigas = Array.isArray(estado.kills) ? estado.kills : [];
+        // mantém só as recentes (<60s) pra não inflar o estado
+        const recentes = antigas.filter(k => k && k.ts && (agora - k.ts) < 60000);
+        recentes.push({ nick, ts: agora });
+        await salaGlobal.setState({ ...estado, kills: recentes });
+        console.log("💀 kill broadcast:", nick);
+      } catch (e) { console.error("matarJogador falhou:", e); }
+    }
+    window.matarJogador = matarJogador;
     // Wrappers que falam com o usuário atual
     function carregarPontosTotal() { return (dadosUsuario() || {}).pontosTotal || 0; }
     function salvarPontosTotal(v) { atualizarUsuario({ pontosTotal: v }); }
@@ -427,6 +443,8 @@
     let invulnAte = 0; // tempo de invulnerabilidade pra não bater duas vezes
     let abaLojaAtual = "skins"; // "skins" | "habilidades"
     let salaGlobal = null;
+    // ids de kill já processados (`nick:ts`), pra não matar duas vezes
+    const _killsProcessadas = new Set();
     let cardRecordeRefs = null;
     let telaRanking = null;
     let abaRanking = "recorde"; // "recorde" | "totais"
@@ -601,6 +619,26 @@
               telaRanking = null;
               mostrarRanking(scene);
             }
+            // checa broadcasts de kill — se meu nick foi marcado, morre
+            try {
+              const meuNick = getUsuarioAtual && getUsuarioAtual();
+              const st = salaGlobal && salaGlobal.lastState;
+              if (meuNick && estado === "jogando" && st && Array.isArray(st.kills)) {
+                const agora = Date.now();
+                for (const k of st.kills) {
+                  if (!k || !k.nick || !k.ts) continue;
+                  if (k.nick.toLowerCase() !== meuNick.toLowerCase()) continue;
+                  if (agora - k.ts > 30000) continue;
+                  const key = `${k.nick}:${k.ts}`;
+                  if (_killsProcessadas.has(key)) continue;
+                  _killsProcessadas.add(key);
+                  vidasAtuais = 0;
+                  invulnAte = 0;
+                  if (cenaRef) bater(cenaRef);
+                  break;
+                }
+              }
+            } catch (e) { console.warn("kill check falhou:", e); }
           },
         });
       } catch (e) {
