@@ -41,4 +41,11 @@ window.GAMES = [
     color: "#4fdb9b",
     description: "Corre, pula, desliza. Não bate em nada."
   },
+  {
+    slug: "go-to-adventure",
+    title: "Go To Adventure",
+    emoji: "⚔️",
+    color: "#9b4fff",
+    description: "MMORPG sandbox pixel art. 4 classes, mobs, craft."
+  },
 ];

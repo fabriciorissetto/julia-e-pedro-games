@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=1280, initial-scale=1">
+  <title>Go To Adventure ⚔️</title>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Tela de criação de personagem -->
+  <div id="menu">
+    <h1 class="title">GO TO ADVENTURE</h1>
+    <div class="subtitle">MMORPG SANDBOX · PIXEL ART</div>
+
+    <div class="menu-card">
+      <div class="section-label">▼ NICKNAME (3-16 CARACTERES)</div>
+      <div class="input-row">
+        <input id="nickInput" type="text" maxlength="16" placeholder="Hero" autocomplete="off">
+      </div>
+
+      <div class="section-label">▼ ESCOLHA SUA CLASSE</div>
+      <div id="classGrid"></div>
+
+      <button id="confirmBtn">▶ COMEÇAR</button>
+
+      <div class="controls-hint">
+        <span><kbd>WASD</kbd>movimento</span>
+        <span><kbd>CLICK</kbd>atacar/coletar</span>
+        <span><kbd>SPACE</kbd>skill</span>
+        <span><kbd>I</kbd>inventário</span>
+        <span><kbd>C</kbd>crafting</span>
+        <span><kbd>H</kbd>ajuda</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Jogo -->
+  <div id="game">
+    <canvas id="canvas" width="1280" height="720"></canvas>
+  </div>
+
+  <div id="footer">
+    Go To Adventure · <a href="../">← voltar pro hub</a>
+  </div>
+
+  <!-- Ordem importa: state e classes primeiro, depois libs, depois main por último -->
+  <script src="js/state.js"></script>
+  <script src="js/classes.js"></script>
+  <script src="js/sprites.js"></script>
+  <script src="js/world.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/combat.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/network.js"></script>
+  <script src="js/input.js"></script>
+  <script src="js/player.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
