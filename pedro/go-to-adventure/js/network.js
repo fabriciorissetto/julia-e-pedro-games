@@ -206,6 +206,9 @@
     sendSkill(alvoX, alvoY) {
       return Net.send({ tipo: 'skill', alvoX: alvoX, alvoY: alvoY });
     },
+    sendSkill2(alvoX, alvoY, targetId) {
+      return Net.send({ tipo: 'skill2', alvoX: alvoX, alvoY: alvoY, targetId: targetId || null, facing: window.GTA.state.player.facing });
+    },
     sendChat(texto) {
       const state = window.GTA.state;
       const t = String(texto || '').slice(0, 200).trim();
@@ -337,8 +340,8 @@
       }
 
       if (msg.skillId === 'arcane') {
-        // FOGO INFERNAL DO MAGO — visível pra todos, gigante e bem destrutivo
-        const visualR = r * 1.6; // visual maior que o raio de dano pra parecer impacto enorme
+        // FOGO INFERNAL DO MAGO — visual igual ao raio de dano (sem inflar)
+        const visualR = r;
         // anel base laranja
         Render && Render.addAoE && Render.addAoE({
           x: cx, y: cy, r: visualR, life: 1400,
@@ -389,8 +392,33 @@
             gravity: 80,
           });
         }
+      } else if (msg.skillId === 'arrowRain') {
+        // chuva de flechas — destacada visualmente
+        Render && Render.addAoE && Render.addAoE({
+          x: cx, y: cy, r: r, life: 3000,
+          color: 'rgba(120,200,255,0.32)', kind: 'arrowRain',
+        });
+        // anel de marca no chão
+        Render && Render.addAoE && Render.addAoE({
+          x: cx, y: cy, r: r * 0.7, life: 3000,
+          color: 'rgba(80,150,200,0.4)', kind: 'arrowRain-mark',
+        });
+        Render && Render.shake && Render.shake(2, 200);
+        // 60 flechas caindo do céu (partículas verticais rápidas)
+        for (let i = 0; i < 60; i++) {
+          const a = Math.random() * Math.PI * 2;
+          const rr = Math.sqrt(Math.random()) * r;
+          const px = cx + Math.cos(a) * rr;
+          const py = cy + Math.sin(a) * rr;
+          Render && Render.particle && Render.particle({
+            x: px, y: py - 200,
+            vx: 0, vy: 800 + Math.random() * 200,
+            life: 250 + Math.random() * 60,
+            color: '#cfe1ff', size: 2, kind: 'spark', gravity: 200,
+          });
+        }
       } else {
-        const colors = { taunt: 'rgba(255,210,74,0.32)', heal: 'rgba(80,255,160,0.35)', arrowRain: 'rgba(120,200,255,0.32)' };
+        const colors = { taunt: 'rgba(255,210,74,0.32)', heal: 'rgba(80,255,160,0.35)' };
         Render && Render.addAoE && Render.addAoE({ x: cx, y: cy, r: r, life: 800, color: colors[msg.skillId] || 'rgba(255,255,255,0.3)', kind: msg.skillId });
         Render && Render.shake && Render.shake(4, 200);
         for (let i = 0; i < 18; i++) {
@@ -401,6 +429,97 @@
             vx: 0, vy: -60 - Math.random() * 80, life: 500 + Math.random() * 300,
             color: msg.skillId === 'heal' ? '#5cf78a' : '#ffd24a',
             size: 2, kind: 'spark', gravity: -40,
+          });
+        }
+      }
+    } else if (k === 'skill2') {
+      const isMe = msg.fromId === state.net.myServerId;
+      const fromEntity = isMe ? state.player : state.others.get(msg.fromId);
+      if (fromEntity) {
+        fromEntity.animState = 'cast';
+        fromEntity.animUntil = state.now + 380;
+        fromEntity.animActionFrame = 0;
+      }
+      if (window.GTA.Audio && !isMe) {
+        window.GTA.Audio.play(msg.skillId === 'fireLine' ? 'skillFire' : 'skillCast');
+      }
+      const cx = msg.x, cy = msg.y;
+      const tx = msg.toX != null ? msg.toX : cx;
+      const ty = msg.toY != null ? msg.toY : cy;
+      const halfW = msg.raio || TILE * 0.6;
+
+      if (msg.skillId === 'whirlwind') {
+        // AoE redonda ao redor do guerreiro, lâminas girando
+        const r = halfW;
+        Render && Render.addAoE && Render.addAoE({ x: cx, y: cy, r: r, life: 600, color: 'rgba(255,210,74,0.5)', kind: 'whirlwind' });
+        Render && Render.addAoE && Render.addAoE({ x: cx, y: cy, r: r * 1.4, life: 600, color: 'rgba(255,255,255,0.3)', kind: 'whirlwind-flash' });
+        Render && Render.shake && Render.shake(8, 350);
+        for (let i = 0; i < 50; i++) {
+          const a = Math.random() * Math.PI * 2;
+          const rr = Math.sqrt(Math.random()) * r * 1.3;
+          Render && Render.particle && Render.particle({
+            x: cx + Math.cos(a) * rr, y: cy + Math.sin(a) * rr,
+            vx: -Math.sin(a) * 200, vy: Math.cos(a) * 200,
+            life: 400 + Math.random() * 200,
+            color: '#ffeb6a', size: 2, kind: 'spark', gravity: 0,
+          });
+        }
+      } else if (msg.skillId === 'fireLine') {
+        // linha de fogo até (toX, toY)
+        Render && Render.addAoE && Render.addAoE({
+          x: cx, y: cy, r: halfW, life: 1200,
+          color: 'rgba(255,90,30,0.55)', kind: 'fire-line',
+          toX: tx, toY: ty,
+        });
+        Render && Render.shake && Render.shake(6, 300);
+        const steps = 30;
+        for (let i = 0; i < steps; i++) {
+          const t = i / (steps - 1);
+          const px = cx + (tx - cx) * t;
+          const py = cy + (ty - cy) * t;
+          Render && Render.particle && Render.particle({
+            x: px + (Math.random() - 0.5) * halfW,
+            y: py + (Math.random() - 0.5) * halfW,
+            vx: 0, vy: -80 - Math.random() * 80,
+            life: 600 + Math.random() * 300,
+            color: ['#ffeb6a', '#ffb84a', '#ff7a30', '#e83a18'][Math.floor(Math.random() * 4)],
+            size: 2 + Math.floor(Math.random() * 3), kind: 'spark', gravity: -40,
+          });
+        }
+      } else if (msg.skillId === 'piercingShot') {
+        // tiro reto azul-luminoso
+        Render && Render.addAoE && Render.addAoE({
+          x: cx, y: cy, r: halfW, life: 600,
+          color: 'rgba(120,200,255,0.6)', kind: 'pierce-line',
+          toX: tx, toY: ty,
+        });
+        Render && Render.shake && Render.shake(3, 200);
+        // partículas brancas-azuladas seguindo a linha
+        const steps = 40;
+        for (let i = 0; i < steps; i++) {
+          const t = i / (steps - 1);
+          const px = cx + (tx - cx) * t;
+          const py = cy + (ty - cy) * t;
+          Render && Render.particle && Render.particle({
+            x: px + (Math.random() - 0.5) * 8,
+            y: py + (Math.random() - 0.5) * 8,
+            vx: (Math.random() - 0.5) * 30, vy: (Math.random() - 0.5) * 30,
+            life: 250 + Math.random() * 100,
+            color: i % 3 === 0 ? '#fff' : '#cfe1ff', size: 2, kind: 'spark', gravity: 0,
+          });
+        }
+      } else if (msg.skillId === 'stunLock') {
+        // estrelinhas amarelas girando em volta do alvo
+        Render && Render.addAoE && Render.addAoE({
+          x: cx, y: cy, r: 24, life: 800,
+          color: 'rgba(255,210,74,0.7)', kind: 'stun',
+        });
+        for (let i = 0; i < 20; i++) {
+          const a = Math.random() * Math.PI * 2;
+          Render && Render.particle && Render.particle({
+            x: cx + Math.cos(a) * 28, y: cy + Math.sin(a) * 28,
+            vx: -Math.sin(a) * 80, vy: Math.cos(a) * 80,
+            life: 1000, color: '#ffeb6a', size: 2, kind: 'spark', gravity: 0,
           });
         }
       }

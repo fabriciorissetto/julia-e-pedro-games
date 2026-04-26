@@ -62,6 +62,9 @@
       if (e.code === 'Digit1') {
         if (window.GTA.Combat) window.GTA.Combat.castSkill();
       }
+      if (e.code === 'Digit2') {
+        if (window.GTA.Combat) window.GTA.Combat.castSkill2();
+      }
     });
 
     window.addEventListener('keyup', (e) => {

@@ -1357,6 +1357,83 @@
     return frames;
   }
 
+  function makeDragonFrames() {
+    // dragão grandão — 48x44 — escamas verdes, olhos vermelhos, asas pequenas, bafo
+    const w = 48, h = 44;
+    const frames = [];
+    for (let f = 0; f < 4; f++) {
+      const c = makeCanvas(w, h);
+      const g = c.getContext('2d');
+      const cx = 24;
+      const bob = [0, -1, 0, -1][f];
+      const wingFlap = [0, 1, 2, 1][f];
+
+      shadowEllipse(g, cx, 41, 14, 3, 0.4);
+
+      // pernas curtas com garra
+      pxRect(g, cx - 12, 36 + bob, 4, 5, '#2a5a30');
+      pxRect(g, cx + 8, 36 + bob, 4, 5, '#2a5a30');
+      pixel(g, cx - 12, 40 + bob, '#1a3a1a');
+      pixel(g, cx - 9, 40 + bob, '#fff');
+      pixel(g, cx + 11, 40 + bob, '#fff');
+
+      // corpo (barriga clara, dorso verde)
+      pxRect(g, cx - 13, 22 + bob, 26, 14, '#3a8a3a');
+      pxRect(g, cx - 11, 28 + bob, 22, 8, '#7acc70');
+      // escamas (pontilhado mais escuro no dorso)
+      pixel(g, cx - 9, 24 + bob, '#1f5e2a');
+      pixel(g, cx - 4, 23 + bob, '#1f5e2a');
+      pixel(g, cx + 1, 24 + bob, '#1f5e2a');
+      pixel(g, cx + 6, 23 + bob, '#1f5e2a');
+      pixel(g, cx + 9, 25 + bob, '#1f5e2a');
+
+      // asas (flapeam)
+      const wY = 18 + bob - wingFlap;
+      pxRect(g, cx - 16, wY, 6, 8 - wingFlap, '#2a5a30');
+      pxRect(g, cx + 10, wY, 6, 8 - wingFlap, '#2a5a30');
+      pxRect(g, cx - 14, wY + 1, 3, 4 - Math.max(0, wingFlap - 1), '#5fa84a');
+      pxRect(g, cx + 11, wY + 1, 3, 4 - Math.max(0, wingFlap - 1), '#5fa84a');
+
+      // pescoço + cabeça
+      pxRect(g, cx - 5, 10 + bob, 10, 14, '#3a8a3a');
+      // crista
+      pxRect(g, cx - 1, 6 + bob, 2, 4, '#c2331c');
+      pixel(g, cx - 2, 7 + bob, '#ff7a30');
+      pixel(g, cx + 1, 7 + bob, '#ff7a30');
+      // focinho
+      pxRect(g, cx - 6, 14 + bob, 12, 6, '#3a8a3a');
+      pxRect(g, cx - 7, 16 + bob, 14, 3, '#7acc70');
+      // olhos vermelhos brilhando
+      pxRect(g, cx - 4, 13 + bob, 2, 2, '#ff2a2a');
+      pxRect(g, cx + 2, 13 + bob, 2, 2, '#ff2a2a');
+      pixel(g, cx - 4, 13 + bob, '#ffeb6a');
+      pixel(g, cx + 2, 13 + bob, '#ffeb6a');
+      // narinas + bafo de fogo (animado)
+      pixel(g, cx - 5, 18 + bob, '#1a1a22');
+      pixel(g, cx + 4, 18 + bob, '#1a1a22');
+      if (f === 1 || f === 2) {
+        pixel(g, cx - 6, 19 + bob, '#ffb84a');
+        pixel(g, cx + 5, 19 + bob, '#ffb84a');
+      }
+      // dentes
+      pxRect(g, cx - 3, 19 + bob, 1, 2, '#fff');
+      pxRect(g, cx + 1, 19 + bob, 1, 2, '#fff');
+
+      // cauda
+      pxRect(g, cx + 12, 26 + bob, 4, 4, '#3a8a3a');
+      pxRect(g, cx + 15, 28 + bob, 3, 3, '#3a8a3a');
+      pxRect(g, cx + 17, 30 + bob, 2, 2, '#c2331c');
+      pixel(g, cx + 18, 30 + bob, '#ff7a30');
+
+      outline(g, cx - 13, 22 + bob, 26, 14, '#1a3a1a');
+      outline(g, cx - 5, 10 + bob, 10, 14, '#1a3a1a');
+      outline(g, cx - 6, 14 + bob, 12, 6, '#1a3a1a');
+
+      frames.push(c);
+    }
+    return frames;
+  }
+
   // ============================== RECURSOS ==============================
 
   function makeTree(damage) {
@@ -1566,47 +1643,102 @@
     return c;
   }
 
-  // Casinha — bloqueia. Estilo vila pixel art.
-  function makeHouse() {
-    const w = 48, h = 48;
+  // Parede de madeira (1 tile = 32x32). Bloqueia.
+  function makeWall() {
+    const w = 32, h = 32;
     const c = makeCanvas(w, h);
     const g = c.getContext('2d');
-    shadowEllipse(g, 24, 46, 18, 3, 0.4);
-    // corpo (paredes bege/madeira)
-    pxRect(g, 8, 22, 32, 22, '#d8b079');
-    pxRect(g, 8, 22, 32, 2, '#a87b48');     // sombra topo
-    pxRect(g, 8, 42, 32, 2, '#7a5530');     // sombra base
+    pxRect(g, 0, 0, w, h, '#a87b48');
     // tábuas verticais
-    for (let x = 12; x < 40; x += 4) {
-      pxRect(g, x, 24, 1, 18, '#a87b48');
+    for (let x = 4; x < 32; x += 6) pxRect(g, x, 1, 1, 30, '#7a5530');
+    // sombras superior/inferior
+    pxRect(g, 0, 0, w, 2, '#7a5530');
+    pxRect(g, 0, 30, w, 2, '#5a3a18');
+    // luz suave no topo
+    pxRect(g, 0, 2, w, 1, '#d8b079');
+    outline(g, 0, 0, w, h, '#3a2410');
+    return c;
+  }
+
+  // Cama (2 tiles de largura, 1 tile de altura — sprite 64x32)
+  function makeBed() {
+    const w = 64, h = 32;
+    const c = makeCanvas(w, h);
+    const g = c.getContext('2d');
+    // base de madeira escura
+    pxRect(g, 2, 8, 60, 22, '#5a3a18');
+    pxRect(g, 2, 8, 60, 2, '#7a4a20');
+    pxRect(g, 2, 28, 60, 2, '#3a2410');
+    // colchão (vermelho)
+    pxRect(g, 4, 12, 56, 14, '#c2331c');
+    pxRect(g, 4, 12, 56, 2, '#e85040');
+    pxRect(g, 4, 24, 56, 2, '#7a1a08');
+    // travesseiro à esquerda
+    pxRect(g, 6, 14, 14, 8, '#fff8e0');
+    pxRect(g, 6, 14, 14, 1, '#d8d0b0');
+    pxRect(g, 6, 21, 14, 1, '#a89878');
+    outline(g, 6, 14, 14, 8, '#7a4a20');
+    // pés da cama
+    pxRect(g, 0, 26, 4, 6, '#3a2410');
+    pxRect(g, 60, 26, 4, 6, '#3a2410');
+    outline(g, 2, 8, 60, 22, '#1a1410');
+    return c;
+  }
+
+  // Criado-mudo (1 tile, sprite 32x32)
+  function makeNightstand() {
+    const w = 32, h = 32;
+    const c = makeCanvas(w, h);
+    const g = c.getContext('2d');
+    pxRect(g, 4, 8, 24, 22, '#7a4a20');
+    pxRect(g, 4, 8, 24, 2, '#9a6a30');
+    pxRect(g, 4, 28, 24, 2, '#3a2410');
+    // gaveta com puxador
+    pxRect(g, 7, 14, 18, 12, '#5a3a18');
+    pxRect(g, 7, 14, 18, 1, '#3a2410');
+    pixel(g, 16, 19, '#ffd24a');
+    pixel(g, 16, 20, '#a87b48');
+    // pés
+    pxRect(g, 4, 28, 3, 3, '#1a1410');
+    pxRect(g, 25, 28, 3, 3, '#1a1410');
+    outline(g, 4, 8, 24, 22, '#1a1410');
+    return c;
+  }
+
+  // Lustre/abajur em cima do criado-mudo (1 tile, fica desenhado na mesma célula)
+  function makeLamp() {
+    const w = 32, h = 32;
+    const c = makeCanvas(w, h);
+    const g = c.getContext('2d');
+    // base
+    pxRect(g, 12, 22, 8, 4, '#3a2410');
+    // pé
+    pxRect(g, 15, 16, 2, 6, '#5a3a18');
+    // cúpula amarela com luz
+    pxRect(g, 9, 8, 14, 10, '#ffd24a');
+    pxRect(g, 9, 8, 14, 2, '#ffeb6a');
+    pxRect(g, 9, 16, 14, 2, '#a87b1a');
+    pxRect(g, 11, 4, 10, 4, '#ffeb6a');
+    pixel(g, 16, 2, '#fff');
+    pixel(g, 14, 12, '#fff');
+    pixel(g, 18, 12, '#fff');
+    outline(g, 9, 8, 14, 10, '#5a3a18');
+    return c;
+  }
+
+  // Piso de madeira (decoração interna da casa)
+  function makeFloor() {
+    const w = 32, h = 32;
+    const c = makeCanvas(w, h);
+    const g = c.getContext('2d');
+    pxRect(g, 0, 0, w, h, '#7a5530');
+    for (let y = 0; y < h; y += 8) {
+      pxRect(g, 0, y, w, 1, '#5a3a18');
     }
-    // telhado vermelho triangular
-    for (let row = 0; row < 12; row++) {
-      const inset = 12 - row;
-      pxRect(g, 4 + inset, 10 + row, 40 - inset * 2, 1, '#c2331c');
+    for (let y = 0; y < h; y += 16) {
+      const off = (y / 8) % 2 === 0 ? 16 : 0;
+      pxRect(g, off, y, 1, 8, '#5a3a18');
     }
-    // borda do telhado
-    for (let row = 0; row < 12; row++) {
-      const inset = 12 - row;
-      pixel(g, 4 + inset, 10 + row, '#7a1a08');
-      pixel(g, 4 + 40 - inset - 1, 10 + row, '#7a1a08');
-    }
-    // chaminé
-    pxRect(g, 32, 6, 4, 8, '#5a5e6a');
-    pxRect(g, 32, 6, 4, 1, '#3a3e4a');
-    // porta
-    pxRect(g, 20, 30, 8, 14, '#5a3a18');
-    pxRect(g, 20, 30, 1, 14, '#3a2410');
-    pxRect(g, 27, 30, 1, 14, '#7a4a20');
-    pixel(g, 26, 37, '#ffd24a'); // maçaneta
-    // janelinhas
-    pxRect(g, 11, 27, 5, 5, '#7abacb');
-    pxRect(g, 32, 27, 5, 5, '#7abacb');
-    pixel(g, 13, 29, '#fff');
-    pixel(g, 34, 29, '#fff');
-    outline(g, 11, 27, 5, 5, '#3a3e4a');
-    outline(g, 32, 27, 5, 5, '#3a3e4a');
-    outline(g, 8, 22, 32, 22, '#3a2410');
     return c;
   }
 
@@ -2044,6 +2176,7 @@
     };
     reg('golem', makeGolemFrames(), 40, 44);
     reg('skeleton', makeSkeletonFrames(), 32, 40);
+    reg('dragon', makeDragonFrames(), 48, 44);
 
     // Recursos: 4 estados de damage
     Sprites._reg['tree'] = {
@@ -2068,7 +2201,11 @@
     reg('bush_blue',  makeBush(2), 24, 18);
     reg('pebble',     makePebble(), 16, 12);
     reg('fruit_tree', makeFruitTree(), 32, 40);
-    reg('house',      makeHouse(), 48, 48);
+    reg('wall',        makeWall(), 32, 32);
+    reg('floor',       makeFloor(), 32, 32);
+    reg('bed',         makeBed(), 64, 32);
+    reg('nightstand',  makeNightstand(), 32, 32);
+    reg('lamp',        makeLamp(), 32, 32);
 
     // Itens
     reg('item_wood', makeItemWood(), 24, 24);

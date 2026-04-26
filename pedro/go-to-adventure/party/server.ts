@@ -32,7 +32,7 @@ const RESPAWN_PLAYER_MS = 4_000;
 
 type Classe = "warrior" | "archer" | "mage" | "healer";
 type AlvoTipo = "mob" | "jogador";
-type MobType = "slime" | "wolf" | "golem" | "skeleton";
+type MobType = "slime" | "wolf" | "golem" | "skeleton" | "dragon";
 type Zone = "safe" | "mid" | "outer";
 
 type TauntBuff = { until: number; reduction: number };
@@ -50,6 +50,7 @@ type Jogador = {
   atkProjectile: string | null;
   atkCdUntil: number;
   skillCdUntil: number;
+  skill2CdUntil: number;
   buffs: { taunt?: TauntBuff };
   alive: boolean;
   respawnAt: number;
@@ -73,20 +74,30 @@ type Mob = {
   spawnX: number; spawnY: number;
   zone: Zone;
   slowUntil: number;
+  stunUntil: number;
 };
 
 // =============================================================================
 // Stats das classes (espelho de classes.js)
 // =============================================================================
 
-type ClassDef = {
-  maxHp: number; attack: number; defense: number;
-  atkRange: number; atkSpeed: number; atkProjectile: string | null;
-  skill:
+type Skill1Def =
     | { id: "taunt"; cooldown: number; range: number; duration: number; damageReduction: number }
     | { id: "arrowRain"; cooldown: number; range: number; radius: number; duration: number; dps: number; slow: number }
     | { id: "arcane"; cooldown: number; radius: number; damageMul: number }
     | { id: "heal"; cooldown: number; radius: number; healPct: number };
+
+type Skill2Def =
+    | { id: "whirlwind"; cooldown: number; radius: number; damageMul: number }
+    | { id: "piercingShot"; cooldown: number; length: number; widthTiles: number; damageMul: number }
+    | { id: "fireLine"; cooldown: number; length: number; widthTiles: number; damageMul: number }
+    | { id: "stunLock"; cooldown: number; duration: number };
+
+type ClassDef = {
+  maxHp: number; attack: number; defense: number;
+  atkRange: number; atkSpeed: number; atkProjectile: string | null;
+  skill: Skill1Def;
+  skill2: Skill2Def;
 };
 
 const CLASSES: Record<Classe, ClassDef> = {
@@ -94,21 +105,25 @@ const CLASSES: Record<Classe, ClassDef> = {
     maxHp: 140, attack: 14, defense: 10,
     atkRange: 1.6, atkSpeed: 750, atkProjectile: null,
     skill: { id: "taunt", cooldown: 10000, range: 4, duration: 5000, damageReduction: 0.8 },
+    skill2: { id: "whirlwind", cooldown: 12000, radius: 1.5, damageMul: 6.0 },
   },
   archer: {
     maxHp: 90, attack: 12, defense: 6,
     atkRange: 6, atkSpeed: 700, atkProjectile: "arrow",
     skill: { id: "arrowRain", cooldown: 8000, range: 7, radius: 5, duration: 3000, dps: 8, slow: 0.5 },
+    skill2: { id: "piercingShot", cooldown: 10000, length: 16, widthTiles: 1.2, damageMul: 4.0 },
   },
   mage: {
     maxHp: 70, attack: 10, defense: 3,
     atkRange: 5, atkSpeed: 900, atkProjectile: "bolt",
-    skill: { id: "arcane", cooldown: 8000, radius: 3.2, damageMul: 4.0 },
+    skill: { id: "arcane", cooldown: 8000, radius: 9, damageMul: 4.0 },
+    skill2: { id: "fireLine", cooldown: 10000, length: 5, widthTiles: 1.4, damageMul: 4.0 },
   },
   healer: {
     maxHp: 95, attack: 7, defense: 5,
     atkRange: 4, atkSpeed: 850, atkProjectile: "spark",
     skill: { id: "heal", cooldown: 15000, radius: 4, healPct: 0.7 },
+    skill2: { id: "stunLock", cooldown: 12000, duration: 5000 },
   },
 };
 
@@ -122,20 +137,23 @@ type MobBase = {
   attackCdMs: number; xpReward: number;
 };
 
+// XP base 10x do antigo a pedido do Pedro. Skeleton 15x (era 60 → 900).
+// Dragão: HP > golem (300 vs 180); attack 15x skeleton (24 * 15 = 360).
 const MOB_TYPES: Record<MobType, MobBase> = {
-  slime:    { maxHp: 30,  attack: 6,  defense: 0, speed: 60,  attackRange: 1.0, sightRange: 5, attackCdMs: 1500, xpReward: 10 },
-  wolf:     { maxHp: 55,  attack: 11, defense: 2, speed: 120, attackRange: 1.0, sightRange: 7, attackCdMs: 900,  xpReward: 25 },
-  golem:    { maxHp: 180, attack: 18, defense: 8, speed: 35,  attackRange: 1.2, sightRange: 5, attackCdMs: 1800, xpReward: 80 },
-  skeleton: { maxHp: 90,  attack: 24, defense: 4, speed: 90,  attackRange: 1.2, sightRange: 8, attackCdMs: 1100, xpReward: 60 },
+  slime:    { maxHp: 30,  attack: 6,  defense: 0, speed: 60,  attackRange: 1.0, sightRange: 5, attackCdMs: 1500, xpReward: 100 },
+  wolf:     { maxHp: 55,  attack: 11, defense: 2, speed: 120, attackRange: 1.0, sightRange: 7, attackCdMs: 900,  xpReward: 250 },
+  golem:    { maxHp: 180, attack: 18, defense: 8, speed: 35,  attackRange: 1.2, sightRange: 5, attackCdMs: 1800, xpReward: 800 },
+  skeleton: { maxHp: 90,  attack: 24, defense: 4, speed: 90,  attackRange: 1.2, sightRange: 8, attackCdMs: 1100, xpReward: 900 },
+  dragon:   { maxHp: 300, attack: 360, defense: 12, speed: 70, attackRange: 1.5, sightRange: 9, attackCdMs: 1300, xpReward: 5000 },
 };
 
 const ZONE_MUL: Record<Zone, number> = { safe: 0.8, mid: 1.0, outer: 1.2 };
 
-// caps + composição por zona
+// caps + composição por zona — dragão é raro, só na outer
 const ZONE_CFG: Record<Zone, { cap: number; mix: Array<[MobType, number]>; rMin: number; rMax: number }> = {
-  safe:  { cap: 6,  mix: [["slime", 1.0]],                                rMin: 4,  rMax: 15 },
-  mid:   { cap: 12, mix: [["slime", 0.5], ["wolf", 0.5]],                 rMin: 15, rMax: 35 },
-  outer: { cap: 16, mix: [["wolf", 0.5], ["golem", 0.3], ["skeleton", 0.2]], rMin: 35, rMax: 50 },
+  safe:  { cap: 6,  mix: [["slime", 1.0]],                                                       rMin: 4,  rMax: 15 },
+  mid:   { cap: 12, mix: [["slime", 0.5], ["wolf", 0.5]],                                        rMin: 15, rMax: 35 },
+  outer: { cap: 18, mix: [["wolf", 0.4], ["golem", 0.25], ["skeleton", 0.25], ["dragon", 0.1]], rMin: 35, rMax: 50 },
 };
 
 // =============================================================================
@@ -187,6 +205,20 @@ function dist(ax: number, ay: number, bx: number, by: number): number {
   return Math.sqrt(dx * dx + dy * dy);
 }
 
+// Testa se ponto (px, py) está dentro do retângulo definido pelo segmento (ax,ay)→(bx,by)
+// engrossado por `halfW` em direção perpendicular. Usado pra skills lineares.
+function pontoNoRetangulo(px: number, py: number, ax: number, ay: number, bx: number, by: number, halfW: number): boolean {
+  const ex = bx - ax, ey = by - ay;
+  const len2 = ex * ex + ey * ey;
+  if (len2 === 0) return false;
+  const t = ((px - ax) * ex + (py - ay) * ey) / len2;
+  if (t < 0 || t > 1) return false;
+  // distância perpendicular do ponto à linha
+  const projX = ax + ex * t, projY = ay + ey * t;
+  const dx = px - projX, dy = py - projY;
+  return Math.sqrt(dx * dx + dy * dy) <= halfW;
+}
+
 function pickType(mix: Array<[MobType, number]>, rng: () => number): MobType {
   const r = rng();
   let acc = 0;
@@ -217,8 +249,9 @@ type MsgIdentificar = { tipo: "identificar"; nickname: string; cls: string };
 type MsgMover = { tipo: "mover"; x: number; y: number; facing: string };
 type MsgAtaque = { tipo: "ataque"; targetId?: string };
 type MsgSkill = { tipo: "skill"; alvoX?: number; alvoY?: number };
+type MsgSkill2 = { tipo: "skill2"; alvoX?: number; alvoY?: number; targetId?: string | null; facing?: string };
 type MsgChat = { tipo: "chat"; texto: string };
-type MsgEntrada = MsgIdentificar | MsgMover | MsgAtaque | MsgSkill | MsgChat;
+type MsgEntrada = MsgIdentificar | MsgMover | MsgAtaque | MsgSkill | MsgSkill2 | MsgChat;
 
 export default class GoToAdventureServer implements Party.Server {
   jogadores = new Map<string, Jogador>();
@@ -284,6 +317,7 @@ export default class GoToAdventureServer implements Party.Server {
       spawnX: x, spawnY: y,
       zone,
       slowUntil: 0,
+      stunUntil: 0,
     };
     this.mobs.set(id, mob);
     return mob;
@@ -306,7 +340,7 @@ export default class GoToAdventureServer implements Party.Server {
       attack: def.attack, defense: def.defense,
       atkRange: def.atkRange, atkSpeed: def.atkSpeed,
       atkProjectile: def.atkProjectile,
-      atkCdUntil: 0, skillCdUntil: 0,
+      atkCdUntil: 0, skillCdUntil: 0, skill2CdUntil: 0,
       buffs: {},
       alive: true,
       respawnAt: 0,
@@ -353,6 +387,8 @@ export default class GoToAdventureServer implements Party.Server {
       this.handleAtaque(j, data);
     } else if (data.tipo === "skill") {
       this.handleSkill(j, data);
+    } else if (data.tipo === "skill2") {
+      this.handleSkill2(j, data);
     } else if (data.tipo === "chat") {
       this.handleChat(j, data);
     }
@@ -496,6 +532,74 @@ export default class GoToAdventureServer implements Party.Server {
     }
 
     j.skillCdUntil = now + sk.cooldown;
+  }
+
+  // Skill 2 — handler genérico para as 4 classes.
+  private handleSkill2(j: Jogador, data: MsgSkill2) {
+    if (!j.alive) return;
+    const now = Date.now();
+    if (now < j.skill2CdUntil) return;
+
+    const def = CLASSES[j.cls];
+    const sk = def.skill2;
+
+    // facing → vetor unitário; client manda mas validamos via j.facing também
+    const facing = (data.facing && ["up", "down", "left", "right"].includes(data.facing)) ? data.facing : j.facing;
+    const dir = facing === "up" ? { dx: 0, dy: -1 }
+              : facing === "down" ? { dx: 0, dy: 1 }
+              : facing === "left" ? { dx: -1, dy: 0 }
+              : { dx: 1, dy: 0 };
+
+    if (sk.id === "whirlwind") {
+      const rPx = sk.radius * TILE;
+      this.broadcast({
+        tipo: "evento", kind: "skill2",
+        fromId: j.id, skillId: "whirlwind",
+        x: j.x, y: j.y, raio: rPx,
+      });
+      for (const m of this.mobs.values()) {
+        if (!m.alive) continue;
+        if (dist(m.x, m.y, j.x, j.y) <= rPx) {
+          this.aplicaDanoEmMob(j, m, j.attack * sk.damageMul);
+        }
+      }
+    } else if (sk.id === "fireLine" || sk.id === "piercingShot") {
+      // linha à frente — projetada num retângulo de comprimento `length` e largura `widthTiles`
+      const lenPx = sk.length * TILE;
+      const halfW = (sk.widthTiles * TILE) / 2;
+      const startX = j.x;
+      const startY = j.y;
+      const endX = j.x + dir.dx * lenPx;
+      const endY = j.y + dir.dy * lenPx;
+      this.broadcast({
+        tipo: "evento", kind: "skill2",
+        fromId: j.id, skillId: sk.id,
+        x: startX, y: startY,
+        toX: endX, toY: endY,
+        raio: halfW,
+      });
+      for (const m of this.mobs.values()) {
+        if (!m.alive) continue;
+        if (pontoNoRetangulo(m.x, m.y, startX, startY, endX, endY, halfW)) {
+          this.aplicaDanoEmMob(j, m, j.attack * sk.damageMul);
+        }
+      }
+    } else if (sk.id === "stunLock") {
+      // stuna o mob que o player tem como alvo (cliente envia targetId)
+      const targetId = data.targetId ? String(data.targetId) : null;
+      if (!targetId) return;
+      const target = this.mobs.get(targetId);
+      if (!target || !target.alive) return;
+      target.stunUntil = now + sk.duration;
+      this.broadcast({
+        tipo: "evento", kind: "skill2",
+        fromId: j.id, skillId: "stunLock",
+        x: target.x, y: target.y, raio: 24,
+        targetId,
+      });
+    }
+
+    j.skill2CdUntil = now + sk.cooldown;
   }
 
   private handleChat(j: Jogador, data: MsgChat) {
@@ -650,11 +754,17 @@ export default class GoToAdventureServer implements Party.Server {
           m.alive = true;
           m.deadAt = 0;
           m.slowUntil = 0;
+          m.stunUntil = 0;
           this.broadcast({
             tipo: "evento", kind: "respawn",
             alvoTipo: "mob", alvoId: m.id,
           });
         }
+        continue;
+      }
+
+      // mob stunado: não move nem ataca
+      if (m.stunUntil > now) {
         continue;
       }
 

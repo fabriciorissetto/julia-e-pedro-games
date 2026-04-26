@@ -546,6 +546,9 @@
     }
     if (best) {
       p.target = best.id;
+      // dispara ataque imediato (em online o server valida cd/range; offline o basicAttack
+      // checa tudo localmente). Antes só selecionava o alvo, exigindo apertar ESPAÇO.
+      basicAttack();
       return;
     }
 
@@ -674,6 +677,7 @@
       // ainda atualiza cd local pra UX (server tem cd próprio também)
       if (S.player.atkCooldown > 0) S.player.atkCooldown = Math.max(0, S.player.atkCooldown - dt * 1000);
       if (S.player.skillCooldown > 0) S.player.skillCooldown = Math.max(0, S.player.skillCooldown - dt * 1000);
+      if (S.player.skill2Cooldown > 0) S.player.skill2Cooldown = Math.max(0, S.player.skill2Cooldown - dt * 1000);
       updateActiveAoEs(dt);
       return;
     }
@@ -696,6 +700,36 @@
     S.debug.mobsAlive = alive;
   }
 
+  // Skill 2 — sempre delegada ao server (online). Em offline pula (não implementado local).
+  function castSkill2() {
+    const p = S.player;
+    if (!p.alive) return;
+    if (p.skill2Cooldown > 0) {
+      if (window.GTA.UI) window.GTA.UI.toast('Skill 2 em recarga!', '#ff4f6f');
+      return;
+    }
+    const cls = window.GTA.Classes.get(p.cls);
+    if (!cls || !cls.skill2) return;
+    const sk2 = cls.skill2;
+
+    p.animState = 'cast';
+    p.animUntil = S.now + 380;
+
+    if (S.net.mode === 'online' && S.net.connected) {
+      // pra healer (stunLock) o alvo é o mob focado; pros outros, posição/facing do player
+      const targetId = (sk2.id === 'stunLock') ? p.target : null;
+      const ax = S.input.mouseWorldX, ay = S.input.mouseWorldY;
+      if (window.GTA.Audio) {
+        window.GTA.Audio.play(sk2.id === 'fireLine' ? 'skillFire' : 'skillCast');
+      }
+      window.GTA.Net.sendSkill2(ax, ay, targetId);
+      p.skill2Cooldown = sk2.cooldown;
+      return;
+    }
+
+    if (window.GTA.UI) window.GTA.UI.toast('Skill 2 só funciona online por enquanto', '#ffaa44');
+  }
+
   function init() {
     // só spawna mobs locais se NÃO estiver online
     if (S.net.mode !== 'online') spawnMobsInZones();
@@ -713,6 +747,7 @@
     attackTarget,
     basicAttack,
     castSkill,
+    castSkill2,
     addItem,
     ready: false,
   };

@@ -173,6 +173,7 @@
       if (window.GTA.Audio) {
         window.GTA.Audio.unlock();
         window.GTA.Audio.play('levelUp'); // som triunfal de início
+        window.GTA.Audio.startMusic();    // música de fundo medieval em loop
       }
       startGame(nick, chosen);
     });

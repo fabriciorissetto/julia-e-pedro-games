@@ -51,6 +51,7 @@
       atkCooldown: 0,     // ms
       atkSpeed: 800,      // ms entre ataques
       skillCooldown: 0,   // ms
+      skill2Cooldown: 0,
       target: null,       // id do alvo (mob)
       alive: true,
       respawnIn: 0,

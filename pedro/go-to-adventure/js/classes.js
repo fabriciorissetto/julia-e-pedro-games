@@ -23,6 +23,14 @@
         duration: 5000,
         damageReduction: 0.8,
       },
+      skill2: {
+        id: 'whirlwind',
+        name: 'Redemoinho',
+        desc: 'Ataque devastador nos 8 quadrados ao redor.',
+        cooldown: 12000,
+        radius: 1.5,         // ~9 boxes (3x3)
+        damageMul: 6.0,
+      },
     },
     archer: {
       id: 'archer',
@@ -47,6 +55,15 @@
         dps: 8,
         slow: 0.5,
       },
+      skill2: {
+        id: 'piercingShot',
+        name: 'Tiro Perfurante',
+        desc: 'Linha reta de 16 tiles à frente. Atravessa inimigos.',
+        cooldown: 10000,
+        length: 16,          // tiles
+        widthTiles: 1.2,
+        damageMul: 4.0,
+      },
     },
     mage: {
       id: 'mage',
@@ -63,9 +80,18 @@
       skill: {
         id: 'arcane',
         name: 'Explosão Arcana',
-        desc: 'Explosão em área ao redor. Dano alto.',
+        desc: 'Explosão em área (raio 9). Dano alto.',
         cooldown: 8000,
-        radius: 3.2,
+        radius: 9,
+        damageMul: 4.0,
+      },
+      skill2: {
+        id: 'fireLine',
+        name: 'Linha de Fogo',
+        desc: 'Lança fogo 5 tiles à frente.',
+        cooldown: 10000,
+        length: 5,
+        widthTiles: 1.4,
         damageMul: 4.0,
       },
     },
@@ -88,6 +114,13 @@
         cooldown: 15000,
         radius: 4,
         healPct: 0.7,
+      },
+      skill2: {
+        id: 'stunLock',
+        name: 'Paralisia Sagrada',
+        desc: 'Stuna 100% o alvo focado por 5 segundos.',
+        cooldown: 12000,
+        duration: 5000,
       },
     },
   };

@@ -414,12 +414,52 @@
 
   function drawOverlay(o, camX, camY) {
     const Sprites = window.GTA.Sprites;
-    const sz = Sprites.getSize ? Sprites.getSize(o.type) : { w: 24, h: 24 };
-    const w = (sz && sz.w) || 24;
-    const h = (sz && sz.h) || 24;
-    const px = Math.floor(o.x - camX - w / 2);
-    const py = Math.floor(o.y - camY - h + 16);
-    Sprites.draw(ctx, o.type, px, py, 0, {});
+    // 'bed_right' é só pra colisão — sprite real é desenhado pelo tile 'bed' à esquerda
+    if (o.type === 'bed_right') return;
+    // 'nightstand_lamp' = criado-mudo + abajur por cima na mesma célula
+    if (o.type === 'nightstand_lamp') {
+      drawSprite('nightstand', o.x, o.y, camX, camY, 0);
+      drawSprite('lamp',       o.x, o.y - 6, camX, camY, 0); // levemente acima
+      return;
+    }
+    drawSprite(o.type, o.x, o.y, camX, camY, 0);
+  }
+
+  function drawSprite(name, wx, wy, camX, camY, frame) {
+    const Sprites = window.GTA.Sprites;
+    const sz = Sprites.getSize ? Sprites.getSize(name) : { w: 32, h: 32 };
+    const w = (sz && sz.w) || 32;
+    const h = (sz && sz.h) || 32;
+    // tiles fixos (wall, floor) ancoram no canto top-left do tile.
+    if (name === 'wall' || name === 'floor') {
+      const TILE = 32;
+      const tileX = Math.floor(wx / TILE) * TILE;
+      const tileY = Math.floor(wy / TILE) * TILE;
+      const px = Math.floor(tileX - camX);
+      const py = Math.floor(tileY - camY);
+      Sprites.draw(ctx, name, px, py, frame || 0, {});
+      return;
+    }
+    // cama: ancora no canto top-left do tile esquerdo, sprite cobre 2 tiles
+    if (name === 'bed') {
+      const TILE = 32;
+      const tileX = Math.floor(wx / TILE) * TILE;
+      const tileY = Math.floor(wy / TILE) * TILE;
+      Sprites.draw(ctx, name, Math.floor(tileX - camX), Math.floor(tileY - camY), frame || 0, {});
+      return;
+    }
+    // criado-mudo, abajur, móveis 1x1: âncora no tile (top-left)
+    if (name === 'nightstand' || name === 'lamp') {
+      const TILE = 32;
+      const tileX = Math.floor(wx / TILE) * TILE;
+      const tileY = Math.floor(wy / TILE) * TILE;
+      Sprites.draw(ctx, name, Math.floor(tileX - camX), Math.floor(tileY - camY), frame || 0, {});
+      return;
+    }
+    // ancora no centro horizontal, base do sprite no tile
+    const px = Math.floor(wx - camX - w / 2);
+    const py = Math.floor(wy - camY - h + 16);
+    Sprites.draw(ctx, name, px, py, frame || 0, {});
   }
 
   function dirIndex(facing) {
@@ -679,6 +719,31 @@
     const t = clamp(1 - a.life / a.maxLife, 0, 1);
     const pulse = 0.5 + 0.5 * Math.sin(state.now / 100);
 
+    // VFX em linha (fire-line, pierce-line) — desenha faixa entre (a.x,a.y) e (a.toX,a.toY)
+    if ((a.kind === 'fire-line' || a.kind === 'pierce-line') && a.toX != null) {
+      const x2 = Math.floor(a.toX - camX);
+      const y2 = Math.floor(a.toY - camY);
+      const lifeT = a.life / a.maxLife;
+      ctx.save();
+      ctx.globalAlpha = lifeT;
+      ctx.strokeStyle = a.color || '#fff';
+      ctx.lineWidth = a.r * 2;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+      // núcleo brilhante mais fino por cima
+      ctx.globalAlpha = lifeT * 0.9;
+      ctx.strokeStyle = a.kind === 'fire-line' ? 'rgba(255,255,180,0.85)' : 'rgba(255,255,255,0.85)';
+      ctx.lineWidth = Math.max(2, a.r * 0.6);
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+      ctx.restore();
+      return;
+    }
     // VFX especial pros kinds de fogo do mago — múltiplas camadas borradas e ondulantes
     if (a.kind === 'fire' || a.kind === 'fire-core') {
       const lifeT = a.life / a.maxLife;

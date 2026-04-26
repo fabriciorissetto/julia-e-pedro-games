@@ -291,14 +291,77 @@
     // árvores frutíferas (bloqueiam) — mid + outer
     spawn('fruit_tree', 35, { block: true, zoneFilter: (z) => z !== 'safe' });
 
-    // casas formando uma vilazinha em volta do centro (anel da safe zone)
+    // casas formando uma vilazinha em volta do centro
+    // cada casa = 5x5 tiles com paredes em volta, porta de 1 tile aberta apontando pro
+    // hub central, piso interno, cama (2x1) e criado-mudo + lustre no canto.
     const cx = Math.floor(W / 2), cy = Math.floor(H / 2);
     const houseSpots = [
-      [-9, -7], [9, -7], [-12, 0], [12, 0], [-7, 9], [7, 9], [0, -12], [0, 12],
+      // [dx, dy do canto top-left, doorSide('S','N','E','W')]
+      [-13, -10, 'S'],
+      [ 8,  -10, 'S'],
+      [-15,  -2, 'E'],
+      [ 11,  -2, 'W'],
+      [-13,   8, 'N'],
+      [ 8,    8, 'N'],
     ];
-    for (const [dx, dy] of houseSpots) {
-      placeOverlay('house', cx + dx, cy + dy, true);
+    for (const [dx, dy, doorSide] of houseSpots) {
+      placeHouse5x5(s, cx + dx, cy + dy, doorSide);
     }
+  }
+
+  // Constrói uma casa 5x5 começando em (x0, y0).
+  // doorSide ∈ 'N'|'S'|'E'|'W' → posição da porta (tile aberto na parede).
+  function placeHouse5x5(s, x0, y0, doorSide) {
+    const W = s.world.w, H = s.world.h, T = s.world.tile;
+
+    function setTile(tx, ty, type, block) {
+      if (tx < 1 || ty < 1 || tx >= W - 1 || ty >= H - 1) return;
+      const k = key(tx, ty);
+      // remove qualquer overlay antigo
+      s.overlays.delete(k);
+      // remove recurso eventual
+      const rid = resByTile.get(k);
+      if (rid) { s.resources.delete(rid); resByTile.delete(k); }
+      const id = window.GTA.util.uid();
+      s.overlays.set(k, { id, type, tx, ty, x: tx * T + T / 2, y: ty * T + T / 2, block: !!block });
+    }
+
+    // tile da porta dentro do perímetro 5x5 (índices 0..4):
+    // norte=topo: (2,0); sul=base: (2,4); leste=direita: (4,2); oeste=esquerda: (0,2)
+    const door = { N: [2, 0], S: [2, 4], E: [4, 2], W: [0, 2] }[doorSide] || [2, 4];
+
+    // 1) piso interno (3x3 dentro)
+    for (let dy = 1; dy <= 3; dy++) {
+      for (let dx = 1; dx <= 3; dx++) {
+        setTile(x0 + dx, y0 + dy, 'floor', false);
+      }
+    }
+    // 2) paredes no perímetro (exceto onde está a porta — fica vazio)
+    for (let dy = 0; dy < 5; dy++) {
+      for (let dx = 0; dx < 5; dx++) {
+        const isPerimeter = dx === 0 || dx === 4 || dy === 0 || dy === 4;
+        if (!isPerimeter) continue;
+        if (dx === door[0] && dy === door[1]) continue; // porta = aberto
+        setTile(x0 + dx, y0 + dy, 'wall', true);
+      }
+    }
+    // 3) cama 2x1 no canto oposto à porta (top-left interno = (1,1) e (2,1))
+    //    sprite cama tem 2 tiles de largura → marcamos os 2 tiles, ambos block.
+    setTile(x0 + 1, y0 + 1, 'bed', true);
+    setTile(x0 + 2, y0 + 1, 'bed_right', true); // segunda metade só pra colisão; sprite é desenhado uma vez do 1º.
+    // 4) criado-mudo no tile (3,1)
+    setTile(x0 + 3, y0 + 1, 'nightstand', true);
+    // 5) lustre/abajur em cima do criado-mudo — overlay decorativo extra (não bloqueia
+    //    extra; o nightstand já bloqueia). Marcamos um overlay separado num "tile irmão"
+    //    que o renderer usa como prop visual: vou simplesmente sobrepor desenhando o
+    //    sprite 'lamp' na mesma célula. Pra não duplicar storage, uso overlay com
+    //    type='nightstand_lamp' que o render trata como duas peças (criado + lampada).
+    s.overlays.set(key(x0 + 3, y0 + 1), {
+      id: window.GTA.util.uid(),
+      type: 'nightstand_lamp', tx: x0 + 3, ty: y0 + 1,
+      x: (x0 + 3) * T + T / 2, y: (y0 + 1) * T + T / 2,
+      block: true,
+    });
   }
 
   function overlayBlocks(tx, ty) {
