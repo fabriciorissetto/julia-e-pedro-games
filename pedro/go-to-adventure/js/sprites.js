@@ -2066,8 +2066,11 @@
       img = getTinted(img, key, tint);
     }
 
-    const w = img.width * scale;
-    const h = img.height * scale;
+    // drawW/drawH: dimensão forçada no destino (usado pelos tiles pra cobrir
+    // gaps de 1px causados pelo scale fracionário da câmera).
+    const w = opts.drawW != null ? opts.drawW : img.width * scale;
+    const h = opts.drawH != null ? opts.drawH : img.height * scale;
+    const useExplicitSize = opts.drawW != null || opts.drawH != null || scale !== 1;
     const prevAlpha = ctx.globalAlpha;
     if (alpha !== 1) ctx.globalAlpha = prevAlpha * alpha;
 
@@ -2075,11 +2078,11 @@
       ctx.save();
       ctx.translate(x + w, y);
       ctx.scale(-1, 1);
-      if (scale !== 1) ctx.drawImage(img, 0, 0, w, h);
+      if (useExplicitSize) ctx.drawImage(img, 0, 0, w, h);
       else ctx.drawImage(img, 0, 0);
       ctx.restore();
     } else {
-      if (scale !== 1) ctx.drawImage(img, x, y, w, h);
+      if (useExplicitSize) ctx.drawImage(img, x, y, w, h);
       else ctx.drawImage(img, x, y);
     }
 

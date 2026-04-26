@@ -43,7 +43,7 @@
     hud: { x: 14, y: 0, w: 460, h: 110, pad: 10 },
     skill: { size: 64 },
     hotbar: { slot: 36, gap: 4, count: 6 },
-    minimap: { size: 160, pad: 12 },
+    minimap: { size: 220, pad: 12 },
     inventory: { w: 640, h: 420, slot: 64, gap: 8, cols: 5, rows: 4 },
     crafting: { w: 560, h: 500, rowH: 72, gap: 8 },
   };

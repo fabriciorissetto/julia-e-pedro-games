@@ -55,9 +55,10 @@
       const r = canvas.getBoundingClientRect();
       S.input.mouseX = (e.clientX - r.left) * (canvas.width / r.width);
       S.input.mouseY = (e.clientY - r.top) * (canvas.height / r.height);
-      // converter pra mundo
-      S.input.mouseWorldX = S.input.mouseX + S.camera.x;
-      S.input.mouseWorldY = S.input.mouseY + S.camera.y;
+      // converter pra mundo (compensando zoom da câmera)
+      const z = (S.camera && S.camera.zoom) || 1;
+      S.input.mouseWorldX = S.camera.x + S.input.mouseX / z;
+      S.input.mouseWorldY = S.camera.y + S.input.mouseY / z;
     });
 
     canvas.addEventListener('mousedown', (e) => {

@@ -262,7 +262,9 @@
           const fc = Sprites.getFrameCount ? (Sprites.getFrameCount(name) || 1) : 1;
           frame = frame % Math.max(1, fc);
         }
-        Sprites.draw(ctx, name, tx * TILE - camX, ty * TILE - camY, frame, {});
+        // drawW/H = TILE+1 pra cobrir gaps de 1px que aparecem por causa do
+        // scale fracionário (zoom 1.25). 1px de overdraw é invisível.
+        Sprites.draw(ctx, name, tx * TILE - camX, ty * TILE - camY, frame, { drawW: TILE + 1, drawH: TILE + 1 });
       }
     }
 
@@ -488,6 +490,8 @@
     const cx = Math.floor(p.x - camX);
     const top = Math.floor(p.y - camY - h + 8);
     const name = p.nickname || 'Hero';
+    const lvl = 'Lv ' + (p.level || 1);
+    drawText(lvl, cx, top - 32, '#ffd24a', 9, 'center');
     drawText(name, cx, top - 22, classColor(p.cls), 11, 'center');
     drawHpBar(cx - 22, top - 8, 44, 5, p.hp / Math.max(1, p.maxHp));
   }
