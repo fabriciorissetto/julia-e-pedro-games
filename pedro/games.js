@@ -36,7 +36,7 @@ window.GAMES = [
   },
   {
     slug: "runner",
-    title: "Rooftop Runner",
+    title: "Subway Run",
     emoji: "🏃",
     color: "#4fdb9b",
     description: "Corre, pula, desliza. Não bate em nada."

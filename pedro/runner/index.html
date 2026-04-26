@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-<title>Rooftop Runner</title>
+<title>Subway Run</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body {
@@ -205,6 +205,46 @@
   }
   .btn.gray { background: linear-gradient(135deg, #4a5468, #2d3447); }
   .btn.small { padding: 10px 18px; font-size: 16px; }
+
+  .nick-input {
+    background: #1a2230;
+    border: 2px solid #4f9bff;
+    color: white;
+    padding: 14px;
+    font-size: 22px;
+    border-radius: 10px;
+    text-align: center;
+    width: 280px;
+    max-width: 90vw;
+    letter-spacing: 2px;
+    margin: 10px;
+  }
+  .nick-input:focus { outline: none; border-color: #4fdb9b; }
+
+  .leaderboard {
+    width: 100%; max-width: 480px;
+    margin-top: 8px;
+  }
+  .lb-row {
+    display: flex; align-items: center; gap: 10px;
+    background: #131b29;
+    border: 1px solid #2d3447;
+    padding: 10px 14px;
+    border-radius: 10px;
+    margin: 4px 0;
+  }
+  .lb-row.you { border-color: #4fdb9b; background: #16221c; }
+  .lb-row.gold   { border-color: #ffd84f; }
+  .lb-row.silver { border-color: #c0c0c0; }
+  .lb-row.bronze { border-color: #cd7f32; }
+  .lb-row .pos { width: 32px; text-align: center; font-weight: 800; font-size: 18px; color: #8aa2c2; }
+  .lb-row.gold   .pos { color: #ffd84f; }
+  .lb-row.silver .pos { color: #c0c0c0; }
+  .lb-row.bronze .pos { color: #cd7f32; }
+  .lb-row .name { flex: 1; font-weight: 700; }
+  .lb-row .pts  { color: #4fdb9b; font-weight: 800; font-size: 18px; }
+  .lb-row .skin { font-size: 22px; }
+  .lb-empty { color: #8aa2c2; font-style: italic; text-align: center; padding: 14px; }
 </style>
 </head>
 <body>
@@ -213,6 +253,7 @@
 
 <div id="hud">
   <div style="display:flex; flex-direction:column; gap:6px;">
+    <div class="hud-pill"><span class="label">👤</span><span id="hud-nick">JOGADOR</span></div>
     <div class="hud-pill"><span class="label">Pontos</span><span id="hud-score">0</span></div>
     <div class="hud-pill"><span class="label">Recorde</span><span id="hud-best">0</span></div>
   </div>
@@ -224,19 +265,33 @@
 
 <div id="powerup-bar"></div>
 
+<!-- Tela: Nickname (1ª vez ou editar) -->
+<div id="ui-nick" class="overlay">
+  <div class="title">SUBWAY RUN</div>
+  <div class="subtitle">Escolhe seu nickname pro placar de recordes</div>
+  <input class="nick-input" id="nick-field" maxlength="15" placeholder="seu nick (3-15 letras)" />
+  <button class="btn green" id="btn-save-nick">Salvar</button>
+  <div class="small" style="margin-top:10px; color:#8aa2c2; font-size:13px;">Você pode mudar depois no menu</div>
+</div>
+
 <!-- Tela inicial -->
-<div id="ui-menu" class="overlay show">
-  <div class="title">ROOFTOP RUNNER</div>
+<div id="ui-menu" class="overlay">
+  <div class="title">SUBWAY RUN</div>
   <div class="subtitle">Quanto mais longe, mais pontos. Não bate em nada.</div>
 
-  <div style="display:flex; gap:14px; margin: 6px 0 14px; flex-wrap:wrap; justify-content:center;">
+  <div style="display:flex; gap:14px; margin: 6px 0 14px; flex-wrap:wrap; justify-content:center; align-items:center;">
+    <div class="hud-pill"><span class="label">👤</span><span id="menu-nick">JOGADOR</span></div>
+    <div class="hud-pill"><span class="label">Personagem</span><span id="menu-runner">🏃</span></div>
     <div class="hud-pill"><span class="label">🪙</span><span id="menu-coins">0</span></div>
     <div class="hud-pill"><span class="label">Recorde</span><span id="menu-best">0</span></div>
-    <div class="hud-pill"><span class="label">Personagem</span><span id="menu-runner">🏃</span></div>
   </div>
 
   <button class="btn green" id="btn-start">▶ COMEÇAR</button>
-  <button class="btn small"  id="btn-shop">🛒 LOJA</button>
+  <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-top:6px;">
+    <button class="btn small"  id="btn-shop">🛒 LOJA</button>
+    <button class="btn small gray" id="btn-leaderboard">🏆 RECORDES</button>
+    <button class="btn small gray" id="btn-edit-nick">✏️ Mudar nick</button>
+  </div>
 
   <div class="controls-help">
     <div><b>← →</b> ou <b>A D</b>: trocar de pista</div>
@@ -244,6 +299,16 @@
     <div><b>↓</b> ou <b>S</b>: deslizar</div>
     <div style="margin-top:8px; color:#8aa2c2;">📱 No celular: arrasta o dedo (swipe) pra cada lado</div>
   </div>
+</div>
+
+<!-- Tela: Leaderboard -->
+<div id="ui-leaderboard" class="overlay">
+  <div class="top-bar">
+    <button class="btn gray small" id="lb-back">⬅ Voltar</button>
+  </div>
+  <div class="title" style="font-size:42px;">🏆 RECORDES</div>
+  <div class="subtitle">Top 10 melhores corridas</div>
+  <div class="leaderboard" id="lb-list"></div>
 </div>
 
 <!-- Tela: Loja -->
@@ -271,6 +336,7 @@
 <div id="ui-gameover" class="overlay">
   <div class="title" style="color:#ff4f6f;">Bateu!</div>
   <div class="go-card">
+    <div class="go-row"><span>Jogador</span><span class="v" id="go-nick">—</span></div>
     <div class="go-row"><span>Pontos</span><span class="v" id="go-score">0</span></div>
     <div class="go-row"><span>Moedas</span><span class="v" id="go-coins">0</span></div>
     <div class="go-row"><span>Recorde</span><span class="v" id="go-best">0</span></div>
@@ -278,6 +344,7 @@
   </div>
   <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center;">
     <button class="btn gray small" id="btn-go-menu">🛒 Menu</button>
+    <button class="btn gray small" id="btn-go-lb">🏆 Recordes</button>
     <button class="btn green" id="btn-again">▶ JOGAR DE NOVO</button>
   </div>
 </div>
@@ -357,12 +424,14 @@ const START_BOOSTS = {
 const STATE_KEY = 'runner_state_v2';
 function defaultState() {
   return {
+    nickname: '',
     best: 0,
     coins: 0,
     selectedRunner: 'default',
     ownedRunners: ['default'],
     ownedUpgrades: [],
     startInventory: { shield: 0, magnet: 0, boost: 0 },
+    leaderboard: [], // [{ nick, score, coins, runner, date }]
   };
 }
 function loadState() {
@@ -409,6 +478,7 @@ let scene = null;
 function startGame() {
   showOverlay(null);
   $('hud').classList.add('show');
+  $('hud-nick').textContent = state.nickname || 'JOGADOR';
   $('hud-best').textContent = state.best;
   $('hud-coins').textContent = state.coins;
 
@@ -424,17 +494,86 @@ function startGame() {
   });
 }
 
-$('btn-start').onclick = startGame;
+$('btn-start').onclick = () => {
+  if (!state.nickname || state.nickname.length < 3) { showNickPrompt(); return; }
+  startGame();
+};
 $('btn-again').onclick = startGame;
 $('btn-shop').onclick = showShop;
 $('shop-back').onclick = showMenu;
 $('btn-go-menu').onclick = showMenu;
+$('btn-go-lb').onclick = showLeaderboard;
+$('btn-leaderboard').onclick = showLeaderboard;
+$('lb-back').onclick = showMenu;
+$('btn-edit-nick').onclick = showNickPrompt;
+$('btn-save-nick').onclick = () => {
+  const v = ($('nick-field').value || '').trim();
+  if (v.length < 3 || v.length > 15) {
+    $('nick-field').style.borderColor = '#ff4f6f';
+    setTimeout(() => { $('nick-field').style.borderColor = ''; }, 800);
+    return;
+  }
+  state.nickname = v.toUpperCase();
+  saveState();
+  showMenu();
+};
+
+function showNickPrompt() {
+  $('nick-field').value = state.nickname || '';
+  showOverlay('nick');
+  setTimeout(() => $('nick-field').focus(), 50);
+}
 
 function showMenu() {
   $('menu-coins').textContent = state.coins;
   $('menu-best').textContent = state.best;
   $('menu-runner').textContent = getRunnerEmoji();
+  $('menu-nick').textContent = state.nickname || 'JOGADOR';
   showOverlay('menu');
+}
+
+function showLeaderboard() {
+  const list = $('lb-list');
+  list.innerHTML = '';
+  const lb = (state.leaderboard || []).slice().sort((a,b) => b.score - a.score).slice(0, 10);
+  if (lb.length === 0) {
+    list.innerHTML = '<div class="lb-empty">Ainda não tem recordes. Vai correr!</div>';
+    showOverlay('leaderboard');
+    return;
+  }
+  lb.forEach((entry, i) => {
+    const row = document.createElement('div');
+    let cls = 'lb-row';
+    if (i === 0) cls += ' gold';
+    else if (i === 1) cls += ' silver';
+    else if (i === 2) cls += ' bronze';
+    if (entry.nick === state.nickname) cls += ' you';
+    row.className = cls;
+    const skinEmoji = (RUNNER_SKINS.find(r => r.id === entry.runner) || RUNNER_SKINS[0]).emoji;
+    row.innerHTML = `
+      <div class="pos">${i+1}º</div>
+      <div class="skin">${skinEmoji}</div>
+      <div class="name">${entry.nick}</div>
+      <div class="pts">${entry.score}</div>
+    `;
+    list.appendChild(row);
+  });
+  showOverlay('leaderboard');
+}
+
+function addLeaderboardEntry(score, coins) {
+  if (!state.nickname) return;
+  state.leaderboard = state.leaderboard || [];
+  state.leaderboard.push({
+    nick: state.nickname,
+    score,
+    coins,
+    runner: state.selectedRunner,
+    date: Date.now(),
+  });
+  // mantém só os top 50 pra não estourar localStorage
+  state.leaderboard.sort((a,b) => b.score - a.score);
+  state.leaderboard = state.leaderboard.slice(0, 50);
 }
 
 function showShop() {
@@ -1067,11 +1206,13 @@ function handleHit(obstacle) {
   const isNewBest = scene.score > state.best;
   if (isNewBest) state.best = scene.score;
   state.coins += scene.runCoins;
+  addLeaderboardEntry(scene.score, scene.runCoins);
   saveState();
   // tela
   setTimeout(() => {
     $('hud').classList.remove('show');
     $('powerup-bar').innerHTML = '';
+    $('go-nick').textContent = state.nickname || 'JOGADOR';
     $('go-score').textContent = scene.score;
     $('go-coins').textContent = scene.runCoins;
     $('go-best').textContent = state.best;
@@ -1083,7 +1224,11 @@ function handleHit(obstacle) {
 // =====================================================================
 // BOOT
 // =====================================================================
-showMenu();
+if (!state.nickname || state.nickname.length < 3) {
+  showNickPrompt();
+} else {
+  showMenu();
+}
 </script>
 </body>
 </html>
