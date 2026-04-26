@@ -1499,6 +1499,117 @@
     return c;
   }
 
+  // ============================== OVERLAYS (decoração não-coletável) ==============================
+
+  // Arbusto pequeno transponível — não bloqueia movimento.
+  function makeBush(variant) {
+    const w = 24, h = 18;
+    const c = makeCanvas(w, h);
+    const g = c.getContext('2d');
+    const palette = [
+      { dark: '#1f4e1a', mid: '#2e6e22', lit: '#5fa84a', dot: '#88d060' }, // verde
+      { dark: '#3a2410', mid: '#5a3a18', lit: '#7a4a20', dot: '#9a6a30' }, // marrom seco
+      { dark: '#1a3a4a', mid: '#2a5a6a', lit: '#4a8a9a', dot: '#7abacb' }, // azulado
+    ][variant % 3];
+    shadowEllipse(g, 12, 16, 9, 2, 0.35);
+    pxDisc(g, 12, 11, 7, palette.dark);
+    pxDisc(g, 9, 9, 4, palette.mid);
+    pxDisc(g, 14, 10, 4, palette.mid);
+    pxDisc(g, 12, 13, 3, palette.mid);
+    pxDisc(g, 9, 8, 2, palette.lit);
+    pxDisc(g, 14, 9, 2, palette.lit);
+    pixel(g, 8, 7, palette.dot);
+    pixel(g, 15, 8, palette.dot);
+    pixel(g, 11, 6, palette.dot);
+    pixel(g, 13, 12, palette.dot);
+    return c;
+  }
+
+  // Pedrinha — também transponível.
+  function makePebble() {
+    const w = 16, h = 12;
+    const c = makeCanvas(w, h);
+    const g = c.getContext('2d');
+    shadowEllipse(g, 8, 11, 5, 1, 0.35);
+    pxRect(g, 4, 5, 8, 5, '#8a8e9a');
+    pxRect(g, 5, 4, 6, 1, '#aab0ba');
+    pxRect(g, 4, 9, 8, 1, '#5a5e6a');
+    pixel(g, 6, 6, '#cad0da');
+    pixel(g, 9, 7, '#3a3e4a');
+    outline(g, 4, 4, 8, 6, '#2a2e3a');
+    return c;
+  }
+
+  // Árvore frutífera — copa redonda + maçãs/cerejas vermelhas.
+  function makeFruitTree() {
+    const w = 32, h = 40;
+    const c = makeCanvas(w, h);
+    const g = c.getContext('2d');
+    shadowEllipse(g, 16, 38, 10, 2, 0.4);
+    // tronco
+    pxRect(g, 14, 26, 4, 12, '#5a3a18');
+    pxRect(g, 14, 26, 1, 12, '#3a2410');
+    pxRect(g, 17, 26, 1, 12, '#7a4a20');
+    // copa mais redonda e brilhante que árvore comum
+    pxDisc(g, 16, 13, 11, '#1f5e2a');
+    pxDisc(g, 13, 11, 7, '#3a8a3a');
+    pxDisc(g, 19, 13, 5, '#3a8a3a');
+    pxDisc(g, 12, 9, 3, '#6fc858');
+    pxDisc(g, 18, 11, 2, '#6fc858');
+    // frutos vermelhos espalhados
+    const frutos = [[10, 13], [14, 8], [19, 9], [22, 14], [13, 16], [17, 17], [21, 11]];
+    for (const [fx, fy] of frutos) {
+      pixel(g, fx, fy, '#d83030');
+      pixel(g, fx, fy - 1, '#f06060');
+    }
+    outline(g, 14, 26, 4, 12, '#1a1410');
+    return c;
+  }
+
+  // Casinha — bloqueia. Estilo vila pixel art.
+  function makeHouse() {
+    const w = 48, h = 48;
+    const c = makeCanvas(w, h);
+    const g = c.getContext('2d');
+    shadowEllipse(g, 24, 46, 18, 3, 0.4);
+    // corpo (paredes bege/madeira)
+    pxRect(g, 8, 22, 32, 22, '#d8b079');
+    pxRect(g, 8, 22, 32, 2, '#a87b48');     // sombra topo
+    pxRect(g, 8, 42, 32, 2, '#7a5530');     // sombra base
+    // tábuas verticais
+    for (let x = 12; x < 40; x += 4) {
+      pxRect(g, x, 24, 1, 18, '#a87b48');
+    }
+    // telhado vermelho triangular
+    for (let row = 0; row < 12; row++) {
+      const inset = 12 - row;
+      pxRect(g, 4 + inset, 10 + row, 40 - inset * 2, 1, '#c2331c');
+    }
+    // borda do telhado
+    for (let row = 0; row < 12; row++) {
+      const inset = 12 - row;
+      pixel(g, 4 + inset, 10 + row, '#7a1a08');
+      pixel(g, 4 + 40 - inset - 1, 10 + row, '#7a1a08');
+    }
+    // chaminé
+    pxRect(g, 32, 6, 4, 8, '#5a5e6a');
+    pxRect(g, 32, 6, 4, 1, '#3a3e4a');
+    // porta
+    pxRect(g, 20, 30, 8, 14, '#5a3a18');
+    pxRect(g, 20, 30, 1, 14, '#3a2410');
+    pxRect(g, 27, 30, 1, 14, '#7a4a20');
+    pixel(g, 26, 37, '#ffd24a'); // maçaneta
+    // janelinhas
+    pxRect(g, 11, 27, 5, 5, '#7abacb');
+    pxRect(g, 32, 27, 5, 5, '#7abacb');
+    pixel(g, 13, 29, '#fff');
+    pixel(g, 34, 29, '#fff');
+    outline(g, 11, 27, 5, 5, '#3a3e4a');
+    outline(g, 32, 27, 5, 5, '#3a3e4a');
+    outline(g, 8, 22, 32, 22, '#3a2410');
+    return c;
+  }
+
   // ============================== ITENS DE INVENTÁRIO (24x24) ==============================
 
   function makeItemWood() {
@@ -1950,6 +2061,14 @@
       damageFrames: true,
       w: 32, h: 32,
     };
+
+    // Overlays (decoração de mapa)
+    reg('bush_green', makeBush(0), 24, 18);
+    reg('bush_brown', makeBush(1), 24, 18);
+    reg('bush_blue',  makeBush(2), 24, 18);
+    reg('pebble',     makePebble(), 16, 12);
+    reg('fruit_tree', makeFruitTree(), 32, 40);
+    reg('house',      makeHouse(), 48, 48);
 
     // Itens
     reg('item_wood', makeItemWood(), 24, 24);

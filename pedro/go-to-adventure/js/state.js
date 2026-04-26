@@ -61,6 +61,7 @@
     // entidades
     mobs: new Map(),       // id -> { id,type,x,y,hp,maxHp,attack,xpReward,target,attackCd,deadAt,spawnX,spawnY,zone,stunUntil,slowUntil }
     resources: new Map(),  // id -> { id,type,x,y,hits,maxHits,respawnAt }
+    overlays: new Map(),   // chave (tx*10000+ty) -> { id, type, tx, ty, x, y, block }
     others: new Map(),     // outros jogadores (multiplayer)
 
     // inventário (20 slots)

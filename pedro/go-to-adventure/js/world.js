@@ -88,6 +88,7 @@
     const t = tileAt(tx, ty);
     if (t === TILE.WATER || t === TILE.MOUNTAIN) return false;
     if (isResourceBlock(tx, ty)) return false;
+    if (overlayBlocks(tx, ty)) return false;
     return true;
   }
 
@@ -128,12 +129,15 @@
     const maxR = Math.hypot(cx, cy);
 
     // 1) terreno base
+    // Distribuição alvo: 55% grama, 30% terra, 10% água (concentrada em lagos),
+    // 5% pedra (MOUNTAIN). Calibrado por thresholds em ruído fbm.
+    // Safe zone (centro 0-15): sem pedra/água — sempre caminhável.
     for (let ty = 0; ty < H; ty++) {
       for (let tx = 0; tx < W; tx++) {
         const d = Math.hypot(tx + 0.5 - cx, ty + 0.5 - cy);
         const zone = d <= 15 ? 'safe' : (d <= 35 ? 'mid' : 'outer');
 
-        // bordas inacessíveis
+        // bordas inacessíveis (anel fino)
         if (tx <= 1 || ty <= 1 || tx >= W - 2 || ty >= H - 2) {
           tiles[ty * W + tx] = TILE.MOUNTAIN;
           continue;
@@ -146,24 +150,16 @@
         let t = TILE.GRASS;
 
         if (zone === 'safe') {
-          // praticamente tudo grama; pequeno lago raro no extremo da safe
-          if (d > 12 && elev < 0.18) t = TILE.WATER;
-          else if (elev > 0.7 && moist < 0.3) t = TILE.DIRT;
-          else if (rng() < 0.12) t = TILE.GRASS2;
-          else t = TILE.GRASS;
-        } else if (zone === 'mid') {
-          if (elev < 0.30) t = TILE.WATER;
-          else if (elev > 0.78 && moist < 0.45) t = TILE.MOUNTAIN;
-          else if (moist > 0.55) t = TILE.GRASS2; // floresta-ish
-          else if (elev > 0.65) t = TILE.DIRT;
+          // grama 95%, terra 5% — sem água/pedra, área de descanso 100% caminhável
+          if (moist < 0.30) t = TILE.DIRT;
+          else if (rng() < 0.18) t = TILE.GRASS2;
           else t = TILE.GRASS;
         } else {
-          // outer hostil
-          if (elev < 0.32) t = TILE.WATER;
-          else if (elev > 0.55) t = TILE.MOUNTAIN;
-          else if (moist < 0.30) t = TILE.SAND;
-          else if (moist > 0.6) t = TILE.GRASS2;
-          else if (elev > 0.45) t = TILE.DIRT;
+          // mid + outer compartilham distribuição global. Diferença é só nos overlays/recursos.
+          if (elev < 0.20) t = TILE.WATER;             // ~10% — lagos concentrados
+          else if (elev > 0.85) t = TILE.MOUNTAIN;     // ~5% — picos isolados (zona de perigo navegável!)
+          else if (moist < 0.32) t = TILE.DIRT;        // ~30% — terra seca
+          else if (moist > 0.72) t = TILE.GRASS2;      // grama densa (parte do 55%)
           else t = TILE.GRASS;
         }
 
@@ -231,10 +227,14 @@
 
     // árvores: mid + outer (densas)
     spawnInZone('tree', 3, 120, (z) => z === 'mid' || z === 'outer');
-    // pedras: mid + outer
-    spawnInZone('rock', 4, 55, (z) => z === 'mid' || z === 'outer');
+    // pedras: bem reduzidas, espalhadas — antes eram 55 e travavam o caminho na zona de perigo
+    spawnInZone('rock', 4, 25, (z) => z === 'mid' || z === 'outer');
     // ferro: só outer
     spawnInZone('iron', 6, 28, (z) => z === 'outer');
+
+    // 4) overlays decorativos (não-coletáveis)
+    s.overlays = new Map();
+    spawnOverlays(s, rng, W, H);
 
     // garante que o hub central fica caminhável (sem recurso)
     for (let dy = -hubR - 1; dy <= hubR + 1; dy++) {
@@ -249,6 +249,63 @@
         }
       }
     }
+  }
+
+  // Spawna overlays decorativos. `block: true` impede o jogador de pisar no tile.
+  // Casas e árvores frutíferas bloqueiam; arbustos e pedrinhas são transponíveis.
+  function spawnOverlays(s, rng, W, H) {
+    const T = s.world.tile;
+
+    function placeOverlay(type, tx, ty, block) {
+      if (tx < 1 || ty < 1 || tx >= W - 1 || ty >= H - 1) return false;
+      const t = s.world.tiles[ty * W + tx];
+      if (t === TILE.WATER || t === TILE.MOUNTAIN || t === TILE.PATH) return false;
+      const k = key(tx, ty);
+      if (resByTile.has(k)) return false; // recurso lá
+      if (s.overlays.has(k)) return false; // overlay lá
+      const id = window.GTA.util.uid();
+      s.overlays.set(k, { id, type, tx, ty, x: tx * T + T / 2, y: ty * T + T / 2, block: !!block });
+      return true;
+    }
+
+    function spawn(type, count, opts) {
+      const block = !!(opts && opts.block);
+      const zoneFilter = (opts && opts.zoneFilter) || (() => true);
+      let placed = 0, tries = 0;
+      const cap = count * 60;
+      while (placed < count && tries < cap) {
+        tries++;
+        const tx = 2 + Math.floor(rng() * (W - 4));
+        const ty = 2 + Math.floor(rng() * (H - 4));
+        if (!zoneFilter(getZone(tx, ty))) continue;
+        if (placeOverlay(type, tx, ty, block)) placed++;
+      }
+    }
+
+    // arbustos espalhados (transponíveis) — verde mais comum, marrom em zonas secas
+    spawn('bush_green', 80, {});
+    spawn('bush_brown', 30, { zoneFilter: (z) => z !== 'safe' });
+    spawn('bush_blue',  15, {});
+    // pedrinhas decorativas
+    spawn('pebble', 60, {});
+    // árvores frutíferas (bloqueiam) — mid + outer
+    spawn('fruit_tree', 35, { block: true, zoneFilter: (z) => z !== 'safe' });
+
+    // casas formando uma vilazinha em volta do centro (anel da safe zone)
+    const cx = Math.floor(W / 2), cy = Math.floor(H / 2);
+    const houseSpots = [
+      [-9, -7], [9, -7], [-12, 0], [12, 0], [-7, 9], [7, 9], [0, -12], [0, 12],
+    ];
+    for (const [dx, dy] of houseSpots) {
+      placeOverlay('house', cx + dx, cy + dy, true);
+    }
+  }
+
+  function overlayBlocks(tx, ty) {
+    const s = window.GTA.state;
+    if (!s.overlays) return false;
+    const o = s.overlays.get(key(tx, ty));
+    return !!(o && o.block);
   }
 
   function harvestResource(id) {
@@ -312,6 +369,7 @@
     isWalkable,
     isWalkablePx,
     isResourceBlock,
+    overlayBlocks,
     getZone,
     getTilesPxRect,
     harvestResource,

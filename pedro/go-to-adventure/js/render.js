@@ -285,6 +285,14 @@
       drawables.push({ kind: 'resource', y: r.y, ref: r });
     });
 
+    // overlays decorativos (casas, arbustos, frutíferas, pedrinhas)
+    if (state.overlays && state.overlays.size > 0) {
+      state.overlays.forEach(function (o) {
+        if (o.x < viewL || o.x > viewR || o.y < viewT || o.y > viewB) return;
+        drawables.push({ kind: 'overlay', y: o.y, ref: o });
+      });
+    }
+
     // mobs vivos
     state.mobs.forEach(function (m) {
       if (m.hp <= 0) return;
@@ -308,6 +316,8 @@
       const d = drawables[i];
       if (d.kind === 'resource') {
         drawResource(d.ref, camX, camY);
+      } else if (d.kind === 'overlay') {
+        drawOverlay(d.ref, camX, camY);
       } else if (d.kind === 'mob') {
         drawMob(d.ref, state, camX, camY);
       } else if (d.kind === 'other') {
@@ -400,6 +410,16 @@
     const px = Math.floor(r.x - camX - w / 2);
     const py = Math.floor(r.y - camY - h + 16);
     Sprites.draw(ctx, name, px, py, 0, {});
+  }
+
+  function drawOverlay(o, camX, camY) {
+    const Sprites = window.GTA.Sprites;
+    const sz = Sprites.getSize ? Sprites.getSize(o.type) : { w: 24, h: 24 };
+    const w = (sz && sz.w) || 24;
+    const h = (sz && sz.h) || 24;
+    const px = Math.floor(o.x - camX - w / 2);
+    const py = Math.floor(o.y - camY - h + 16);
+    Sprites.draw(ctx, o.type, px, py, 0, {});
   }
 
   function dirIndex(facing) {
