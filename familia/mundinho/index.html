@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mundinho — Família</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; background: #1a1a2e; overflow: hidden; }
+    body { display: flex; align-items: center; justify-content: center; }
+    canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
+
+    .voltar {
+      position: fixed; top: 16px; left: 16px;
+      background: rgba(0,0,0,0.5); color: white; text-decoration: none;
+      padding: 8px 16px; border-radius: 8px;
+      font-family: sans-serif; font-size: 14px; z-index: 10;
+    }
+    .voltar:hover { background: rgba(0,0,0,0.8); }
+
+    .aviso {
+      color: white; max-width: 600px; padding: 32px;
+      background: #2d1b3d; border-radius: 16px; line-height: 1.6;
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    .aviso h1 { color: #ffb347; margin-bottom: 16px; }
+    .aviso code { background: #1a1a2e; padding: 2px 8px; border-radius: 4px; color: #ffd6e8; }
+    .aviso a { color: #ffb347; }
+    .aviso ol { margin: 16px 0 16px 24px; line-height: 1.8; }
+  </style>
+</head>
+<body>
+  <a class="voltar" href="../">← Voltar</a>
+  <div id="game"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+  <script>
+    const VELOCIDADE = 180;
+
+    // Lê o .tmj antes de iniciar pra descobrir quais imagens de tileset
+    // precisam ser pré-carregadas (Tiled embute o caminho da imagem).
+    async function init() {
+      let mapaJson;
+      try {
+        const r = await fetch('./assets/maps/mundinho.tmj');
+        if (!r.ok) throw new Error('fail');
+        mapaJson = await r.json();
+      } catch {
+        return mostrarInstrucoes();
+      }
+
+      class Mundinho extends Phaser.Scene {
+        constructor() { super('Mundinho'); }
+
+        preload() {
+          this.load.tilemapTiledJSON('mapa', './assets/maps/mundinho.tmj');
+          // Cada tileset embutido no .tmj tem um campo "image" relativo ao
+          // próprio .tmj. Carrega cada um com a key "ts_<nome>".
+          mapaJson.tilesets.forEach(ts => {
+            if (ts.image) {
+              this.load.image(`ts_${ts.name}`, './assets/maps/' + ts.image);
+            }
+          });
+        }
+
+        create() {
+          const map = this.make.tilemap({ key: 'mapa' });
+
+          // Conecta cada tileset declarado no .tmj com a textura carregada
+          const tilesets = map.tilesets
+            .map(ts => map.addTilesetImage(ts.name, `ts_${ts.name}`))
+            .filter(Boolean);
+
+          // Renderiza as 3 layers convencionais. Se uma layer não existir
+          // no mapa, simplesmente pula — assim dá pra começar com mapa
+          // simples só de "chao" e ir adicionando.
+          this.layers = {};
+          ['chao', 'decoracao', 'colisao'].forEach(nome => {
+            if (map.getLayer(nome)) {
+              this.layers[nome] = map.createLayer(nome, tilesets, 0, 0);
+            }
+          });
+
+          // Tudo que tiver tile na layer "colisao" bloqueia o player
+          if (this.layers.colisao) {
+            this.layers.colisao.setCollisionByExclusion([-1]);
+          }
+
+          this.criarPlayer(map);
+
+          this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
+          this.cameras.main.startFollow(this.player, true, 0.15, 0.15);
+          this.cameras.main.setZoom(2);
+
+          this.cursors = this.input.keyboard.createCursorKeys();
+          this.wasd = this.input.keyboard.addKeys({ up: 'W', down: 'S', left: 'A', right: 'D' });
+        }
+
+        criarPlayer(map) {
+          // Sprite improvisado: bolinha rosa com olhinhos.
+          // Quando tivermos um sprite de personagem decente, troca aqui.
+          const tex = this.textures.createCanvas('player', 24, 24);
+          const ctx = tex.getContext();
+          ctx.fillStyle = '#ff6f91';
+          ctx.beginPath(); ctx.arc(12, 12, 10, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = 'white';
+          ctx.beginPath(); ctx.arc(8, 11, 2.5, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(16, 11, 2.5, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = 'black';
+          ctx.beginPath(); ctx.arc(8, 11, 1.2, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(16, 11, 1.2, 0, Math.PI * 2); ctx.fill();
+          tex.refresh();
+
+          // Spawn no centro do mapa, ou em um object "player" da layer "spawns"
+          let x = map.widthInPixels / 2;
+          let y = map.heightInPixels / 2;
+          const spawns = map.getObjectLayer('spawns');
+          if (spawns) {
+            const obj = spawns.objects.find(o => o.name === 'player');
+            if (obj) { x = obj.x; y = obj.y; }
+          }
+
+          this.player = this.physics.add.sprite(x, y, 'player');
+          this.player.setCollideWorldBounds(true);
+          // Hitbox menor que o sprite — sensação melhor de movimento
+          this.player.body.setSize(16, 14).setOffset(4, 8);
+
+          if (this.layers.colisao) {
+            this.physics.add.collider(this.player, this.layers.colisao);
+          }
+        }
+
+        update() {
+          if (!this.player) return;
+          const body = this.player.body;
+          body.setVelocity(0);
+
+          const esq  = this.cursors.left.isDown  || this.wasd.left.isDown;
+          const dir  = this.cursors.right.isDown || this.wasd.right.isDown;
+          const cima = this.cursors.up.isDown    || this.wasd.up.isDown;
+          const baix = this.cursors.down.isDown  || this.wasd.down.isDown;
+
+          if (esq)  body.setVelocityX(-VELOCIDADE);
+          if (dir)  body.setVelocityX(VELOCIDADE);
+          if (cima) body.setVelocityY(-VELOCIDADE);
+          if (baix) body.setVelocityY(VELOCIDADE);
+
+          // Diagonal não pode ser mais rápida que reta
+          body.velocity.normalize().scale(VELOCIDADE);
+        }
+      }
+
+      new Phaser.Game({
+        type: Phaser.AUTO,
+        parent: 'game',
+        backgroundColor: '#1a1a2e',
+        pixelArt: true,
+        scale: {
+          mode: Phaser.Scale.FIT,
+          autoCenter: Phaser.Scale.CENTER_BOTH,
+          width: 800,
+          height: 600
+        },
+        physics: { default: 'arcade', arcade: { debug: false } },
+        scene: [Mundinho]
+      });
+    }
+
+    function mostrarInstrucoes() {
+      const div = document.createElement('div');
+      div.className = 'aviso';
+      div.innerHTML = `
+        <h1>🌱 Bem-vindo ao Mundinho</h1>
+        <p>Antes de jogar, falta o tileset e o primeiro mapa.</p>
+        <ol>
+          <li>Baixar o <a href="https://schwarnhild.itch.io/basic-tileset-and-asset-pack-32x32-pixels" target="_blank">Basic Tileset 32x32 da schwarnhild</a></li>
+          <li>Extrair os PNGs em <code>familia/mundinho/assets/tilesets/</code></li>
+          <li>Abrir o Tiled, criar o mapa, salvar como <code>familia/mundinho/assets/maps/mundinho.tmj</code></li>
+          <li>Recarregar essa página</li>
+        </ol>
+        <p style="opacity:0.8;font-size:14px">Layers esperadas: <code>chao</code>, <code>decoracao</code>, <code>colisao</code> (opcional: object layer <code>spawns</code> com um objeto <code>player</code>).</p>
+      `;
+      document.getElementById('game').appendChild(div);
+    }
+
+    init();
+  </script>
+</body>
+</html>
