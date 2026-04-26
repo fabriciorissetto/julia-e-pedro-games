@@ -55,4 +55,11 @@ window.GAMES = [
     color: "#6fb5ff",
     description: "A dona joga comida e você pega"
   },
+  {
+    slug: "vestir",
+    title: "Vestir a Menina",
+    emoji: "👗",
+    color: "#ff6fb5",
+    description: "Escolhe roupas, cabelos e bolsas"
+  },
 ];

@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Vestir a Menina</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background: linear-gradient(135deg, #ffd6f0 0%, #d6e4ff 50%, #f0d6ff 100%);
+    font-family: -apple-system, sans-serif;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  #app {
+    display: flex;
+    width: 100vw;
+    height: 100vh;
+  }
+
+  /* Botão voltar */
+  #voltar {
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    z-index: 100;
+    background: rgba(255,255,255,0.9);
+    color: #b56fff;
+    border: none;
+    border-radius: 20px;
+    padding: 10px 16px;
+    font-size: 18px;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  }
+
+  /* Área da menina */
+  #palco {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  #boneca-wrap {
+    position: relative;
+    width: 360px;
+    height: 540px;
+  }
+
+  #boneca {
+    width: 100%;
+    height: 100%;
+  }
+
+  /* corações que sobem ao trocar roupa */
+  .coracao-flutua {
+    position: absolute;
+    font-size: 28px;
+    pointer-events: none;
+    animation: subir 1.2s ease-out forwards;
+  }
+  @keyframes subir {
+    0% { transform: translateY(0) scale(0.5); opacity: 1; }
+    100% { transform: translateY(-150px) scale(1.4); opacity: 0; }
+  }
+
+  /* Painel direito */
+  #painel {
+    width: 320px;
+    background: rgba(255,255,255,0.7);
+    backdrop-filter: blur(10px);
+    box-shadow: -4px 0 16px rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+    gap: 12px;
+  }
+
+  /* Busca */
+  #busca-wrap {
+    position: relative;
+    margin-top: 8px;
+  }
+  #busca {
+    width: 100%;
+    padding: 14px 16px 14px 44px;
+    font-size: 18px;
+    border: 3px solid #ff9bd3;
+    border-radius: 24px;
+    background: white;
+    outline: none;
+    color: #b53fa0;
+    font-weight: bold;
+  }
+  #busca::placeholder { color: #ffaadd; font-weight: normal; }
+  #busca:focus { border-color: #b56fff; }
+  #busca-icone {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 22px;
+    pointer-events: none;
+  }
+  #limpar-busca {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: #ff9bd3;
+    color: white;
+    border: none;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    display: none;
+  }
+  #limpar-busca.visivel { display: block; }
+
+  /* Categorias */
+  #categorias {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+  .cat-btn {
+    background: white;
+    border: 3px solid transparent;
+    border-radius: 16px;
+    padding: 10px 4px;
+    font-size: 28px;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    transition: transform 0.1s;
+  }
+  .cat-btn:active { transform: scale(0.92); }
+  .cat-btn.ativa {
+    border-color: #b56fff;
+    background: #ffe7ff;
+    box-shadow: 0 0 0 4px rgba(181,111,255,0.2);
+  }
+
+  /* Grid de itens */
+  #itens-titulo {
+    font-size: 18px;
+    color: #b53fa0;
+    font-weight: bold;
+    text-align: center;
+    margin-top: 4px;
+  }
+
+  #itens {
+    flex: 1;
+    overflow-y: auto;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    padding: 4px;
+  }
+  .item-btn {
+    background: white;
+    border: 3px solid #ffd6f0;
+    border-radius: 14px;
+    padding: 8px;
+    cursor: pointer;
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+    transition: transform 0.1s;
+    overflow: hidden;
+  }
+  .item-btn:active { transform: scale(0.92); }
+  .item-btn.selecionado {
+    border-color: #b56fff;
+    box-shadow: 0 0 0 3px rgba(181,111,255,0.3);
+    background: #ffe7ff;
+  }
+  .item-swatch {
+    width: 100%;
+    height: 100%;
+    border-radius: 8px;
+  }
+  .item-emoji {
+    font-size: 36px;
+  }
+
+  /* "Sem nada" - botão pra tirar a peça */
+  .item-tirar {
+    border: 3px dashed #ff9bd3 !important;
+    color: #ff6fb5;
+    font-size: 28px;
+    background: #fff0f8;
+  }
+
+  #sem-resultados {
+    grid-column: 1 / -1;
+    text-align: center;
+    color: #b53fa0;
+    font-size: 16px;
+    padding: 20px;
+  }
+
+  /* Mobile */
+  @media (max-width: 700px) {
+    #app { flex-direction: column; }
+    #palco { flex: 0 0 50vh; }
+    #painel {
+      width: 100%;
+      height: 50vh;
+      padding: 10px;
+    }
+    #boneca-wrap { width: 220px; height: 340px; }
+    #categorias { grid-template-columns: repeat(7, 1fr); }
+    .cat-btn { font-size: 22px; padding: 8px 2px; }
+  }
+</style>
+</head>
+<body>
+<button id="voltar" onclick="window.location.href='/julia/'">← Voltar</button>
+
+<div id="app">
+  <div id="palco">
+    <div id="boneca-wrap">
+      <svg id="boneca" viewBox="0 0 360 540" xmlns="http://www.w3.org/2000/svg">
+        <!-- Pernas -->
+        <g id="layer-pernas">
+          <ellipse cx="148" cy="430" rx="22" ry="80" fill="#ffd6b5"/>
+          <ellipse cx="212" cy="430" rx="22" ry="80" fill="#ffd6b5"/>
+        </g>
+        <!-- Sapatos (camada) -->
+        <g id="layer-sapato"></g>
+        <!-- Calça/Saia (camada) -->
+        <g id="layer-calca"></g>
+        <!-- Corpo -->
+        <g id="layer-corpo">
+          <ellipse cx="180" cy="290" rx="60" ry="80" fill="#ffd6b5"/>
+        </g>
+        <!-- Braços -->
+        <g id="layer-bracos">
+          <ellipse cx="105" cy="300" rx="18" ry="60" fill="#ffd6b5" transform="rotate(8 105 300)"/>
+          <ellipse cx="255" cy="300" rx="18" ry="60" fill="#ffd6b5" transform="rotate(-8 255 300)"/>
+          <!-- Mãos -->
+          <circle cx="98" cy="358" r="14" fill="#ffd6b5"/>
+          <circle cx="262" cy="358" r="14" fill="#ffd6b5"/>
+        </g>
+        <!-- Blusa/Vestido (camada) -->
+        <g id="layer-blusa"></g>
+        <!-- Cinto (camada) -->
+        <g id="layer-cinto"></g>
+        <!-- Pescoço -->
+        <g id="layer-pescoco">
+          <rect x="166" y="190" width="28" height="30" fill="#ffd6b5"/>
+        </g>
+        <!-- Cabeça -->
+        <g id="layer-cabeca">
+          <circle cx="180" cy="160" r="56" fill="#ffd6b5"/>
+          <!-- Olhos -->
+          <ellipse cx="160" cy="160" rx="6" ry="8" fill="#222"/>
+          <ellipse cx="200" cy="160" rx="6" ry="8" fill="#222"/>
+          <circle cx="162" cy="158" r="2" fill="#fff"/>
+          <circle cx="202" cy="158" r="2" fill="#fff"/>
+          <!-- Cílios -->
+          <path d="M 152 152 L 148 148" stroke="#222" stroke-width="2" stroke-linecap="round"/>
+          <path d="M 168 152 L 172 148" stroke="#222" stroke-width="2" stroke-linecap="round"/>
+          <path d="M 192 152 L 188 148" stroke="#222" stroke-width="2" stroke-linecap="round"/>
+          <path d="M 208 152 L 212 148" stroke="#222" stroke-width="2" stroke-linecap="round"/>
+          <!-- Bochechas -->
+          <ellipse cx="148" cy="180" rx="8" ry="6" fill="#ff9bb5" opacity="0.6"/>
+          <ellipse cx="212" cy="180" rx="8" ry="6" fill="#ff9bb5" opacity="0.6"/>
+          <!-- Boca -->
+          <path d="M 168 188 Q 180 200 192 188" stroke="#c44" stroke-width="3" fill="none" stroke-linecap="round"/>
+        </g>
+        <!-- Cabelo (camada — fica acima da cabeça) -->
+        <g id="layer-cabelo"></g>
+        <!-- Acessórios extras (laços, etc) -->
+        <g id="layer-acessorio"></g>
+        <!-- Bolsa (fica ao lado, no braço) -->
+        <g id="layer-bolsa"></g>
+      </svg>
+    </div>
+  </div>
+
+  <div id="painel">
+    <div id="busca-wrap">
+      <span id="busca-icone">🔍</span>
+      <input id="busca" type="text" placeholder="Buscar: rosa, vestido..." autocomplete="off">
+      <button id="limpar-busca">×</button>
+    </div>
+
+    <div id="categorias"></div>
+    <div id="itens-titulo">👚 Blusas</div>
+    <div id="itens"></div>
+  </div>
+</div>
+
+<script>
+// ============== CATÁLOGO DE ROUPAS ==============
+
+const CATEGORIAS = [
+  { id: 'cabelo',     emoji: '💇',  nome: 'Cabelos' },
+  { id: 'blusa',      emoji: '👚',  nome: 'Blusas' },
+  { id: 'vestido',    emoji: '👗',  nome: 'Vestidos' },
+  { id: 'calca',      emoji: '👖',  nome: 'Calças & Saias' },
+  { id: 'sapato',     emoji: '👠',  nome: 'Sapatos' },
+  { id: 'bolsa',      emoji: '👜',  nome: 'Bolsas' },
+  { id: 'cinto',      emoji: '🎀',  nome: 'Cintos' },
+  { id: 'acessorio',  emoji: '👑',  nome: 'Acessórios' },
+];
+
+// Cores recorrentes (com nomes para busca)
+const CORES = {
+  rosa:     { hex: '#ff6fb5', nome: 'rosa' },
+  rosaClaro:{ hex: '#ffb5d6', nome: 'rosa claro' },
+  pink:     { hex: '#ff1493', nome: 'pink' },
+  roxo:     { hex: '#b56fff', nome: 'roxo' },
+  lilas:    { hex: '#d6b5ff', nome: 'lilás' },
+  azul:     { hex: '#6fb5ff', nome: 'azul' },
+  azulBebe: { hex: '#b5d6ff', nome: 'azul bebê' },
+  amarelo:  { hex: '#ffd16f', nome: 'amarelo' },
+  verde:    { hex: '#88dd99', nome: 'verde' },
+  vermelho: { hex: '#ff6f6f', nome: 'vermelho' },
+  branco:   { hex: '#ffffff', nome: 'branco' },
+  preto:    { hex: '#333333', nome: 'preto' },
+  laranja:  { hex: '#ffa066', nome: 'laranja' },
+  dourado:  { hex: '#ffd700', nome: 'dourado' },
+  marrom:   { hex: '#8b5a3c', nome: 'marrom' },
+};
+
+// Cabelos (substituem o cabelo padrão)
+const CABELOS = [
+  { id: 'cabelo-loiro-longo', nome: 'longo loiro', tags: ['loiro', 'longo', 'amarelo'],
+    svg: `<path d="M 124 130 Q 124 80 180 78 Q 236 80 236 130 L 240 220 Q 240 260 220 260 L 220 130 Q 220 110 200 105 L 200 95 Q 180 92 160 95 L 160 105 Q 140 110 140 130 L 140 260 Q 120 260 120 220 Z" fill="#ffd54a"/>
+           <path d="M 145 90 Q 180 70 215 90" stroke="#ffd54a" stroke-width="6" fill="none"/>` },
+  { id: 'cabelo-castanho-longo', nome: 'longo castanho', tags: ['castanho', 'longo', 'marrom'],
+    svg: `<path d="M 124 130 Q 124 80 180 78 Q 236 80 236 130 L 240 220 Q 240 260 220 260 L 220 130 Q 220 110 200 105 L 200 95 Q 180 92 160 95 L 160 105 Q 140 110 140 130 L 140 260 Q 120 260 120 220 Z" fill="#6b3a1c"/>` },
+  { id: 'cabelo-preto-curto', nome: 'curto preto', tags: ['preto', 'curto'],
+    svg: `<path d="M 124 130 Q 124 80 180 78 Q 236 80 236 130 L 235 175 Q 220 170 220 160 L 220 130 Q 220 110 200 105 L 200 95 Q 180 92 160 95 L 160 105 Q 140 110 140 130 L 140 160 Q 140 170 125 175 Z" fill="#222"/>` },
+  { id: 'cabelo-rosa-cha', nome: 'rosa chiclete', tags: ['rosa', 'pink', 'colorido'],
+    svg: `<path d="M 124 130 Q 124 80 180 78 Q 236 80 236 130 L 240 230 Q 240 280 215 280 L 215 130 Q 215 110 195 105 L 195 95 Q 180 92 165 95 L 165 105 Q 145 110 145 130 L 145 280 Q 120 280 120 230 Z" fill="#ff6fb5"/>` },
+  { id: 'cabelo-roxo-ondulado', nome: 'roxo ondulado', tags: ['roxo', 'ondulado'],
+    svg: `<path d="M 122 130 Q 122 78 180 76 Q 238 78 238 130 L 245 240 Q 235 235 230 245 Q 225 235 220 245 L 220 130 Q 220 110 200 105 L 200 95 Q 180 92 160 95 L 160 105 Q 140 110 140 130 L 140 245 Q 135 235 130 245 Q 125 235 115 240 Z" fill="#b56fff"/>` },
+  { id: 'cabelo-ruivo-trancas', nome: 'ruivo com tranças', tags: ['ruivo', 'tranças', 'laranja'],
+    svg: `<path d="M 124 130 Q 124 80 180 78 Q 236 80 236 130 L 235 175 Q 220 170 220 160 L 220 130 Q 220 110 200 105 L 200 95 Q 180 92 160 95 L 160 105 Q 140 110 140 130 L 140 160 Q 140 170 125 175 Z" fill="#cc5522"/>
+           <ellipse cx="115" cy="220" rx="14" ry="40" fill="#cc5522"/>
+           <ellipse cx="245" cy="220" rx="14" ry="40" fill="#cc5522"/>
+           <circle cx="115" cy="265" r="8" fill="#ff6fb5"/>
+           <circle cx="245" cy="265" r="8" fill="#ff6fb5"/>` },
+  { id: 'cabelo-azul-curto', nome: 'curto azul', tags: ['azul', 'curto', 'colorido'],
+    svg: `<path d="M 122 130 Q 122 78 180 76 Q 238 78 238 130 L 235 175 Q 220 170 220 160 L 220 130 Q 220 110 200 105 L 200 95 Q 180 92 160 95 L 160 105 Q 140 110 140 130 L 140 160 Q 140 170 125 175 Z" fill="#6fb5ff"/>
+           <path d="M 145 100 Q 180 90 215 100" stroke="#a8d2ff" stroke-width="3" fill="none"/>` },
+  { id: 'cabelo-coque', nome: 'coque alto', tags: ['coque', 'preso', 'castanho'],
+    svg: `<circle cx="180" cy="80" r="32" fill="#6b3a1c"/>
+           <path d="M 130 130 Q 130 100 180 100 Q 230 100 230 130 L 232 175 Q 220 170 220 160 L 220 130 Q 220 115 200 110 L 200 100 Q 180 98 160 100 L 160 110 Q 140 115 140 130 L 140 160 Q 140 170 128 175 Z" fill="#6b3a1c"/>
+           <ellipse cx="180" cy="80" rx="34" ry="10" fill="#552a10" opacity="0.4"/>` },
+];
+
+// Blusas
+const BLUSAS = [];
+for (const corKey of ['rosa', 'pink', 'roxo', 'lilas', 'azul', 'azulBebe', 'amarelo', 'verde', 'vermelho', 'branco', 'preto']) {
+  const c = CORES[corKey];
+  BLUSAS.push({
+    id: `blusa-${corKey}`,
+    nome: `blusa ${c.nome}`,
+    tags: [c.nome, 'blusa', 'camiseta'],
+    swatch: c.hex,
+    svg: `<path d="M 130 220 Q 130 215 138 215 L 222 215 Q 230 215 230 220 L 240 290 Q 240 305 225 305 L 135 305 Q 120 305 120 290 Z" fill="${c.hex}"/>
+          <ellipse cx="105" cy="265" rx="22" ry="30" fill="${c.hex}" transform="rotate(8 105 265)"/>
+          <ellipse cx="255" cy="265" rx="22" ry="30" fill="${c.hex}" transform="rotate(-8 255 265)"/>`
+  });
+}
+
+// Vestidos
+const VESTIDOS = [];
+for (const corKey of ['rosa', 'pink', 'roxo', 'lilas', 'azul', 'azulBebe', 'amarelo', 'verde', 'vermelho', 'branco', 'preto', 'dourado']) {
+  const c = CORES[corKey];
+  VESTIDOS.push({
+    id: `vestido-${corKey}`,
+    nome: `vestido ${c.nome}`,
+    tags: [c.nome, 'vestido'],
+    swatch: c.hex,
+    svg: `<path d="M 130 220 Q 130 215 138 215 L 222 215 Q 230 215 230 220 L 245 285 Q 270 410 250 470 L 110 470 Q 90 410 115 285 Z" fill="${c.hex}"/>
+          <ellipse cx="105" cy="265" rx="22" ry="30" fill="${c.hex}" transform="rotate(8 105 265)"/>
+          <ellipse cx="255" cy="265" rx="22" ry="30" fill="${c.hex}" transform="rotate(-8 255 265)"/>
+          <path d="M 110 470 Q 180 480 250 470" stroke="${c.hex}" stroke-width="4" fill="none"/>`
+  });
+}
+// Vestido princesa especial
+VESTIDOS.push({
+  id: 'vestido-princesa',
+  nome: 'vestido princesa',
+  tags: ['princesa', 'rosa', 'glitter', 'brilhante'],
+  swatch: '#ff9bd3',
+  svg: `<path d="M 130 220 L 230 220 L 245 290 L 220 305 L 140 305 L 115 290 Z" fill="#ff9bd3"/>
+        <path d="M 115 290 Q 50 420 80 480 L 280 480 Q 310 420 245 290 Z" fill="#ffd6f0"/>
+        <path d="M 115 290 L 245 290" stroke="#ffd700" stroke-width="3" fill="none"/>
+        <circle cx="120" cy="350" r="3" fill="#ffd700"/>
+        <circle cx="180" cy="380" r="3" fill="#ffd700"/>
+        <circle cx="240" cy="350" r="3" fill="#ffd700"/>
+        <circle cx="150" cy="420" r="3" fill="#ffd700"/>
+        <circle cx="210" cy="420" r="3" fill="#ffd700"/>
+        <ellipse cx="105" cy="265" rx="22" ry="30" fill="#ff9bd3" transform="rotate(8 105 265)"/>
+        <ellipse cx="255" cy="265" rx="22" ry="30" fill="#ff9bd3" transform="rotate(-8 255 265)"/>`
+});
+// Vestido arco-íris
+VESTIDOS.push({
+  id: 'vestido-arcoiris',
+  nome: 'vestido arco-íris',
+  tags: ['arco-iris', 'arcoiris', 'colorido'],
+  swatch: 'linear-gradient(180deg, #ff6f6f, #ffd16f, #88dd99, #6fb5ff, #b56fff)',
+  svg: `<defs><linearGradient id="grad-ai" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#ff6f6f"/>
+          <stop offset="25%" stop-color="#ffd16f"/>
+          <stop offset="50%" stop-color="#88dd99"/>
+          <stop offset="75%" stop-color="#6fb5ff"/>
+          <stop offset="100%" stop-color="#b56fff"/>
+        </linearGradient></defs>
+        <path d="M 130 220 Q 130 215 138 215 L 222 215 Q 230 215 230 220 L 245 285 Q 270 410 250 470 L 110 470 Q 90 410 115 285 Z" fill="url(#grad-ai)"/>
+        <ellipse cx="105" cy="265" rx="22" ry="30" fill="#ff6f6f" transform="rotate(8 105 265)"/>
+        <ellipse cx="255" cy="265" rx="22" ry="30" fill="#b56fff" transform="rotate(-8 255 265)"/>`
+});
+
+// Calças e saias
+const CALCAS = [];
+for (const corKey of ['rosa', 'roxo', 'azul', 'amarelo', 'verde', 'vermelho', 'preto']) {
+  const c = CORES[corKey];
+  CALCAS.push({
+    id: `calca-${corKey}`,
+    nome: `calça ${c.nome}`,
+    tags: [c.nome, 'calça', 'calca'],
+    swatch: c.hex,
+    svg: `<path d="M 122 305 L 238 305 L 242 470 L 200 475 L 188 360 L 172 360 L 160 475 L 118 470 Z" fill="${c.hex}"/>`
+  });
+}
+for (const corKey of ['rosa', 'roxo', 'azul', 'amarelo', 'branco', 'pink']) {
+  const c = CORES[corKey];
+  CALCAS.push({
+    id: `saia-${corKey}`,
+    nome: `saia ${c.nome}`,
+    tags: [c.nome, 'saia'],
+    swatch: c.hex,
+    svg: `<path d="M 122 305 L 238 305 L 270 410 L 90 410 Z" fill="${c.hex}"/>`
+  });
+}
+// Saia de tule especial
+CALCAS.push({
+  id: 'saia-tule',
+  nome: 'saia tule rosa',
+  tags: ['tule', 'rosa', 'bailarina', 'fofo'],
+  swatch: '#ffb5d6',
+  svg: `<path d="M 122 305 L 238 305 L 290 380 L 70 380 Z" fill="#ffb5d6" opacity="0.9"/>
+        <path d="M 80 350 Q 180 340 280 350" stroke="#ffd6f0" stroke-width="3" fill="none"/>
+        <path d="M 90 370 Q 180 360 270 370" stroke="#ffd6f0" stroke-width="3" fill="none"/>`
+});
+
+// Sapatos
+const SAPATOS = [];
+for (const corKey of ['rosa', 'roxo', 'azul', 'vermelho', 'preto', 'branco', 'dourado']) {
+  const c = CORES[corKey];
+  SAPATOS.push({
+    id: `sapato-${corKey}`,
+    nome: `sapato ${c.nome}`,
+    tags: [c.nome, 'sapato', 'sapatilha'],
+    swatch: c.hex,
+    svg: `<ellipse cx="148" cy="510" rx="28" ry="14" fill="${c.hex}"/>
+          <ellipse cx="212" cy="510" rx="28" ry="14" fill="${c.hex}"/>`
+  });
+}
+SAPATOS.push({
+  id: 'bota-rosa',
+  nome: 'bota rosa',
+  tags: ['rosa', 'bota'],
+  swatch: '#ff6fb5',
+  svg: `<rect x="128" y="470" width="40" height="50" rx="8" fill="#ff6fb5"/>
+        <rect x="192" y="470" width="40" height="50" rx="8" fill="#ff6fb5"/>
+        <ellipse cx="148" cy="520" rx="22" ry="8" fill="#ff6fb5"/>
+        <ellipse cx="212" cy="520" rx="22" ry="8" fill="#ff6fb5"/>`
+});
+
+// Bolsas
+const BOLSAS = [];
+for (const corKey of ['rosa', 'pink', 'roxo', 'azul', 'amarelo', 'vermelho', 'dourado', 'preto']) {
+  const c = CORES[corKey];
+  BOLSAS.push({
+    id: `bolsa-${corKey}`,
+    nome: `bolsa ${c.nome}`,
+    tags: [c.nome, 'bolsa'],
+    swatch: c.hex,
+    svg: `<rect x="60" y="350" width="40" height="35" rx="6" fill="${c.hex}"/>
+          <path d="M 65 350 Q 80 320 95 350" stroke="${c.hex}" stroke-width="4" fill="none"/>
+          <circle cx="80" cy="368" r="4" fill="#ffd700"/>`
+  });
+}
+// Bolsa coração
+BOLSAS.push({
+  id: 'bolsa-coracao',
+  nome: 'bolsa coração rosa',
+  tags: ['coracao', 'coração', 'rosa', 'fofo'],
+  swatch: '#ff1493',
+  svg: `<path d="M 80 360 C 80 350 65 350 65 365 C 65 380 80 390 80 390 C 80 390 95 380 95 365 C 95 350 80 350 80 360 Z" fill="#ff1493"/>
+        <path d="M 70 348 Q 80 330 90 348" stroke="#ff1493" stroke-width="3" fill="none"/>`
+});
+
+// Cintos
+const CINTOS = [];
+for (const corKey of ['rosa', 'pink', 'roxo', 'preto', 'dourado', 'vermelho', 'azul']) {
+  const c = CORES[corKey];
+  CINTOS.push({
+    id: `cinto-${corKey}`,
+    nome: `cinto ${c.nome}`,
+    tags: [c.nome, 'cinto'],
+    swatch: c.hex,
+    svg: `<rect x="118" y="298" width="124" height="14" fill="${c.hex}"/>
+          <rect x="172" y="296" width="16" height="18" fill="#ffd700"/>`
+  });
+}
+// Laço rosa de cinto
+CINTOS.push({
+  id: 'cinto-laco',
+  nome: 'cinto com laço rosa',
+  tags: ['laço', 'laco', 'rosa', 'fofo'],
+  swatch: '#ff6fb5',
+  svg: `<rect x="118" y="298" width="124" height="10" fill="#ff6fb5"/>
+        <path d="M 165 295 L 155 285 L 155 318 L 165 308 Z" fill="#ff1493"/>
+        <path d="M 195 295 L 205 285 L 205 318 L 195 308 Z" fill="#ff1493"/>
+        <circle cx="180" cy="303" r="6" fill="#ff1493"/>`
+});
+
+// Acessórios (coroas, laços, óculos)
+const ACESSORIOS = [
+  { id: 'coroa-dourada', nome: 'coroa dourada', tags: ['coroa', 'princesa', 'dourado'],
+    swatch: '#ffd700',
+    svg: `<path d="M 145 95 L 155 75 L 165 90 L 180 70 L 195 90 L 205 75 L 215 95 Z" fill="#ffd700" stroke="#cc9900" stroke-width="2"/>
+          <circle cx="180" cy="83" r="3" fill="#ff6fb5"/>
+          <circle cx="160" cy="93" r="2" fill="#6fb5ff"/>
+          <circle cx="200" cy="93" r="2" fill="#6fb5ff"/>` },
+  { id: 'coroa-rosa', nome: 'tiara rosa', tags: ['tiara', 'coroa', 'princesa', 'rosa'],
+    swatch: '#ff6fb5',
+    svg: `<path d="M 145 100 Q 180 80 215 100" stroke="#ff6fb5" stroke-width="6" fill="none"/>
+          <circle cx="180" cy="86" r="6" fill="#ff1493"/>
+          <circle cx="160" cy="96" r="3" fill="#ffd700"/>
+          <circle cx="200" cy="96" r="3" fill="#ffd700"/>` },
+  { id: 'laco-grande', nome: 'laço grande rosa', tags: ['laço', 'laco', 'rosa'],
+    swatch: '#ff6fb5',
+    svg: `<path d="M 200 90 L 218 80 L 218 105 L 200 95 Z" fill="#ff6fb5"/>
+          <path d="M 218 80 L 235 75 L 235 110 L 218 105 Z" fill="#ff6fb5"/>
+          <circle cx="218" cy="93" r="5" fill="#ff1493"/>` },
+  { id: 'oculos-coracao', nome: 'óculos coração', tags: ['óculos', 'oculos', 'coração'],
+    swatch: '#ff6fb5',
+    svg: `<circle cx="160" cy="160" r="14" stroke="#ff6fb5" stroke-width="3" fill="none"/>
+          <circle cx="200" cy="160" r="14" stroke="#ff6fb5" stroke-width="3" fill="none"/>
+          <line x1="174" y1="160" x2="186" y2="160" stroke="#ff6fb5" stroke-width="3"/>` },
+  { id: 'oculos-sol', nome: 'óculos de sol', tags: ['óculos', 'oculos', 'sol', 'preto'],
+    swatch: '#222',
+    svg: `<rect x="142" y="150" width="32" height="20" rx="6" fill="#222"/>
+          <rect x="186" y="150" width="32" height="20" rx="6" fill="#222"/>
+          <line x1="174" y1="160" x2="186" y2="160" stroke="#222" stroke-width="3"/>` },
+  { id: 'colar-coracao', nome: 'colar coração', tags: ['colar', 'coração', 'rosa'],
+    swatch: '#ff1493',
+    svg: `<path d="M 150 215 Q 180 235 210 215" stroke="#ffd700" stroke-width="2" fill="none"/>
+          <path d="M 180 230 C 180 225 173 225 173 232 C 173 240 180 246 180 246 C 180 246 187 240 187 232 C 187 225 180 225 180 230 Z" fill="#ff1493"/>` },
+];
+
+// Catálogo unificado por categoria
+const CATALOGO = {
+  cabelo: CABELOS,
+  blusa: BLUSAS,
+  vestido: VESTIDOS,
+  calca: CALCAS,
+  sapato: SAPATOS,
+  bolsa: BOLSAS,
+  cinto: CINTOS,
+  acessorio: ACESSORIOS,
+};
+
+// ============== ESTADO ==============
+const vestindo = {
+  cabelo: 'cabelo-loiro-longo',
+  blusa: 'blusa-rosa',
+  vestido: null,
+  calca: 'calca-roxo',
+  sapato: 'sapato-rosa',
+  bolsa: null,
+  cinto: null,
+  acessorio: null,
+};
+
+let categoriaAtiva = 'blusa';
+let busca = '';
+
+// ============== RENDERIZAÇÃO ==============
+
+function renderizarBoneca() {
+  for (const cat of Object.keys(CATALOGO)) {
+    const layer = document.getElementById('layer-' + cat);
+    if (!layer) continue;
+    const itemId = vestindo[cat];
+    if (!itemId) {
+      layer.innerHTML = '';
+      continue;
+    }
+    const item = CATALOGO[cat].find(x => x.id === itemId);
+    layer.innerHTML = item ? item.svg : '';
+  }
+
+  // se tem vestido, esconde a blusa e calça
+  const temVestido = vestindo.vestido;
+  if (temVestido) {
+    document.getElementById('layer-blusa').innerHTML = '';
+    document.getElementById('layer-calca').innerHTML = '';
+  }
+}
+
+function renderizarCategorias() {
+  const wrap = document.getElementById('categorias');
+  wrap.innerHTML = '';
+  for (const cat of CATEGORIAS) {
+    const btn = document.createElement('button');
+    btn.className = 'cat-btn' + (cat.id === categoriaAtiva ? ' ativa' : '');
+    btn.textContent = cat.emoji;
+    btn.title = cat.nome;
+    btn.addEventListener('click', () => {
+      categoriaAtiva = cat.id;
+      busca = '';
+      document.getElementById('busca').value = '';
+      atualizarLimparBusca();
+      renderizarCategorias();
+      renderizarItens();
+    });
+    wrap.appendChild(btn);
+  }
+}
+
+function renderizarItens() {
+  const wrap = document.getElementById('itens');
+  const titulo = document.getElementById('itens-titulo');
+  wrap.innerHTML = '';
+
+  let itens, tituloTexto;
+  if (busca.trim()) {
+    // busca em todas as categorias
+    const termo = normalizar(busca);
+    itens = [];
+    for (const cat of Object.keys(CATALOGO)) {
+      for (const item of CATALOGO[cat]) {
+        const palavras = [item.nome, ...(item.tags || [])].map(normalizar).join(' ');
+        if (palavras.includes(termo)) {
+          itens.push({ ...item, _categoria: cat });
+        }
+      }
+    }
+    tituloTexto = `🔍 Busca: "${busca}" (${itens.length})`;
+  } else {
+    itens = CATALOGO[categoriaAtiva].map(i => ({ ...i, _categoria: categoriaAtiva }));
+    const cat = CATEGORIAS.find(c => c.id === categoriaAtiva);
+    tituloTexto = `${cat.emoji} ${cat.nome}`;
+  }
+
+  titulo.textContent = tituloTexto;
+
+  // botão "tirar" no início (se tem item vestido na categoria atual e não está em busca)
+  if (!busca.trim()) {
+    const tirarBtn = document.createElement('button');
+    tirarBtn.className = 'item-btn item-tirar';
+    tirarBtn.textContent = '✕';
+    tirarBtn.title = 'Tirar';
+    tirarBtn.addEventListener('click', () => {
+      vestindo[categoriaAtiva] = null;
+      renderizarBoneca();
+      renderizarItens();
+      tocarPlim();
+      mostrarCoracao();
+    });
+    wrap.appendChild(tirarBtn);
+  }
+
+  if (itens.length === 0) {
+    const aviso = document.createElement('div');
+    aviso.id = 'sem-resultados';
+    aviso.textContent = 'Nada encontrado 😢';
+    wrap.appendChild(aviso);
+    return;
+  }
+
+  for (const item of itens) {
+    const btn = document.createElement('button');
+    const cat = item._categoria;
+    const selecionado = vestindo[cat] === item.id;
+    btn.className = 'item-btn' + (selecionado ? ' selecionado' : '');
+    btn.title = item.nome;
+
+    if (item.swatch && !item.swatch.startsWith('linear-gradient')) {
+      const sw = document.createElement('div');
+      sw.className = 'item-swatch';
+      sw.style.background = item.swatch;
+      btn.appendChild(sw);
+    } else if (item.swatch && item.swatch.startsWith('linear-gradient')) {
+      const sw = document.createElement('div');
+      sw.className = 'item-swatch';
+      sw.style.background = item.swatch;
+      btn.appendChild(sw);
+    } else {
+      // cabelo ou outro: mostra mini SVG do próprio item
+      const mini = document.createElement('div');
+      mini.style.width = '100%';
+      mini.style.height = '100%';
+      const cat2 = CATEGORIAS.find(c => c.id === cat);
+      mini.innerHTML = `<div style="font-size:32px;text-align:center;line-height:1.5;">${cat2.emoji}</div>`;
+      btn.appendChild(mini);
+    }
+
+    btn.addEventListener('click', () => {
+      vestindo[cat] = item.id;
+      // se vestiu vestido, tira blusa+calça/saia automaticamente (visual)
+      // se vestiu blusa ou calça, tira o vestido
+      if (cat === 'vestido') {
+        // mantém blusa/calça mas o renderizarBoneca esconde
+      } else if (cat === 'blusa' || cat === 'calca') {
+        vestindo.vestido = null;
+      }
+      renderizarBoneca();
+      renderizarItens();
+      tocarPlim();
+      mostrarCoracao();
+    });
+    wrap.appendChild(btn);
+  }
+}
+
+function normalizar(s) {
+  return s.toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9 ]/g, '');
+}
+
+// ============== EFEITOS ==============
+
+let audioCtx = null;
+function tocarPlim() {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = 880;
+    gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.15);
+    setTimeout(() => {
+      const o2 = audioCtx.createOscillator();
+      const g2 = audioCtx.createGain();
+      o2.type = 'sine';
+      o2.frequency.value = 1320;
+      g2.gain.setValueAtTime(0.12, audioCtx.currentTime);
+      g2.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+      o2.connect(g2); g2.connect(audioCtx.destination);
+      o2.start();
+      o2.stop(audioCtx.currentTime + 0.15);
+    }, 80);
+  } catch (e) {}
+}
+
+function mostrarCoracao() {
+  const wrap = document.getElementById('boneca-wrap');
+  const c = document.createElement('div');
+  c.className = 'coracao-flutua';
+  c.textContent = ['💖', '✨', '🌸', '💜', '⭐'][Math.floor(Math.random() * 5)];
+  c.style.left = (40 + Math.random() * 280) + 'px';
+  c.style.top = (200 + Math.random() * 100) + 'px';
+  wrap.appendChild(c);
+  setTimeout(() => c.remove(), 1300);
+}
+
+// ============== BUSCA ==============
+
+const inputBusca = document.getElementById('busca');
+const btnLimpar = document.getElementById('limpar-busca');
+
+inputBusca.addEventListener('input', (e) => {
+  busca = e.target.value;
+  atualizarLimparBusca();
+  renderizarItens();
+});
+
+btnLimpar.addEventListener('click', () => {
+  busca = '';
+  inputBusca.value = '';
+  atualizarLimparBusca();
+  renderizarItens();
+});
+
+function atualizarLimparBusca() {
+  if (busca.trim()) btnLimpar.classList.add('visivel');
+  else btnLimpar.classList.remove('visivel');
+}
+
+// ============== INIT ==============
+
+renderizarCategorias();
+renderizarBoneca();
+renderizarItens();
+</script>
+</body>
+</html>
