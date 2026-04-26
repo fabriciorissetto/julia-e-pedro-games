@@ -27,6 +27,21 @@ Diferente de `julia/` e `pedro/`, aqui os jogos podem ser mais ambiciosos e usar
 
 O código renderiza todas as tile layers na ordem que aparecem no painel do Tiled. Layers de cima no painel ficam visualmente acima das de baixo (mas o prefixo `acima` força acima do player também).
 
+## Adicionar novos tilesets ao mundinho
+
+O `mundinho.tmj` referencia os tilesets internamente — Tiled só mostra na paleta o que tá declarado lá. Quando baixar pack novo e quiser que apareça no Tiled sem precisar clicar "New Tileset" um por um:
+
+```bash
+cd familia/mundinho
+python3 scripts/add_tilesets.py \
+  assets/tilesets/caves-dungeons/tiles-all-32x32.png \
+  assets/tilesets/beach/beach_tiles.png
+```
+
+O script calcula `firstgid`, `columns`, `tilecount` sozinho, pula os já existentes, e usa o nome da pasta-pai como prefixo (ex: `caves-dungeons/tiles-all-32x32.png` → `caves_dungeons_tiles_all_32x32`).
+
+Depois de rodar: feche e reabra o `.tmj` no Tiled (ou `File → Reload`) — os novos aparecem na paleta. PNGs cujas dimensões não dividem por 32 são pulados (provável que não sejam tileset 32x32 — adicione manualmente).
+
 ## Jogos atuais
 
 - `mundinho/` — primeiro mundo. Mapa do Tiled + player com WASD. Base pro MMORPG.
