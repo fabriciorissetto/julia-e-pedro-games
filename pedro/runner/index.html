@@ -143,6 +143,68 @@
     animation: pulse 1s infinite;
   }
   @keyframes pulse { 50% { transform: scale(1.05); } }
+
+  /* Loja */
+  .shop-wrap {
+    width: 100%; max-width: 720px;
+    overflow-y: auto;
+    max-height: 70vh;
+    padding: 0 8px;
+  }
+  .shop-section-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #4fdb9b;
+    margin: 16px 8px 8px;
+    text-align: left;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .shop-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 8px;
+  }
+  .shop-card {
+    background: #131b29;
+    border: 2px solid #2d3447;
+    border-radius: 12px;
+    padding: 12px 8px;
+    text-align: center;
+    cursor: pointer;
+    transition: transform 0.1s, border-color 0.1s;
+  }
+  .shop-card:hover { transform: translateY(-2px); }
+  .shop-card.equipped { border-color: #4fdb9b; box-shadow: 0 0 12px rgba(79,219,155,0.4); }
+  .shop-card.locked   { opacity: 0.7; }
+  .shop-card .emoji   { font-size: 44px; line-height: 1; }
+  .shop-card .name    { font-size: 13px; font-weight: 700; margin-top: 6px; }
+  .shop-card .desc    { font-size: 11px; color: #8aa2c2; margin: 4px 0 6px; min-height: 26px; }
+  .shop-card .cost    { font-size: 13px; color: #ffd84f; font-weight: 700; }
+  .shop-card .tag     { font-size: 11px; color: #4fdb9b; font-weight: 700; }
+  .shop-card button {
+    width: 100%;
+    background: #4f9bff;
+    color: white;
+    border: none;
+    padding: 6px;
+    border-radius: 6px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-top: 6px;
+    font-size: 12px;
+  }
+  .shop-card button:disabled { background: #4a5468; cursor: not-allowed; }
+  .shop-card button.green { background: #4fdb9b; color: #0a0e14; }
+
+  .top-bar {
+    width: 100%; max-width: 720px;
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 0 8px;
+    margin-bottom: 8px;
+  }
+  .btn.gray { background: linear-gradient(135deg, #4a5468, #2d3447); }
+  .btn.small { padding: 10px 18px; font-size: 16px; }
 </style>
 </head>
 <body>
@@ -167,13 +229,41 @@
   <div class="title">ROOFTOP RUNNER</div>
   <div class="subtitle">Quanto mais longe, mais pontos. Não bate em nada.</div>
 
+  <div style="display:flex; gap:14px; margin: 6px 0 14px; flex-wrap:wrap; justify-content:center;">
+    <div class="hud-pill"><span class="label">🪙</span><span id="menu-coins">0</span></div>
+    <div class="hud-pill"><span class="label">Recorde</span><span id="menu-best">0</span></div>
+    <div class="hud-pill"><span class="label">Personagem</span><span id="menu-runner">🏃</span></div>
+  </div>
+
   <button class="btn green" id="btn-start">▶ COMEÇAR</button>
+  <button class="btn small"  id="btn-shop">🛒 LOJA</button>
 
   <div class="controls-help">
     <div><b>← →</b> ou <b>A D</b>: trocar de pista</div>
     <div><b>↑</b> / <b>W</b> / <b>Espaço</b>: pular</div>
     <div><b>↓</b> ou <b>S</b>: deslizar</div>
     <div style="margin-top:8px; color:#8aa2c2;">📱 No celular: arrasta o dedo (swipe) pra cada lado</div>
+  </div>
+</div>
+
+<!-- Tela: Loja -->
+<div id="ui-shop" class="overlay">
+  <div class="top-bar">
+    <button class="btn gray small" id="shop-back">⬅ Voltar</button>
+    <div class="hud-pill" style="font-size:18px;"><span class="label">🪙</span><span id="shop-coins">0</span></div>
+  </div>
+  <div class="title" style="font-size:36px;">LOJA</div>
+  <div class="subtitle">Use as moedas que você coletou correndo</div>
+
+  <div class="shop-wrap">
+    <div class="shop-section-title">PERSONAGENS</div>
+    <div class="shop-grid" id="shop-runners"></div>
+
+    <div class="shop-section-title">UPGRADES</div>
+    <div class="shop-grid" id="shop-upgrades"></div>
+
+    <div class="shop-section-title">COMEÇAR PARTIDA COM</div>
+    <div class="shop-grid" id="shop-startboosts"></div>
   </div>
 </div>
 
@@ -186,7 +276,8 @@
     <div class="go-row"><span>Recorde</span><span class="v" id="go-best">0</span></div>
     <div class="new-best" id="go-newbest" style="display:none;">🏆 NOVO RECORDE!</div>
   </div>
-  <div style="display:flex; gap:8px;">
+  <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center;">
+    <button class="btn gray small" id="btn-go-menu">🛒 Menu</button>
     <button class="btn green" id="btn-again">▶ JOGAR DE NOVO</button>
   </div>
 </div>
@@ -202,8 +293,8 @@ const LANES = 3;
 const LANE_WIDTH = 110;          // distância entre pistas em px (na base)
 const PLAYER_Y_FRACTION = 0.78;  // altura do jogador na tela
 const HORIZON_Y_FRACTION = 0.18; // altura do horizonte
-const BASE_SPEED = 380;          // px/s no início (referência de "scroll")
-const SPEED_RAMP = 8;            // +px/s por segundo
+const BASE_SPEED = 220;          // px/s no início (lento)
+const SPEED_RAMP = 5;            // +px/s por segundo (sobe gradual)
 const MAX_SPEED = 1100;
 const JUMP_TIME = 600;           // ms no ar
 const SLIDE_TIME = 600;          // ms deslizando
@@ -213,13 +304,16 @@ const SCORE_PER_METER = 1;
 
 // Tipos de obstáculo
 // kind: 'jump' (deve pular), 'slide' (deve deslizar), 'block' (não dá pra passar — só trocar pista)
+// scale: multiplicador visual (não afeta colisão — colisão é sempre 1 pista)
 const OBSTACLE_TYPES = [
-  { kind: 'jump',  emoji: '🚧', label: 'barreira'   }, // pula
-  { kind: 'slide', emoji: '🪧', label: 'placa baixa'}, // desliza
-  { kind: 'block', emoji: '🚂', label: 'trem'       }, // não passa
-  { kind: 'block', emoji: '🚌', label: 'ônibus'     },
-  { kind: 'jump',  emoji: '📦', label: 'caixa'      },
-  { kind: 'slide', emoji: '🚪', label: 'viga'       },
+  { kind: 'jump',  emoji: '🚧', scale: 1.0,  weight: 3 }, // pula
+  { kind: 'slide', emoji: '🪧', scale: 1.0,  weight: 2 }, // desliza
+  { kind: 'jump',  emoji: '📦', scale: 1.0,  weight: 2 },
+  { kind: 'slide', emoji: '🚪', scale: 1.0,  weight: 2 },
+  { kind: 'block', emoji: '🚂', scale: 2.4,  weight: 4 }, // trem grande, ocupa só 1 pista
+  { kind: 'block', emoji: '🚃', scale: 2.4,  weight: 3 }, // vagão
+  { kind: 'block', emoji: '🚌', scale: 2.0,  weight: 3 }, // ônibus grande
+  { kind: 'block', emoji: '🚛', scale: 2.2,  weight: 2 }, // caminhão
 ];
 
 // Power-ups que aparecem na pista
@@ -230,16 +324,62 @@ const PU_TYPES = [
 ];
 
 // =====================================================================
+// LOJA: catálogo
+// =====================================================================
+const RUNNER_SKINS = [
+  { id: 'default', emoji: '🏃', name: 'Padrão',   cost: 0,   desc: 'O corredor original' },
+  { id: 'ninja',   emoji: '🥷', name: 'Ninja',    cost: 50,  desc: 'Silencioso e rápido' },
+  { id: 'robot',   emoji: '🤖', name: 'Robô',     cost: 80,  desc: 'Movido a bateria' },
+  { id: 'hero',    emoji: '🦸', name: 'Herói',    cost: 120, desc: 'Salvador da pista' },
+  { id: 'wizard',  emoji: '🧙', name: 'Mago',     cost: 150, desc: 'Tem barba comprida' },
+  { id: 'villain', emoji: '🦹', name: 'Vilão',    cost: 200, desc: 'Risada maléfica' },
+  { id: 'vampire', emoji: '🧛', name: 'Vampiro',  cost: 250, desc: 'Não gosta de sol' },
+  { id: 'alien',   emoji: '👽', name: 'Alien',    cost: 300, desc: 'Veio de outro planeta' },
+  { id: 'cat',     emoji: '🐱', name: 'Gatinho',  cost: 400, desc: '7 vidas inclusas' },
+  { id: 'dragon',  emoji: '🐲', name: 'Dragão',   cost: 600, desc: 'Cospe fogo (decorativo)' },
+];
+
+const UPGRADES = {
+  coinx2:  { name: 'Moedas x2',  emoji: '💰', cost: 500, desc: 'Cada moeda vale 2',     once: true },
+  coinx3:  { name: 'Moedas x3',  emoji: '💎', cost: 2000, desc: 'Cada moeda vale 3 (precisa x2)', once: true, requires: 'coinx2' },
+  headstart:{ name: 'Largada',    emoji: '🚀', cost: 800, desc: 'Começa com boost de 5s', once: true },
+};
+
+const START_BOOSTS = {
+  shield: { name: 'Escudo',  emoji: '🛡️', cost: 30, desc: '+1 escudo na partida' },
+  magnet: { name: 'Ímã',     emoji: '🧲', cost: 25, desc: '+1 ímã na partida' },
+  boost:  { name: 'Boost',   emoji: '⚡', cost: 20, desc: '+1 boost na partida' },
+};
+
+// =====================================================================
 // ESTADO PERSISTENTE
 // =====================================================================
-const STATE_KEY = 'runner_state_v1';
+const STATE_KEY = 'runner_state_v2';
+function defaultState() {
+  return {
+    best: 0,
+    coins: 0,
+    selectedRunner: 'default',
+    ownedRunners: ['default'],
+    ownedUpgrades: [],
+    startInventory: { shield: 0, magnet: 0, boost: 0 },
+  };
+}
 function loadState() {
   try {
-    return Object.assign({ best: 0, coins: 0 }, JSON.parse(localStorage.getItem(STATE_KEY) || '{}'));
-  } catch (e) { return { best: 0, coins: 0 }; }
+    return Object.assign(defaultState(), JSON.parse(localStorage.getItem(STATE_KEY) || '{}'));
+  } catch (e) { return defaultState(); }
 }
 function saveState() { localStorage.setItem(STATE_KEY, JSON.stringify(state)); }
 let state = loadState();
+function getCoinMultiplier() {
+  if (state.ownedUpgrades.includes('coinx3')) return 3;
+  if (state.ownedUpgrades.includes('coinx2')) return 2;
+  return 1;
+}
+function getRunnerEmoji() {
+  return (RUNNER_SKINS.find(r => r.id === state.selectedRunner) || RUNNER_SKINS[0]).emoji;
+}
 
 // =====================================================================
 // HELPERS
@@ -286,6 +426,116 @@ function startGame() {
 
 $('btn-start').onclick = startGame;
 $('btn-again').onclick = startGame;
+$('btn-shop').onclick = showShop;
+$('shop-back').onclick = showMenu;
+$('btn-go-menu').onclick = showMenu;
+
+function showMenu() {
+  $('menu-coins').textContent = state.coins;
+  $('menu-best').textContent = state.best;
+  $('menu-runner').textContent = getRunnerEmoji();
+  showOverlay('menu');
+}
+
+function showShop() {
+  $('shop-coins').textContent = state.coins;
+
+  // RUNNERS
+  const rg = $('shop-runners');
+  rg.innerHTML = '';
+  for (const r of RUNNER_SKINS) {
+    const owned = state.ownedRunners.includes(r.id);
+    const equipped = state.selectedRunner === r.id;
+    const card = document.createElement('div');
+    card.className = 'shop-card' + (equipped ? ' equipped' : '');
+    let btnHtml;
+    if (equipped) btnHtml = `<div class="tag">✓ EM USO</div>`;
+    else if (owned) btnHtml = `<button class="green" data-equip="${r.id}">EQUIPAR</button>`;
+    else btnHtml = `<div class="cost">🪙 ${r.cost}</div><button data-buy-runner="${r.id}" ${state.coins < r.cost ? 'disabled' : ''}>COMPRAR</button>`;
+    card.innerHTML = `
+      <div class="emoji">${r.emoji}</div>
+      <div class="name">${r.name}</div>
+      <div class="desc">${r.desc}</div>
+      ${btnHtml}
+    `;
+    rg.appendChild(card);
+  }
+
+  // UPGRADES
+  const ug = $('shop-upgrades');
+  ug.innerHTML = '';
+  for (const id in UPGRADES) {
+    const u = UPGRADES[id];
+    const owned = state.ownedUpgrades.includes(id);
+    const reqOk = !u.requires || state.ownedUpgrades.includes(u.requires);
+    const card = document.createElement('div');
+    card.className = 'shop-card' + (owned ? ' equipped' : '') + (!reqOk ? ' locked' : '');
+    let btnHtml;
+    if (owned) btnHtml = `<div class="tag">✓ ATIVO</div>`;
+    else if (!reqOk) btnHtml = `<div class="cost" style="color:#8aa2c2;">precisa ${UPGRADES[u.requires].name}</div>`;
+    else btnHtml = `<div class="cost">🪙 ${u.cost}</div><button data-buy-upg="${id}" ${state.coins < u.cost ? 'disabled' : ''}>COMPRAR</button>`;
+    card.innerHTML = `
+      <div class="emoji">${u.emoji}</div>
+      <div class="name">${u.name}</div>
+      <div class="desc">${u.desc}</div>
+      ${btnHtml}
+    `;
+    ug.appendChild(card);
+  }
+
+  // START BOOSTS
+  const bg = $('shop-startboosts');
+  bg.innerHTML = '';
+  for (const id in START_BOOSTS) {
+    const b = START_BOOSTS[id];
+    const have = state.startInventory[id] || 0;
+    const card = document.createElement('div');
+    card.className = 'shop-card';
+    card.innerHTML = `
+      <div class="emoji">${b.emoji}</div>
+      <div class="name">${b.name}</div>
+      <div class="desc">${b.desc}<br><b>Você tem: ${have}</b></div>
+      <div class="cost">🪙 ${b.cost}</div>
+      <button data-buy-boost="${id}" ${state.coins < b.cost ? 'disabled' : ''}>COMPRAR</button>
+    `;
+    bg.appendChild(card);
+  }
+
+  // listeners (delegação)
+  $('ui-shop').onclick = (e) => {
+    const t = e.target;
+    if (t.dataset.equip) {
+      state.selectedRunner = t.dataset.equip;
+      saveState();
+      showShop();
+    } else if (t.dataset.buyRunner) {
+      const r = RUNNER_SKINS.find(x => x.id === t.dataset.buyRunner);
+      if (state.coins < r.cost) return;
+      state.coins -= r.cost;
+      state.ownedRunners.push(r.id);
+      state.selectedRunner = r.id;
+      saveState();
+      showShop();
+    } else if (t.dataset.buyUpg) {
+      const u = UPGRADES[t.dataset.buyUpg];
+      if (state.coins < u.cost) return;
+      state.coins -= u.cost;
+      state.ownedUpgrades.push(t.dataset.buyUpg);
+      saveState();
+      showShop();
+    } else if (t.dataset.buyBoost) {
+      const id = t.dataset.buyBoost;
+      const b = START_BOOSTS[id];
+      if (state.coins < b.cost) return;
+      state.coins -= b.cost;
+      state.startInventory[id] = (state.startInventory[id] || 0) + 1;
+      saveState();
+      showShop();
+    }
+  };
+
+  showOverlay('shop');
+}
 
 function createScene() {
   scene = this;
@@ -301,11 +551,22 @@ function createScene() {
   scene.jumpStart = 0;       // 0 = não pulando
   scene.slideStart = 0;
   scene.spawnTimer = 0;
-  scene.spawnInterval = 850; // ms entre spawns
+  scene.spawnInterval = 1300; // ms entre spawns (no início, mais espaçado)
   scene.obstacles = [];
   scene.coins = [];
   scene.powerups = [];
   scene.activePU = {};       // { magnet: endTime, shield: 1, boost: endTime }
+  // Inventário inicial (consumido nesta partida)
+  scene.activePU.shield = state.startInventory.shield || 0;
+  if (state.startInventory.magnet > 0) scene.activePU.magnet = scene.time.now + 8000;
+  if (state.startInventory.boost > 0)  scene.activePU.boost  = scene.time.now + 5000;
+  // Consumir agora que já foi aplicado
+  state.startInventory = { shield: 0, magnet: 0, boost: 0 };
+  saveState();
+  // Headstart upgrade
+  if (state.ownedUpgrades.includes('headstart')) {
+    scene.activePU.boost = Math.max(scene.activePU.boost || 0, scene.time.now + 5000);
+  }
 
   const w = scene.scale.width;
   const h = scene.scale.height;
@@ -324,8 +585,45 @@ function createScene() {
   scene.bgSky = bgSky;
   scene.bgGround = bgGround;
 
-  // Sol/lua decorativo
-  scene.add.circle(w * 0.7, scene.horizonY * 0.5, 36, 0xffd84f, 0.9);
+  // Sol com glow
+  const sunGlow = this.add.circle(w * 0.7, scene.horizonY * 0.55, 70, 0xffd84f, 0.18);
+  scene.add.circle(w * 0.7, scene.horizonY * 0.55, 38, 0xffd84f, 0.95);
+  scene.add.circle(w * 0.7, scene.horizonY * 0.55, 26, 0xffe888, 1);
+
+  // Nuvens decorativas
+  scene.clouds = [];
+  for (let i = 0; i < 5; i++) {
+    const cx = Math.random() * w;
+    const cy = 30 + Math.random() * (scene.horizonY * 0.5);
+    const cloud = this.add.container(cx, cy);
+    for (let j = 0; j < 4; j++) {
+      const blob = this.add.ellipse(j * 18 - 27, Math.sin(j) * 4, 36 - j * 2, 22, 0xffffff, 0.85);
+      cloud.add(blob);
+    }
+    scene.clouds.push({ container: cloud, speed: 6 + Math.random() * 8 });
+  }
+
+  // Skyline distante (silhueta de prédios pequenos no horizonte)
+  const skyline = this.add.graphics();
+  skyline.fillStyle(0x1c2638, 1);
+  let sx = 0;
+  while (sx < w) {
+    const bw = 28 + Math.random() * 70;
+    const bh = 20 + Math.random() * 50;
+    skyline.fillRect(sx, scene.horizonY - bh, bw, bh);
+    // janelinhas
+    skyline.fillStyle(0xffd84f, 0.5);
+    for (let wy = scene.horizonY - bh + 6; wy < scene.horizonY - 4; wy += 8) {
+      for (let wx = sx + 4; wx < sx + bw - 4; wx += 8) {
+        if (Math.random() < 0.4) skyline.fillRect(wx, wy, 3, 3);
+      }
+    }
+    skyline.fillStyle(0x1c2638, 1);
+    sx += bw + 2;
+  }
+
+  // Prédios laterais que escalam com depth (sensação de cidade)
+  scene.buildings = [];
 
   // Linhas das pistas — desenhadas todo frame (perspective)
   scene.laneGfx = this.add.graphics();
@@ -337,7 +635,7 @@ function createScene() {
   // Player
   scene.playerContainer = this.add.container(w / 2, scene.playerY);
   scene.playerShadow = this.add.ellipse(0, 24, 60, 18, 0x000000, 0.5);
-  scene.playerSprite = this.add.text(0, 0, '🏃', { fontSize: '64px' }).setOrigin(0.5);
+  scene.playerSprite = this.add.text(0, 0, getRunnerEmoji(), { fontSize: '64px' }).setOrigin(0.5);
   scene.playerContainer.add([scene.playerShadow, scene.playerSprite]);
 
   // Inputs
@@ -437,13 +735,19 @@ function spawnPattern() {
   }
 }
 
+function pickWeighted(arr) {
+  const total = arr.reduce((s, x) => s + (x.weight || 1), 0);
+  let r = Math.random() * total;
+  for (const x of arr) { r -= (x.weight || 1); if (r <= 0) return x; }
+  return arr[arr.length - 1];
+}
 function spawnObstacle(lane) {
-  const t = OBSTACLE_TYPES[Math.floor(Math.random() * OBSTACLE_TYPES.length)];
+  const t = pickWeighted(OBSTACLE_TYPES);
   const sprite = scene.add.text(0, 0, t.emoji, { fontSize: '40px' }).setOrigin(0.5, 1);
   scene.obstacles.push({
     lane, kind: t.kind, sprite,
-    depth: 0, // 0 = no horizonte, 1 = no jogador
-    width: t.kind === 'block' ? 0.9 : 0.6, // largura proporcional à pista (pra colisão)
+    depth: 0,
+    extraScale: t.scale || 1, // só aumenta o sprite — colisão continua sendo 1 pista
   });
 }
 
@@ -486,7 +790,7 @@ function updateScene(time, delta) {
 
   // Spawn
   scene.timeAccum += delta;
-  const interval = Math.max(380, scene.spawnInterval - (time - scene.startTime) / 30);
+  const interval = Math.max(450, scene.spawnInterval - (time - scene.startTime) / 50);
   if (scene.timeAccum > interval) {
     scene.timeAccum = 0;
     spawnPattern();
@@ -533,6 +837,14 @@ function updateScene(time, delta) {
   scene.stripeOffset = (scene.stripeOffset + scene.speed * dt) % 80;
   drawRoad(scene);
 
+  // Nuvens passam devagar
+  if (scene.clouds) {
+    for (const c of scene.clouds) {
+      c.container.x -= c.speed * dt * (scene.speed / BASE_SPEED) * 0.5;
+      if (c.container.x < -80) c.container.x = scene.scale.width + 80;
+    }
+  }
+
   // Move e desenha obstáculos
   const dDepth = scene.speed * dt / 600; // velocidade em depth/s — ajustada pro feel
   for (let i = scene.obstacles.length - 1; i >= 0; i--) {
@@ -543,7 +855,7 @@ function updateScene(time, delta) {
       scene.obstacles.splice(i, 1);
       continue;
     }
-    drawProjected(scene, o.sprite, o.lane, o.depth);
+    drawProjected(scene, o.sprite, o.lane, o.depth, o.extraScale);
   }
   // Moedas
   for (let i = scene.coins.length - 1; i >= 0; i--) {
@@ -652,7 +964,7 @@ function drawRoad(scn) {
   }
 }
 
-function drawProjected(scn, sprite, lane, depth) {
+function drawProjected(scn, sprite, lane, depth, extraScale) {
   if (depth < 0) {
     sprite.setVisible(false);
     return;
@@ -662,16 +974,28 @@ function drawProjected(scn, sprite, lane, depth) {
   const y = scn.horizonY + (scn.scale.height - scn.horizonY) * depth;
   sprite.x = x;
   sprite.y = y;
-  // Escala — vai de 0.25 (longe) até 1.5 (perto)
-  const sc = 0.25 + depth * 1.4;
+  const sc = (0.25 + depth * 1.4) * (extraScale || 1);
   sprite.setScale(sc);
 }
 
 function collectCoin(c) {
   if (c.collected) return;
   c.collected = true;
-  scene.runCoins += COIN_VALUE;
-  // efeito: sobe e some
+  scene.runCoins += COIN_VALUE * getCoinMultiplier();
+  // partícula brilhante
+  for (let i = 0; i < 5; i++) {
+    const sp = scene.add.circle(c.sprite.x, c.sprite.y, 3 + Math.random()*2, 0xffd84f, 1);
+    const ang = Math.random() * Math.PI * 2;
+    const dist = 30 + Math.random() * 30;
+    scene.tweens.add({
+      targets: sp,
+      x: sp.x + Math.cos(ang) * dist,
+      y: sp.y + Math.sin(ang) * dist,
+      alpha: 0,
+      duration: 380,
+      onComplete: () => sp.destroy(),
+    });
+  }
   scene.tweens.add({
     targets: c.sprite,
     y: c.sprite.y - 60,
@@ -755,6 +1079,11 @@ function handleHit(obstacle) {
     showOverlay('gameover');
   }, 900);
 }
+
+// =====================================================================
+// BOOT
+// =====================================================================
+showMenu();
 </script>
 </body>
 </html>
