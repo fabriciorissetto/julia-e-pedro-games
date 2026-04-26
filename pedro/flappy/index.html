@@ -249,6 +249,10 @@
     function carregarHabilidades() { return (dadosUsuario() || {}).habilidades || []; }
     function salvarHabilidades(arr) { atualizarUsuario({ habilidades: arr }); }
     function temHabilidade(slug) { return carregarHabilidades().includes(slug); }
+    // Habilidade EQUIPADA (apenas 1 por vez)
+    function carregarHabilidadeEquipada() { return (dadosUsuario() || {}).habilidadeEquipada || null; }
+    function equiparHabilidade(slug) { atualizarUsuario({ habilidadeEquipada: slug }); }
+    function habilidadeAtiva(slug) { return carregarHabilidadeEquipada() === slug; }
     function carregarHabilidadesDesbloqueadas() { return (dadosUsuario() || {}).habilidadesDesbloqueadas || []; }
     function desbloquearHabilidade(slug) {
       const lista = carregarHabilidadesDesbloqueadas();
@@ -1198,15 +1202,9 @@
         });
         telaLoja.add(r); telaLoja.add(t);
       };
-      const temEL = temHabilidade("extra_life");
-      if (temEL) {
-        criarAba("👕 SKINS",       "skins",       TELA_W / 2 - 130, abaLojaAtual === "skins");
-        criarAba("⚡ HABS",         "habilidades", TELA_W / 2,       abaLojaAtual === "habilidades");
-        criarAba("❤️ VIDAS",       "vidas",       TELA_W / 2 + 130, abaLojaAtual === "vidas");
-      } else {
-        criarAba("👕 SKINS",       "skins",       TELA_W / 2 - 75,  abaLojaAtual === "skins");
-        criarAba("⚡ HABILIDADES", "habilidades", TELA_W / 2 + 75,  abaLojaAtual === "habilidades");
-      }
+      criarAba("👕 SKINS",  "skins",       TELA_W / 2 - 130, abaLojaAtual === "skins");
+      criarAba("⚡ HABS",    "habilidades", TELA_W / 2,       abaLojaAtual === "habilidades");
+      criarAba("❤️ VIDAS",  "vidas",       TELA_W / 2 + 130, abaLojaAtual === "vidas");
 
       // ===== Viewport scrollável =====
       const viewportY = 115;
@@ -1375,8 +1373,10 @@
         scrollable.add(txtDesc);
 
         const possui = temHabilidade(h.slug);
+        const equipada = habilidadeAtiva(h.slug);
         let textoStatus, corStatus;
-        if (possui) { textoStatus = "✓ ATIVA"; corStatus = "#4fdb9b"; }
+        if (equipada) { textoStatus = "✓ EQUIPADA"; corStatus = "#4fdb9b"; }
+        else if (possui) { textoStatus = "Equipar"; corStatus = "#4f9bff"; }
         else { textoStatus = `💰 ${h.custo}`; corStatus = pontosTotal >= h.custo ? "#fff04f" : "#aaaaaa"; }
 
         const txtStatus = scene.add.text(TELA_W / 2 + 110, y - 25, textoStatus, {
@@ -1384,23 +1384,40 @@
         }).setOrigin(0.5);
         scrollable.add(txtStatus);
 
-        if (!possui) {
-          card.setInteractive();
-          card.on("pointerdown", () => {
-            if (pontosTotal >= h.custo) {
-              pontosTotal -= h.custo;
-              salvarPontosTotal(pontosTotal);
-              const habs = carregarHabilidades();
-              habs.push(h.slug);
-              salvarHabilidades(habs);
-              scene.sound.play("comprar", { volume: 0.6 });
-              mostrarLoja(scene);
-            } else {
-              scene.sound.play("erro", { volume: 0.5 });
-              scene.tweens.add({ targets: card, x: TELA_W / 2 + 8, duration: 60, yoyo: true, repeat: 3, onComplete: () => card.x = TELA_W / 2 });
-            }
-          });
+        // Hint pra desequipar (só pra equipada)
+        if (equipada) {
+          const hint = scene.add.text(TELA_W / 2 + 110, y + 5, "(toque pra tirar)", {
+            fontSize: "9px", color: "#aaaaaa",
+          }).setOrigin(0.5);
+          scrollable.add(hint);
         }
+
+        card.setInteractive();
+        card.on("pointerdown", () => {
+          if (equipada) {
+            // Desequipa
+            equiparHabilidade(null);
+            scene.sound.play("ponto", { volume: 0.4 });
+            mostrarLoja(scene);
+          } else if (possui) {
+            // Equipar (desequipando outra automaticamente)
+            equiparHabilidade(h.slug);
+            scene.sound.play("comprar", { volume: 0.5 });
+            mostrarLoja(scene);
+          } else if (pontosTotal >= h.custo) {
+            // Comprar (não equipa automaticamente — só compra)
+            pontosTotal -= h.custo;
+            salvarPontosTotal(pontosTotal);
+            const habs = carregarHabilidades();
+            habs.push(h.slug);
+            salvarHabilidades(habs);
+            scene.sound.play("comprar", { volume: 0.6 });
+            mostrarLoja(scene);
+          } else {
+            scene.sound.play("erro", { volume: 0.5 });
+            scene.tweens.add({ targets: card, x: TELA_W / 2 + 8, duration: 60, yoyo: true, repeat: 3, onComplete: () => card.x = TELA_W / 2 });
+          }
+        });
       });
       const totalH = startY + visiveis.length * itemH + 20;
       const viewportH = TELA_H - 115 - 60;
@@ -1494,22 +1511,22 @@
       textoNickBird.setStyle({ fontSize: `${tam}px`, color: "#ffffff", fontStyle: "bold", stroke: "#000000", strokeThickness: 3 });
       textoNickBird.setVisible(true);
 
-      // Reset habilidades
+      // Reset habilidades — só a EQUIPADA roda
       habCarga = 0;
       habPronta = false;
       habAtiva = false;
       paredesParaQuebrar = 0;
-      const temSB = temHabilidade("shield_breaker");
-      barraHabBg.setVisible(temSB);
-      barraHabFill.setVisible(temSB);
-      textoHab.setVisible(temSB);
+      const sbAtiva = habilidadeAtiva("shield_breaker");
+      barraHabBg.setVisible(sbAtiva);
+      barraHabFill.setVisible(sbAtiva);
+      textoHab.setVisible(sbAtiva);
 
-      // Extra Life
+      // Extra Life — vidas iniciais sempre valem; regen só se equipada
       vidasAtuais = carregarVidasIniciais();
       cargaVida = 0;
       invulnAte = 0;
-      const temEL = temHabilidade("extra_life");
-      textoVidas.setVisible(temEL || vidasAtuais > 1);
+      // Mostra os corações sempre que tiver pelo menos 1 ou se vai regenerar
+      textoVidas.setVisible(vidasAtuais > 0 || habilidadeAtiva("extra_life"));
       atualizarTextoVidas();
 
       estado = "jogando";
@@ -1574,14 +1591,14 @@
 
       if (bird.y < -20) bird.body.velocity.y = 50;
 
-      // === Habilidade Shield Breaker ===
-      if (temHabilidade("shield_breaker") && !habAtiva) {
+      // === Habilidade Shield Breaker (só se equipada) ===
+      if (habilidadeAtiva("shield_breaker") && !habAtiva) {
         habCarga = Math.min(1, habCarga + dt / 10);
         if (habCarga >= 1) habPronta = true;
       }
 
-      // === Habilidade Extra Life — carrega 5s, +1 vida ===
-      if (temHabilidade("extra_life")) {
+      // === Habilidade Extra Life — carrega 5s, +1 vida (só se equipada) ===
+      if (habilidadeAtiva("extra_life")) {
         cargaVida += dt / 5;
         if (cargaVida >= 1) {
           cargaVida = 0;
@@ -1601,13 +1618,13 @@
       } else if (habPronta) {
         textoHab.setText("🔥 PRESSIONE B (ou toque no 💥)");
         barraHabFill.fillColor = 0x4fdb9b;
-      } else if (temHabilidade("shield_breaker")) {
+      } else if (habilidadeAtiva("shield_breaker")) {
         textoHab.setText(`Shield Breaker: ${Math.round(habCarga * 100)}%`);
         barraHabFill.fillColor = 0x4f9bff;
       }
 
-      // Mostra/esconde botão de habilidade no mobile
-      const mostrarBotaoHab = temHabilidade("shield_breaker") && habPronta && !habAtiva;
+      // Mostra/esconde botão de habilidade no mobile (só se Shield Breaker equipada)
+      const mostrarBotaoHab = habilidadeAtiva("shield_breaker") && habPronta && !habAtiva;
       botaoHabilidade.setVisible(mostrarBotaoHab);
       if (botaoHabilidade.dataLabel) botaoHabilidade.dataLabel.setVisible(mostrarBotaoHab);
     }
@@ -1683,20 +1700,23 @@
 
     function bater(scene) {
       if (estado !== "jogando") return;
-      // Se tem vidas sobrando, perde uma e continua
-      if (vidasAtuais > 1 && scene.time.now > invulnAte) {
-        vidasAtuais--;
-        invulnAte = scene.time.now + 800; // 0.8s de invulnerabilidade pra não bater de novo
-        atualizarTextoVidas();
+      // Durante invulnerabilidade, ignora a colisão completamente
+      if (scene.time.now <= invulnAte) return;
+      // Cada coração = 1 hit. Decrementa.
+      vidasAtuais--;
+      atualizarTextoVidas();
+      // Ainda tem vida → continua
+      if (vidasAtuais > 0) {
+        invulnAte = scene.time.now + 800; // 0.8s de invulnerabilidade
         scene.sound.play("bater", { volume: 0.4 });
         scene.cameras.main.flash(150, 255, 100, 100);
-        // Pequeno empurrão pra cima pra escapar do obstáculo
+        // Empurrão pra cima pra escapar do obstáculo
         bird.body.velocity.y = PULO * 0.7;
         // Piscando pra mostrar invulnerabilidade
         scene.tweens.add({ targets: bird, alpha: 0.3, duration: 100, yoyo: true, repeat: 3, onComplete: () => bird.alpha = 1 });
         return;
       }
-      // Sem vidas → morre de verdade
+      // vidasAtuais === 0 → morre de verdade
       estado = "fim";
       // Garante reset da habilidade visual (volta pra skin normal)
       if (habAtiva) {
