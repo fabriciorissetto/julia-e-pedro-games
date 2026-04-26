@@ -415,6 +415,15 @@
     p.animState = 'cast';
     p.animUntil = S.now + 380;
 
+    // Modo online: delega ao server
+    if (S.net.mode === 'online' && S.net.connected) {
+      const ax = (sk.id === 'arrowRain') ? S.input.mouseWorldX : p.x;
+      const ay = (sk.id === 'arrowRain') ? S.input.mouseWorldY : p.y;
+      window.GTA.Net.sendSkill(ax, ay);
+      p.skillCooldown = sk.cooldown; // otimismo local
+      return;
+    }
+
     if (sk.id === 'taunt') {
       p.buffs.taunt = { until: S.now + sk.duration, reduction: sk.damageReduction };
       if (window.GTA.Render) {
@@ -609,12 +618,12 @@
 
     // 1) tenta usar target atual se ainda válido e perto
     let mob = p.target ? S.mobs.get(p.target) : null;
-    if (!mob || mob.hp <= 0 || U.dist(p.x, p.y, mob.x, mob.y) > detectPx) {
+    if (!mob || (mob.hp <= 0 && !mob.alive) || U.dist(p.x, p.y, mob.x, mob.y) > detectPx) {
       mob = null;
       // 2) auto-targeta mob mais perto
       let nd = Infinity;
       S.mobs.forEach(function (m) {
-        if (m.hp <= 0) return;
+        if (m.hp <= 0 || m.alive === false) return;
         const d = U.dist(p.x, p.y, m.x, m.y);
         if (d < nd && d <= detectPx) { nd = d; mob = m; }
       });
@@ -626,6 +635,15 @@
       const dx = mob.x - p.x, dy = mob.y - p.y;
       if (Math.abs(dx) > Math.abs(dy)) p.facing = dx > 0 ? 'right' : 'left';
       else p.facing = dy > 0 ? 'down' : 'up';
+    }
+
+    // Modo online: delega ao server. Server valida cd/range e responde com evento.
+    if (S.net.mode === 'online' && S.net.connected) {
+      // animação local imediata pra feedback
+      p.animState = 'attack';
+      p.animUntil = S.now + 220;
+      window.GTA.Net.sendAttack(mob ? mob.id : null);
+      return;
     }
 
     // 4) swing visual sempre — feedback instantâneo
@@ -647,6 +665,15 @@
   function update(dt) {
     if (S.screen !== 'play') return;
 
+    // Modo online: server cuida de mobs/AI/respawn. Cliente só anima.
+    if (S.net.mode === 'online') {
+      // ainda atualiza cd local pra UX (server tem cd próprio também)
+      if (S.player.atkCooldown > 0) S.player.atkCooldown = Math.max(0, S.player.atkCooldown - dt * 1000);
+      if (S.player.skillCooldown > 0) S.player.skillCooldown = Math.max(0, S.player.skillCooldown - dt * 1000);
+      updateActiveAoEs(dt);
+      return;
+    }
+
     // respawn timer global a cada 5s
     _spawnTimer += dt * 1000;
     if (_spawnTimer >= 5000) {
@@ -666,7 +693,8 @@
   }
 
   function init() {
-    spawnMobsInZones();
+    // só spawna mobs locais se NÃO estiver online
+    if (S.net.mode !== 'online') spawnMobsInZones();
     ready = true;
     Combat.ready = true;
   }

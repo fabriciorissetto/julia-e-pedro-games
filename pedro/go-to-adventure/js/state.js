@@ -103,6 +103,15 @@
     net: {
       mode: 'local',       // 'local' | 'online'
       connected: false,
+      myServerId: null,    // id que o server me deu
+    },
+
+    // chat
+    chat: {
+      open: false,         // input aberto?
+      text: '',            // texto sendo digitado
+      history: [],         // {nick, text, t} — feed lateral
+      bubbles: new Map(),  // playerId -> { text, until }
     },
 
     // áudio (placeholder)

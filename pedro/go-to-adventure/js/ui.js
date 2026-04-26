@@ -868,12 +868,13 @@
       ['WASD / Setas',  'Mover'],
       ['ESPAÇO',        'Ataque básico (auto-mira mais próximo)'],
       ['1',             'Habilidade da classe'],
+      ['ENTER',         'Abrir chat (balão sobre o personagem)'],
       ['Botão esq.',    'Selecionar alvo / coletar / menus'],
       ['I / B',         'Inventário'],
       ['C',             'Receitas (crafting)'],
       ['H / F1',        'Esta ajuda'],
       ['~',             'Modo debug'],
-      ['ESC',           'Fechar painéis'],
+      ['ESC',           'Fechar painéis / chat'],
     ];
     setFont(ctx, 8);
     let yy = y + 50;
@@ -917,8 +918,8 @@
     setFont(ctx, 8);
     const lines = [
       'WASD mover  ·  ESPAÇO ataca o inimigo mais próximo (auto-mira)',
-      '1 usa habilidade da classe  ·  Clique pra escolher um alvo',
-      'Clique numa árvore/pedra/ferro pra COLETAR  ·  I inv  ·  C receitas  ·  H ajuda',
+      '1 usa habilidade da classe  ·  Clique pra escolher alvo / coletar',
+      'ENTER abre chat  ·  I inv  ·  C receitas  ·  H ajuda',
     ];
     for (let i = 0; i < lines.length; i++) {
       const tw = ctx.measureText(lines[i]).width;

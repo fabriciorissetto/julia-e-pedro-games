@@ -32,6 +32,7 @@
         <span><kbd>CLICK</kbd>alvo / coletar</span>
         <span><kbd>I</kbd>inventário</span>
         <span><kbd>C</kbd>receitas</span>
+        <span><kbd>ENTER</kbd>chat</span>
         <span><kbd>H</kbd>ajuda</span>
       </div>
     </div>
@@ -40,6 +41,10 @@
   <!-- Jogo -->
   <div id="game">
     <canvas id="canvas" width="1280" height="720"></canvas>
+    <div id="chatBox">
+      <div id="chatHistory"></div>
+      <input id="chatInput" type="text" maxlength="200" placeholder="Aperte Enter pra digitar — Esc pra fechar" autocomplete="off">
+    </div>
   </div>
 
   <div id="footer">

@@ -6,8 +6,21 @@
   const SPEED = 180; // pixels por segundo
 
   function update(dt) {
-    if (S.screen !== 'play') return;
+    if (S.screen !== 'play' && S.screen !== 'dead') return;
     const p = S.player;
+
+    // online: server controla vida/respawn. Quando server respawnar, alive volta.
+    if (S.net.mode === 'online') {
+      if (!p.alive) {
+        if (S.screen !== 'dead') S.screen = 'dead';
+        return;
+      } else if (S.screen === 'dead') {
+        S.screen = 'play';
+      }
+    }
+
+    if (S.screen !== 'play') return;
+
     if (!p.alive) {
       p.respawnIn = Math.max(0, p.respawnIn - dt * 1000);
       if (p.respawnIn <= 0) {

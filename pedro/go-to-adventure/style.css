@@ -238,6 +238,55 @@ html, body {
   image-rendering: crisp-edges;
 }
 
+/* Chat */
+#chatBox {
+  position: fixed;
+  left: 14px;
+  bottom: 130px;
+  width: 380px;
+  pointer-events: none;
+  z-index: 12;
+  font-family: 'Press Start 2P', monospace;
+}
+#chatHistory {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 4px;
+  margin-bottom: 6px;
+  max-height: 180px;
+  overflow: hidden;
+}
+.chat-line {
+  background: rgba(14, 20, 36, 0.78);
+  border-left: 3px solid #4f9bff;
+  padding: 6px 8px;
+  font-size: 9px;
+  line-height: 1.5;
+  color: #cfe1ff;
+  word-wrap: break-word;
+  animation: chatFade 8s forwards;
+}
+.chat-line .nick { color: #ffd24a; margin-right: 6px; }
+@keyframes chatFade {
+  0%, 70% { opacity: 1; }
+  100% { opacity: 0; }
+}
+#chatInput {
+  display: none;
+  width: 100%;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 11px;
+  padding: 10px 12px;
+  background: rgba(14, 20, 36, 0.95);
+  color: #ffd24a;
+  border: 2px solid #4f9bff;
+  outline: none;
+  pointer-events: auto;
+  letter-spacing: 1px;
+}
+#chatInput:focus { border-color: #ffd24a; }
+#chatBox.open #chatInput { display: block; }
+
 #footer {
   position: fixed;
   bottom: 4px;

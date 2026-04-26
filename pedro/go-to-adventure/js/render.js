@@ -420,8 +420,22 @@
     const w = (sz && sz.w) || 32;
     const h = (sz && sz.h) || 48;
     const dir = dirIndex(p.facing);
-    // frame depende de animState: walk usa animFrame; attack/cast usa animActionFrame
-    const action = p.animState || (p.moving ? 'walk' : 'idle');
+
+    // animState expira sozinho pra outros players (player local é cuidado em player.js)
+    let action = p.animState || 'idle';
+    if (p.animUntil && p.animUntil <= state.now) {
+      action = p.moving ? 'walk' : 'idle';
+      p.animState = action;
+      p.animActionFrame = 0;
+    } else if (action === 'attack' || action === 'cast') {
+      const total = action === 'attack' ? 220 : 380;
+      const left = Math.max(0, p.animUntil - state.now);
+      const elapsed = total - left;
+      p.animActionFrame = Math.min(3, Math.floor(elapsed / total * 4));
+    } else {
+      action = p.moving ? 'walk' : 'idle';
+    }
+
     const frame = (action === 'attack' || action === 'cast')
       ? (p.animActionFrame | 0)
       : (p.moving ? (p.animFrame | 0) : 0);
@@ -494,6 +508,91 @@
     drawText(lvl, cx, top - 32, '#ffd24a', 9, 'center');
     drawText(name, cx, top - 22, classColor(p.cls), 11, 'center');
     drawHpBar(cx - 22, top - 8, 44, 5, p.hp / Math.max(1, p.maxHp));
+
+    // balão de chat (se houver mensagem ativa)
+    drawChatBubble(p, cx, top - 44);
+  }
+
+  function drawChatBubble(p, cx, baseY) {
+    const S = window.GTA.state;
+    if (!S.chat || !S.chat.bubbles) return;
+    // o player local pode não ter um id de servidor (modo offline) — usa 'me'
+    const myId = S.net.myServerId;
+    const bubbleId = (p === S.player) ? (myId || 'me') : p.id;
+    const b = S.chat.bubbles.get(bubbleId);
+    if (!b) return;
+    const now = Date.now();
+    if (b.until <= now) return;
+
+    setBubbleFont();
+    const text = b.text;
+    // quebra texto em linhas se > 28 chars
+    const lines = wrapText(text, 28);
+    const lineH = 12;
+    const tw = Math.max(...lines.map(l => ctx.measureText(l).width));
+    const padX = 8, padY = 6;
+    const w = Math.ceil(tw) + padX * 2;
+    const h = lines.length * lineH + padY * 2;
+    const x = Math.floor(cx - w / 2);
+    const y = Math.floor(baseY - h - 4);
+
+    // fade nos últimos 800ms
+    const left = b.until - now;
+    const alpha = Math.min(1, left / 800);
+    const prev = ctx.globalAlpha;
+    ctx.globalAlpha = prev * alpha;
+
+    // balão pixel art: fundo + borda + bico
+    ctx.fillStyle = '#0e1424';
+    ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = '#4f9bff';
+    ctx.fillRect(x - 1, y - 1, w + 2, 1);
+    ctx.fillRect(x - 1, y + h, w + 2, 1);
+    ctx.fillRect(x - 1, y, 1, h);
+    ctx.fillRect(x + w, y, 1, h);
+    // bico no meio embaixo
+    const bx = Math.floor(cx);
+    ctx.fillStyle = '#0e1424';
+    ctx.fillRect(bx - 3, y + h, 6, 1);
+    ctx.fillRect(bx - 2, y + h + 1, 4, 1);
+    ctx.fillRect(bx - 1, y + h + 2, 2, 1);
+    ctx.fillStyle = '#4f9bff';
+    ctx.fillRect(bx - 4, y + h, 1, 1);
+    ctx.fillRect(bx + 3, y + h, 1, 1);
+    ctx.fillRect(bx - 3, y + h + 1, 1, 1);
+    ctx.fillRect(bx + 2, y + h + 1, 1, 1);
+    ctx.fillRect(bx - 2, y + h + 2, 1, 1);
+    ctx.fillRect(bx + 1, y + h + 2, 1, 1);
+
+    // texto
+    ctx.fillStyle = '#cfe1ff';
+    for (let i = 0; i < lines.length; i++) {
+      const lw = ctx.measureText(lines[i]).width;
+      ctx.fillText(lines[i], Math.floor(x + (w - lw) / 2), y + padY + i * lineH);
+    }
+    ctx.globalAlpha = prev;
+  }
+
+  function setBubbleFont() {
+    ctx.font = 'bold 9px monospace';
+    ctx.textBaseline = 'top';
+  }
+
+  function wrapText(text, maxChars) {
+    if (text.length <= maxChars) return [text];
+    const words = text.split(' ');
+    const lines = [];
+    let cur = '';
+    for (const w of words) {
+      if ((cur + ' ' + w).trim().length > maxChars) {
+        if (cur) lines.push(cur);
+        cur = w;
+      } else {
+        cur = (cur + ' ' + w).trim();
+      }
+    }
+    if (cur) lines.push(cur);
+    return lines.slice(0, 3); // máx 3 linhas
   }
 
   // ---------- projéteis ----------

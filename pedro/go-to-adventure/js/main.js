@@ -19,11 +19,12 @@
     S.player.x = cx;
     S.player.y = cy;
 
-    window.GTA.Combat.init();
     window.GTA.Sprites.init();
     window.GTA.Render.init(canvas);
     window.GTA.UI.init();
-    window.GTA.Net.init(); // local mode por padrão
+    // Net antes de Combat: define se vai online (server controla mobs) ou local
+    window.GTA.Net.init();
+    window.GTA.Combat.init();
 
     // inventário inicial: dá uns recursos pra craftar logo
     addStarter(S);
@@ -82,6 +83,7 @@
     window.GTA.Input.update();
     window.GTA.Player.update(dt);
     window.GTA.Combat.update(dt);
+    window.GTA.Net.update(dt);
     window.GTA.UI.update(dt);
 
     // render

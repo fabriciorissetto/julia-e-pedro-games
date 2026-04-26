@@ -8,12 +8,24 @@
 
   function init(canvasEl) {
     canvas = canvasEl;
+    setupChatInput();
 
     window.addEventListener('keydown', (e) => {
       if (S.screen !== 'play') return;
+      // chat aberto: deixa o input HTML processar; só Esc volta pro jogo
+      if (S.chat && S.chat.open) {
+        if (e.code === 'Escape') closeChat(false);
+        return;
+      }
       // bloqueia scroll de espaço/setas
       if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) {
         e.preventDefault();
+      }
+      // Enter abre chat (não captura no input geral)
+      if (e.code === 'Enter') {
+        e.preventDefault();
+        openChat();
+        return;
       }
       S.input.keys.add(e.code);
       // ignora auto-repeat pra toggles/skill — só age na 1ª pressão
@@ -87,7 +99,8 @@
   }
 
   function update() {
-    // movimento — desabilita se UI principal aberta? Vamos permitir, pra não travar.
+    // chat aberto: zera movimento
+    if (S.chat && S.chat.open) { S.input.moveX = 0; S.input.moveY = 0; return; }
     const k = S.input.keys;
     let dx = 0, dy = 0;
     if (k.has('KeyW') || k.has('ArrowUp')) dy -= 1;
@@ -98,6 +111,63 @@
     if (len > 0) { dx /= len; dy /= len; }
     S.input.moveX = dx;
     S.input.moveY = dy;
+  }
+
+  function setupChatInput() {
+    const box = document.getElementById('chatBox');
+    const input = document.getElementById('chatInput');
+    const history = document.getElementById('chatHistory');
+    if (!input || !box) return;
+    let lastHistoryLen = 0;
+
+    input.addEventListener('keydown', (e) => {
+      e.stopPropagation();
+      if (e.code === 'Enter') {
+        const txt = input.value.trim();
+        if (txt && window.GTA.Net) window.GTA.Net.sendChat(txt);
+        closeChat(false);
+      } else if (e.code === 'Escape') {
+        closeChat(false);
+      }
+    });
+
+    // re-render historico do chat quando muda
+    setInterval(() => {
+      const list = (S.chat && S.chat.history) || [];
+      if (list.length === lastHistoryLen) return;
+      lastHistoryLen = list.length;
+      // mostra só os 8 últimos
+      const recent = list.slice(-8);
+      history.innerHTML = '';
+      // ordem reversa pq column-reverse no CSS
+      for (let i = recent.length - 1; i >= 0; i--) {
+        const m = recent[i];
+        const div = document.createElement('div');
+        div.className = 'chat-line';
+        const safe = (s) => String(s).replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' })[c]);
+        div.innerHTML = `<span class="nick">${safe(m.nick)}:</span>${safe(m.text)}`;
+        history.appendChild(div);
+      }
+    }, 200);
+  }
+
+  function openChat() {
+    if (!S.chat) S.chat = { open: false, text: '', history: [], bubbles: new Map() };
+    S.chat.open = true;
+    const box = document.getElementById('chatBox');
+    const input = document.getElementById('chatInput');
+    if (box) box.classList.add('open');
+    if (input) { input.value = ''; setTimeout(() => input.focus(), 10); }
+    // libera teclas presas (pra player não continuar andando)
+    S.input.keys.clear();
+  }
+
+  function closeChat(_send) {
+    if (S.chat) S.chat.open = false;
+    const box = document.getElementById('chatBox');
+    const input = document.getElementById('chatInput');
+    if (box) box.classList.remove('open');
+    if (input) { input.blur(); input.value = ''; }
   }
 
   function clearFrame() {
