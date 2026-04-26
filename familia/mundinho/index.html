@@ -75,20 +75,20 @@
             .map(ts => map.addTilesetImage(ts.name, `ts_${ts.name}`))
             .filter(Boolean);
 
-          // Renderiza as 3 layers convencionais. Se uma layer não existir
-          // no mapa, simplesmente pula — assim dá pra começar com mapa
-          // simples só de "chao" e ir adicionando.
+          // Renderiza TODAS as tile layers do mapa na ordem em que aparecem
+          // no .tmj (Tiled grava de baixo pra cima, o que é o que queremos).
+          // Layers com nome começando em "colisao" geram bloqueio no player.
           this.layers = {};
-          ['chao', 'decoracao', 'colisao'].forEach(nome => {
-            if (map.getLayer(nome)) {
-              this.layers[nome] = map.createLayer(nome, tilesets, 0, 0);
+          this.layersColisao = [];
+          map.layers.forEach(layerData => {
+            const phaserLayer = map.createLayer(layerData.name, tilesets, 0, 0);
+            if (!phaserLayer) return;
+            this.layers[layerData.name] = phaserLayer;
+            if (layerData.name.toLowerCase().startsWith('colisao')) {
+              phaserLayer.setCollisionByExclusion([-1]);
+              this.layersColisao.push(phaserLayer);
             }
           });
-
-          // Tudo que tiver tile na layer "colisao" bloqueia o player
-          if (this.layers.colisao) {
-            this.layers.colisao.setCollisionByExclusion([-1]);
-          }
 
           this.criarPlayer(map);
 
@@ -129,9 +129,7 @@
           // Hitbox menor que o sprite — sensação melhor de movimento
           this.player.body.setSize(16, 14).setOffset(4, 8);
 
-          if (this.layers.colisao) {
-            this.physics.add.collider(this.player, this.layers.colisao);
-          }
+          this.layersColisao.forEach(l => this.physics.add.collider(this.player, l));
         }
 
         update() {
