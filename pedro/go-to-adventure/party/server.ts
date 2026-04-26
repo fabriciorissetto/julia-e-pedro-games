@@ -8,6 +8,7 @@
 // Deploy: `npx partykit deploy --name gotoadventure --main party/server.ts`
 
 import type * as Party from "partykit/server";
+import { CLASS_STATS, MOB_STATS } from "./config";
 
 // =============================================================================
 // Constantes do mundo / tick
@@ -100,28 +101,29 @@ type ClassDef = {
   skill2: Skill2Def;
 };
 
+// Stats vêm de party/config.ts. Aqui só somamos as skills (que não estão no config).
 const CLASSES: Record<Classe, ClassDef> = {
   warrior: {
-    maxHp: 140, attack: 14, defense: 10,
-    atkRange: 1.6, atkSpeed: 750, atkProjectile: null,
+    ...CLASS_STATS.warrior,
+    atkProjectile: null,
     skill: { id: "taunt", cooldown: 10000, range: 4, duration: 5000, damageReduction: 0.8 },
     skill2: { id: "whirlwind", cooldown: 12000, radius: 1.5, damageMul: 6.0 },
   },
   archer: {
-    maxHp: 90, attack: 12, defense: 6,
-    atkRange: 20, atkSpeed: 700, atkProjectile: "arrow",
+    ...CLASS_STATS.archer,
+    atkProjectile: "arrow",
     skill: { id: "arrowRain", cooldown: 8000, range: 7, radius: 5, duration: 3000, dps: 8, slow: 0.5 },
     skill2: { id: "piercingShot", cooldown: 10000, length: 16, widthTiles: 1.2, damageMul: 4.0 },
   },
   mage: {
-    maxHp: 70, attack: 10, defense: 3,
-    atkRange: 5, atkSpeed: 900, atkProjectile: "bolt",
+    ...CLASS_STATS.mage,
+    atkProjectile: "bolt",
     skill: { id: "arcane", cooldown: 8000, radius: 9, damageMul: 4.0 },
     skill2: { id: "fireLine", cooldown: 10000, length: 5, widthTiles: 1.4, damageMul: 4.0 },
   },
   healer: {
-    maxHp: 95, attack: 7, defense: 5,
-    atkRange: 4, atkSpeed: 850, atkProjectile: "spark",
+    ...CLASS_STATS.healer,
+    atkProjectile: "spark",
     skill: { id: "heal", cooldown: 15000, radius: 4, healPct: 0.7 },
     skill2: { id: "stunLock", cooldown: 12000, duration: 5000 },
   },
@@ -137,15 +139,8 @@ type MobBase = {
   attackCdMs: number; xpReward: number;
 };
 
-// XP base 10x do antigo a pedido do Pedro. Skeleton 15x (era 60 → 900).
-// Dragão: HP > golem (300 vs 180); attack 15x skeleton (24 * 15 = 360).
-const MOB_TYPES: Record<MobType, MobBase> = {
-  slime:    { maxHp: 30,  attack: 6,  defense: 0, speed: 60,  attackRange: 1.0, sightRange: 5, attackCdMs: 1500, xpReward: 100 },
-  wolf:     { maxHp: 55,  attack: 11, defense: 2, speed: 120, attackRange: 1.0, sightRange: 7, attackCdMs: 900,  xpReward: 250 },
-  golem:    { maxHp: 180, attack: 18, defense: 8, speed: 35,  attackRange: 1.2, sightRange: 5, attackCdMs: 1800, xpReward: 800 },
-  skeleton: { maxHp: 90,  attack: 24, defense: 4, speed: 90,  attackRange: 1.2, sightRange: 8, attackCdMs: 1100, xpReward: 900 },
-  dragon:   { maxHp: 300, attack: 360, defense: 12, speed: 70, attackRange: 1.5, sightRange: 9, attackCdMs: 1300, xpReward: 5000 },
-};
+// Stats vêm de party/config.ts.
+const MOB_TYPES: Record<MobType, MobBase> = MOB_STATS;
 
 const ZONE_MUL: Record<Zone, number> = { safe: 0.8, mid: 1.0, outer: 1.2 };
 

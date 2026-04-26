@@ -1,17 +1,20 @@
 // Definições das 4 classes do jogador.
-// Stats base, range de ataque, skill, sprite key.
+// Stats base vêm de js/config.js (edite lá!). Aqui ficam só skills, cores e sprites.
 (function () {
+  // pega stats do config — cliente carrega config.js antes deste
+  const CFG = (window.GTA && window.GTA.Config && window.GTA.Config.CLASSES) || {};
+
   const CLASSES = {
     warrior: {
       id: 'warrior',
       name: 'Guerreiro',
       desc: 'HP alto, defesa alta, ataque corpo-a-corpo.',
       color: '#c44',
-      maxHp: 140,
-      attack: 14,
-      defense: 10,
-      atkRange: 1.6,         // tiles
-      atkSpeed: 750,         // ms
+      maxHp: CFG.warrior.maxHp,
+      attack: CFG.warrior.attack,
+      defense: CFG.warrior.defense,
+      atkRange: CFG.warrior.atkRange,
+      atkSpeed: CFG.warrior.atkSpeed,
       atkProjectile: null,   // melee = sem projétil
       sprite: 'warrior',
       skill: {
@@ -37,11 +40,11 @@
       name: 'Arqueiro',
       desc: 'Alcance enorme — atira a tela inteira.',
       color: '#2a8',
-      maxHp: 90,
-      attack: 12,
-      defense: 6,
-      atkRange: 20,          // tiles — atinge praticamente tudo na tela visível
-      atkSpeed: 700,
+      maxHp: CFG.archer.maxHp,
+      attack: CFG.archer.attack,
+      defense: CFG.archer.defense,
+      atkRange: CFG.archer.atkRange,
+      atkSpeed: CFG.archer.atkSpeed,
       atkProjectile: 'arrow',
       sprite: 'archer',
       skill: {
@@ -70,11 +73,11 @@
       name: 'Mago',
       desc: 'HP baixo, dano em área alto.',
       color: '#84f',
-      maxHp: 70,
-      attack: 10,
-      defense: 3,
-      atkRange: 5,
-      atkSpeed: 900,
+      maxHp: CFG.mage.maxHp,
+      attack: CFG.mage.attack,
+      defense: CFG.mage.defense,
+      atkRange: CFG.mage.atkRange,
+      atkSpeed: CFG.mage.atkSpeed,
       atkProjectile: 'bolt',
       sprite: 'mage',
       skill: {
@@ -100,11 +103,11 @@
       name: 'Curandeiro',
       desc: 'Suporte. Cura aliados em área.',
       color: '#fc4',
-      maxHp: 95,
-      attack: 7,
-      defense: 5,
-      atkRange: 4,
-      atkSpeed: 850,
+      maxHp: CFG.healer.maxHp,
+      attack: CFG.healer.attack,
+      defense: CFG.healer.defense,
+      atkRange: CFG.healer.atkRange,
+      atkSpeed: CFG.healer.atkSpeed,
       atkProjectile: 'spark',
       sprite: 'healer',
       skill: {
