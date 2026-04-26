@@ -132,6 +132,10 @@
         document.querySelectorAll('.class-card').forEach(c => c.classList.remove('selected'));
         card.classList.add('selected');
         chosen = cls.id;
+        if (window.GTA.Audio) window.GTA.Audio.play('click');
+      });
+      card.addEventListener('mouseenter', () => {
+        if (window.GTA.Audio) window.GTA.Audio.play('hover');
       });
 
       grid.appendChild(card);
@@ -173,7 +177,7 @@
       if (window.GTA.Audio) {
         window.GTA.Audio.unlock();
         window.GTA.Audio.play('levelUp'); // som triunfal de início
-        window.GTA.Audio.startMusic();    // música de fundo medieval em loop
+        window.GTA.Audio.startMusic();    // garante música tocando (já chamado no init)
       }
       startGame(nick, chosen);
     });
@@ -191,6 +195,9 @@
     setupMenu();
     // foca o input
     document.getElementById('nickInput').focus();
+    // música de fundo já no menu (browser pode bloquear até 1º gesto;
+    // startMusic() retenta automaticamente em qualquer interação)
+    if (window.GTA.Audio) window.GTA.Audio.startMusic();
   }
 
   if (document.readyState === 'loading') {

@@ -165,107 +165,50 @@
   function setMuted(m) { muted = !!m; }
   function isMuted() { return muted; }
 
-  // ---------- Música de fundo procedural ----------
-  // Sequência de notas em modo dórico (medieval-RPG vibe), tocadas em loop por
-  // um oscilador "pad" + uma melodia simples. Tudo baixo volume pra não atrapalhar SFX.
-  let bgmTimer = null;
-  let bgmGain = null;
-  let bgmActive = false;
-
-  // Modo dórico em D: D E F G A B C — 7 graus, intervalo característico medieval
-  const DORIAN_D = [146.83, 164.81, 174.61, 196.00, 220.00, 246.94, 261.63, 293.66];
-  // Sequência da melodia (índices no DORIAN_D + duração em segundos)
-  const MELODY = [
-    [0, 0.5], [2, 0.5], [3, 0.5], [4, 1.0],
-    [3, 0.5], [2, 0.5], [0, 1.0], [-1, 0.5],
-    [4, 0.5], [5, 0.5], [4, 0.5], [3, 1.0],
-    [2, 0.5], [1, 0.5], [0, 1.5], [-1, 0.5],
-    [5, 0.5], [4, 0.5], [3, 0.5], [2, 0.5],
-    [4, 0.5], [3, 0.5], [2, 0.5], [0, 1.5],
-  ];
-
-  function playMelodyNote(noteIdx, dur, when) {
-    if (noteIdx < 0) return; // pausa
-    const freq = DORIAN_D[noteIdx];
-    if (!freq) return;
-    const t0 = when;
-    const osc = ctx.createOscillator();
-    osc.type = 'triangle';
-    osc.frequency.value = freq;
-    const g = ctx.createGain();
-    const peak = 0.18;
-    g.gain.setValueAtTime(0, t0);
-    g.gain.linearRampToValueAtTime(peak, t0 + 0.04);
-    g.gain.linearRampToValueAtTime(peak * 0.5, t0 + dur * 0.5);
-    g.gain.linearRampToValueAtTime(0, t0 + dur);
-    osc.connect(g).connect(bgmGain);
-    osc.start(t0);
-    osc.stop(t0 + dur + 0.05);
-  }
-
-  function playPadDrone(when, dur) {
-    // pad sustenta a tônica D + quinta A em duas oitavas
-    const freqs = [73.42, 110.00, 146.83]; // D2, A2, D3
-    for (const f of freqs) {
-      const o = ctx.createOscillator();
-      o.type = 'sine';
-      o.frequency.value = f;
-      const g = ctx.createGain();
-      g.gain.setValueAtTime(0, when);
-      g.gain.linearRampToValueAtTime(0.06, when + 0.5);
-      g.gain.linearRampToValueAtTime(0.06, when + dur - 0.5);
-      g.gain.linearRampToValueAtTime(0, when + dur);
-      o.connect(g).connect(bgmGain);
-      o.start(when);
-      o.stop(when + dur + 0.1);
-    }
-  }
+  // ---------- Música de fundo (MP3 em loop) ----------
+  // Usa um <audio> HTML pra simplicidade — autoplay é bloqueado pelo browser
+  // até o primeiro gesto do usuário; o startMusic() retenta no próximo gesto.
+  let bgmEl = null;
+  let bgmTriedPlay = false;
 
   function startMusic() {
-    init();
-    if (!ctx || muted || bgmActive) return;
-    bgmActive = true;
-    if (!bgmGain) {
-      bgmGain = ctx.createGain();
-      bgmGain.gain.value = 0.5; // sub-mix de música
-      bgmGain.connect(master);
+    if (muted) return;
+    if (!bgmEl) {
+      bgmEl = new Audio('assets/bgm.mp3');
+      bgmEl.loop = true;
+      bgmEl.volume = 0.35;
+      bgmEl.preload = 'auto';
     }
-    scheduleNextLoop();
-  }
-
-  function scheduleNextLoop() {
-    if (!bgmActive || !ctx) return;
-    const now = ctx.currentTime;
-    let t = now + 0.1;
-    // pad drone cobrindo toda a melodia
-    let total = 0;
-    for (const [, d] of MELODY) total += d;
-    playPadDrone(t, total);
-    // notas
-    for (const [idx, dur] of MELODY) {
-      playMelodyNote(idx, dur, t);
-      t += dur;
-    }
-    // agenda próximo loop um pouco antes do fim pra não ter gap
-    const ms = (total - 0.05) * 1000;
-    bgmTimer = setTimeout(scheduleNextLoop, ms);
+    const tryPlay = () => {
+      const p = bgmEl.play();
+      if (p && p.catch) p.catch(() => {
+        // browser bloqueou — vai destravar no próximo gesto
+        bgmTriedPlay = true;
+      });
+    };
+    tryPlay();
+    // se browser bloqueou, agenda retry em qualquer interação
+    if (!bgmTriedPlay) bgmTriedPlay = true;
+    const onGesture = () => {
+      if (bgmEl.paused && !muted) {
+        const p = bgmEl.play();
+        if (p && p.catch) p.catch(() => {});
+      }
+    };
+    ['click', 'keydown', 'pointerdown', 'touchstart', 'mousemove'].forEach(ev =>
+      window.addEventListener(ev, onGesture, { once: true, passive: true })
+    );
   }
 
   function stopMusic() {
-    bgmActive = false;
-    if (bgmTimer) { clearTimeout(bgmTimer); bgmTimer = null; }
-    if (bgmGain) {
-      try {
-        const now = ctx.currentTime;
-        bgmGain.gain.cancelScheduledValues(now);
-        bgmGain.gain.setValueAtTime(bgmGain.gain.value, now);
-        bgmGain.gain.linearRampToValueAtTime(0, now + 0.5);
-      } catch {}
+    if (bgmEl) {
+      bgmEl.pause();
+      bgmEl.currentTime = 0;
     }
   }
 
   function setMusicVolume(v) {
-    if (bgmGain) bgmGain.gain.value = Math.max(0, Math.min(1, v));
+    if (bgmEl) bgmEl.volume = Math.max(0, Math.min(1, v));
   }
 
   // desbloqueia em qualquer interação inicial

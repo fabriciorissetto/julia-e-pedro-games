@@ -205,6 +205,35 @@ function dist(ax: number, ay: number, bx: number, by: number): number {
   return Math.sqrt(dx * dx + dy * dy);
 }
 
+// Áreas internas de casa (em px) — espelham os 6 spots de placeHouse5x5 do cliente.
+// Cada casa = 5x5 tiles começando em (cx + dx, cy + dy). Interior = (cx+dx+1..cx+dx+3, cy+dy+1..cy+dy+3).
+// CENTER tiles = 50, 50. Tile = 32 px.
+const HOUSE_INTERIORS_PX: Array<{ x0: number; y0: number; x1: number; y1: number }> = (function () {
+  const cxT = WORLD_W_TILES / 2, cyT = WORLD_H_TILES / 2;
+  const spots: Array<[number, number]> = [
+    [-13, -10], [8, -10], [-15, -2], [11, -2], [-13, 8], [8, 8],
+  ];
+  return spots.map(([dx, dy]) => {
+    const x0t = cxT + dx + 1; // primeiro tile interno
+    const y0t = cyT + dy + 1;
+    const x1t = cxT + dx + 3; // último tile interno (inclusivo)
+    const y1t = cyT + dy + 3;
+    return {
+      x0: x0t * TILE,
+      y0: y0t * TILE,
+      x1: (x1t + 1) * TILE,
+      y1: (y1t + 1) * TILE,
+    };
+  });
+})();
+
+function pontoDentroDeCasa(x: number, y: number): boolean {
+  for (const r of HOUSE_INTERIORS_PX) {
+    if (x >= r.x0 && x < r.x1 && y >= r.y0 && y < r.y1) return true;
+  }
+  return false;
+}
+
 // Testa se ponto (px, py) está dentro do retângulo definido pelo segmento (ax,ay)→(bx,by)
 // engrossado por `halfW` em direção perpendicular. Usado pra skills lineares.
 function pontoNoRetangulo(px: number, py: number, ax: number, ay: number, bx: number, by: number, halfW: number): boolean {
@@ -273,7 +302,13 @@ export default class GoToAdventureServer implements Party.Server {
       const cfg = ZONE_CFG[zoneKey];
       const need = cfg.cap;
       for (let i = 0; i < need; i++) {
-        const pos = this.randomPosInRing(cfg.rMin, cfg.rMax);
+        // tenta achar uma posição que NÃO esteja dentro de casa (dá até 12 chances)
+        let pos = this.randomPosInRing(cfg.rMin, cfg.rMax);
+        let tries = 0;
+        while (pontoDentroDeCasa(pos.x, pos.y) && tries < 12) {
+          pos = this.randomPosInRing(cfg.rMin, cfg.rMax);
+          tries++;
+        }
         const t = pickType(cfg.mix, Math.random);
         this.spawnMob(t, pos.x, pos.y, zoneKey);
       }
@@ -821,8 +856,19 @@ export default class GoToAdventureServer implements Party.Server {
         const dx = (alvo.x - m.x) / alvoD;
         const dy = (alvo.y - m.y) / alvoD;
         const step = speed * dt;
-        m.x = clampX(m.x + dx * step);
-        m.y = clampY(m.y + dy * step);
+        const nx = clampX(m.x + dx * step);
+        const ny = clampY(m.y + dy * step);
+        // mobs não podem entrar em casas — abortar passo se cair dentro do interior
+        if (!pontoDentroDeCasa(nx, ny)) {
+          m.x = nx;
+          m.y = ny;
+        } else {
+          // tenta deslizar só num eixo (assim o mob pode contornar a casa)
+          const tryX = clampX(m.x + dx * step);
+          const tryY = clampY(m.y + dy * step);
+          if (!pontoDentroDeCasa(tryX, m.y)) m.x = tryX;
+          else if (!pontoDentroDeCasa(m.x, tryY)) m.y = tryY;
+        }
       }
     }
   }
