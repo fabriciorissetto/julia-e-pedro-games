@@ -69,7 +69,19 @@ type MsgMover = {
   equipado?: Equipado;
 };
 
-type MsgEntrada = MsgIdentificar | MsgMover;
+type MsgMagia = {
+  tipo: "magia";
+  x: number;
+  y: number;
+  raio?: number;
+};
+
+type MsgChat = {
+  tipo: "chat";
+  texto: string;
+};
+
+type MsgEntrada = MsgIdentificar | MsgMover | MsgMagia | MsgChat;
 
 const TICK_MS = 75; // ~13Hz — suave o bastante, leve no broadcast
 
@@ -136,6 +148,21 @@ export default class FlorestaServer implements Party.Server {
         j.flipX = !!data.flipX;
         if (data.equipado) j.equipado = sanitizaEquipado(data.equipado);
         j.ultimoInput = Date.now();
+      }
+    } else if (data.tipo === "magia") {
+      const mx = Number(data.x), my = Number(data.y);
+      if (Number.isFinite(mx) && Number.isFinite(my)) {
+        const raio = Number.isFinite(Number(data.raio)) ? Math.min(800, Math.max(20, Number(data.raio))) : 128;
+        this.room.broadcast(JSON.stringify({
+          tipo: "magia", id: sender.id, x: mx, y: my, raio
+        }), [sender.id]);
+      }
+    } else if (data.tipo === "chat") {
+      const texto = String(data.texto ?? "").slice(0, 80).trim();
+      if (texto) {
+        this.room.broadcast(JSON.stringify({
+          tipo: "chat", id: sender.id, nome: j.nome, texto, t: Date.now()
+        }));
       }
     }
   }

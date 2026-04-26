@@ -18,77 +18,172 @@
     body { display: flex; align-items: center; justify-content: center; }
     #game { image-rendering: pixelated; image-rendering: crisp-edges; }
 
-    .voltar {
-      position: fixed; top: 8px; left: 8px;
-      background: rgba(255,255,255,0.95);
-      padding: 8px 14px; border-radius: 18px;
-      text-decoration: none; color: #2d6e1a;
-      font-weight: bold; font-size: 16px;
+    /* ===== Botões laterais (Voltar / Reiniciar / Loja) ===== */
+    .botao-lateral {
+      position: fixed; left: 12px;
+      padding: 10px 18px;
+      border-radius: 22px;
+      font-weight: 800;
+      font-size: 15px;
+      font-family: 'Comic Sans MS', 'Trebuchet MS', cursive;
+      text-decoration: none;
       z-index: 50;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      border: 3px solid #fff;
+      box-shadow: 0 6px 0 rgba(0,0,0,0.18), 0 8px 18px rgba(0,0,0,0.25);
+      cursor: pointer;
+      transition: transform 0.08s, box-shadow 0.08s;
+      letter-spacing: 0.3px;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .botao-lateral:hover { transform: translateY(-2px); box-shadow: 0 8px 0 rgba(0,0,0,0.18), 0 12px 22px rgba(0,0,0,0.3); }
+    .botao-lateral:active { transform: translateY(2px); box-shadow: 0 3px 0 rgba(0,0,0,0.18), 0 4px 10px rgba(0,0,0,0.2); }
+
+    .voltar {
+      top: 12px;
+      background: linear-gradient(135deg, #fff 0%, #d8f5cf 100%);
+      color: #2d6e1a;
     }
     .reiniciar {
-      position: fixed; top: 50px; left: 8px;
-      background: rgba(255, 220, 220, 0.95);
-      padding: 7px 12px; border-radius: 16px;
+      top: 60px;
+      background: linear-gradient(135deg, #ffe5ec 0%, #ffb5c5 100%);
       color: #c92d4d;
-      font-weight: bold; font-size: 13px;
-      z-index: 50;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-      border: none; cursor: pointer; font-family: inherit;
     }
-    .reiniciar:active { transform: scale(0.96); }
     .loja-btn {
-      position: fixed; top: 92px; left: 8px;
-      background: linear-gradient(135deg, #ffd84d 0%, #ff9f30 100%);
-      padding: 8px 14px; border-radius: 16px;
+      top: 108px;
+      background: linear-gradient(135deg, #ffe98a 0%, #ff9f30 100%);
       color: #6a3a0a;
-      font-weight: bold; font-size: 14px;
-      z-index: 50;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-      border: none; cursor: pointer; font-family: inherit;
     }
-    .loja-btn:active { transform: scale(0.96); }
 
+    /* ===== HUD do topo ===== */
     .hud {
-      position: fixed; top: 8px; left: 50%;
+      position: fixed; top: 10px; left: 50%;
       transform: translateX(-50%);
-      display: flex; gap: 8px; flex-wrap: wrap;
+      display: flex; gap: 10px; flex-wrap: wrap;
       justify-content: center;
       z-index: 40; pointer-events: none;
     }
     .hud .item {
-      background: rgba(255,255,255,0.92);
-      padding: 6px 12px; border-radius: 16px;
-      font-size: 16px; font-weight: bold;
+      background: linear-gradient(180deg, #ffffff 0%, #f3f9ee 100%);
+      padding: 8px 14px;
+      border-radius: 22px;
+      font-size: 16px; font-weight: 800;
       color: #2d6e1a;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.25);
-      min-width: 50px; text-align: center;
+      border: 3px solid #fff;
+      box-shadow: 0 5px 0 rgba(0,0,0,0.12), 0 6px 14px rgba(0,0,0,0.22);
+      min-width: 54px; text-align: center;
+      font-family: 'Comic Sans MS', 'Trebuchet MS', cursive;
+      letter-spacing: 0.3px;
     }
-    .hud .item.dia { color: #b56fff; }
-    .hud .item.moedas { color: #c89030; }
-    .hud .item.noite { background: linear-gradient(135deg, #2a1f4d 0%, #4a2a7d 100%); color: #ffd84d; }
-    .hud .item.vida { color: #c92d4d; }
-    .hud .item.online { color: #2a8aff; }
+    .hud .item.nome     { background: linear-gradient(180deg, #fff5fb 0%, #ffd5ec 100%); color: #b56fff; }
+    .hud .item.dia      { background: linear-gradient(180deg, #fff5dc 0%, #ffe9a8 100%); color: #b56fff; }
+    .hud .item.moedas   { background: linear-gradient(180deg, #fff5dc 0%, #ffe1a3 100%); color: #c89030; }
+    .hud .item.noite    { background: linear-gradient(135deg, #2a1f4d 0%, #4a2a7d 100%); color: #ffd84d; border-color: #fff8c4; }
+    .hud .item.vida     { background: linear-gradient(180deg, #fff0f3 0%, #ffd5dd 100%); color: #c92d4d; }
+    .hud .item.online   { background: linear-gradient(180deg, #eef6ff 0%, #c8e0ff 100%); color: #2a8aff; }
     .hud .item.online.offline { color: #999; background: #ddd; }
     .hud .item.alerta { animation: piscar 0.6s infinite; }
-    @keyframes piscar { 0%,100% { transform: scale(1);} 50% { transform: scale(1.1); background: #ffe5e5; } }
+    @keyframes piscar { 0%,100% { transform: scale(1);} 50% { transform: scale(1.1); background: linear-gradient(180deg, #fff 0%, #ffd5dd 100%); } }
 
     /* minimapa no canto inferior esquerdo */
     #minimapaWrap {
-      position: fixed; bottom: 50px; left: 12px;
-      background: rgba(255,255,255,0.85);
-      border: 3px solid #2d6e1a;
-      border-radius: 14px;
-      padding: 4px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+      position: fixed; bottom: 12px; left: 12px;
+      background: linear-gradient(180deg, #ffffff 0%, #f3f9ee 100%);
+      border: 4px solid #fff;
+      border-radius: 18px;
+      padding: 6px;
+      box-shadow: 0 6px 0 rgba(0,0,0,0.15), 0 8px 18px rgba(0,0,0,0.25);
       z-index: 35;
       pointer-events: none;
     }
-    #minimapa { display: block; border-radius: 10px; image-rendering: pixelated; }
+    #minimapa { display: block; border-radius: 12px; image-rendering: pixelated; }
     @media (max-width: 500px) {
-      #minimapaWrap { bottom: 100px; }
       #minimapa { width: 110px; height: 110px; }
+    }
+
+    /* ===== Chat ===== */
+    #chatWrap {
+      position: fixed; bottom: 12px; left: 200px;
+      width: 320px; max-width: calc(100vw - 220px);
+      background: linear-gradient(180deg, #ffffff 0%, #f3f9ee 100%);
+      border: 4px solid #fff;
+      border-radius: 18px;
+      box-shadow: 0 6px 0 rgba(0,0,0,0.15), 0 8px 18px rgba(0,0,0,0.25);
+      z-index: 36;
+      font-family: 'Comic Sans MS', 'Trebuchet MS', cursive;
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+    #chatTitulo {
+      background: linear-gradient(180deg, #b56fff 0%, #7a3ec9 100%);
+      color: #fff; padding: 6px 12px; font-weight: 800; font-size: 13px;
+      display: flex; justify-content: space-between; align-items: center;
+      letter-spacing: 0.3px;
+    }
+    #chatFechar {
+      background: rgba(255,255,255,0.25); color: #fff;
+      border: none; border-radius: 12px; padding: 2px 8px; font-weight: 800;
+      cursor: pointer; font-family: inherit; display: none;
+    }
+    #chatLista {
+      list-style: none; margin: 0; padding: 6px 10px;
+      max-height: 140px; overflow-y: auto;
+      font-size: 13px; color: #2d4d2d;
+      display: flex; flex-direction: column; gap: 3px;
+    }
+    #chatLista li { line-height: 1.3; word-wrap: break-word; }
+    #chatLista li b { color: #b56fff; margin-right: 4px; }
+    #chatLista li.eu b { color: #2a8aff; }
+    #chatVazio { color: #999; font-style: italic; font-size: 12px; padding: 4px 0; }
+    #chatForm {
+      display: flex; gap: 6px; padding: 6px 8px;
+      border-top: 2px solid #e0e8d8;
+      background: #fff;
+    }
+    #chatInput {
+      flex: 1; padding: 7px 10px; border-radius: 14px;
+      border: 2px solid #cfe0bf; font-family: inherit;
+      font-size: 13px; outline: none;
+      background: #f9fff3;
+    }
+    #chatInput:focus { border-color: #b56fff; background: #fff; }
+    #chatEnviar {
+      background: linear-gradient(135deg, #ffe98a 0%, #ff9f30 100%);
+      color: #6a3a0a; border: 3px solid #fff;
+      border-radius: 14px; padding: 4px 12px;
+      font-weight: 800; cursor: pointer; font-family: inherit;
+      box-shadow: 0 3px 0 rgba(0,0,0,0.15);
+    }
+    #chatEnviar:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,0.15); }
+    /* botão do chat só aparece em mobile */
+    #chatToggle {
+      position: fixed; bottom: 12px; left: 12px; z-index: 37;
+      display: none;
+      background: linear-gradient(135deg, #b56fff 0%, #7a3ec9 100%);
+      color: #fff; border: 3px solid #fff;
+      border-radius: 50%; width: 56px; height: 56px;
+      font-size: 24px; cursor: pointer; font-family: inherit;
+      box-shadow: 0 5px 0 rgba(0,0,0,0.18), 0 7px 14px rgba(0,0,0,0.25);
+    }
+    #chatToggle .badge {
+      position: absolute; top: -4px; right: -4px;
+      background: #ff3b5c; color: #fff;
+      font-size: 11px; font-weight: 800;
+      border-radius: 12px; padding: 2px 6px;
+      border: 2px solid #fff;
+      min-width: 18px;
+    }
+    @media (max-width: 720px) {
+      #minimapaWrap { bottom: 78px; }
+      #chatWrap {
+        bottom: 80px; left: 80px;
+        width: 240px; max-width: calc(100vw - 100px);
+        max-height: 50vh;
+        display: none;
+      }
+      #chatWrap.aberto { display: flex; }
+      #chatFechar { display: inline-block; }
+      #chatToggle { display: block; bottom: 78px; left: 12px; width: 60px; height: 60px; }
+      #minimapaWrap { left: 80px; }
     }
 
     .controles {
@@ -441,9 +536,9 @@
   </style>
 </head>
 <body>
-  <a href="../" class="voltar">← Voltar</a>
-  <button id="btnReiniciar" class="reiniciar">↻ Reiniciar</button>
-  <button id="btnAbrirLoja" class="loja-btn">🏪 Loja</button>
+  <a href="../" class="botao-lateral voltar">← Voltar</a>
+  <button id="btnReiniciar" class="botao-lateral reiniciar">↻ Reiniciar</button>
+  <button id="btnAbrirLoja" class="botao-lateral loja-btn">🏪 Loja</button>
 
   <div id="telaInicio" class="inicio">
     <div class="inicio-card">
@@ -476,6 +571,19 @@
 
   <div id="minimapaWrap" title="Mapa">
     <canvas id="minimapa" width="160" height="160"></canvas>
+  </div>
+
+  <button id="chatToggle" title="Chat">💬<span class="badge" id="chatBadge" style="display:none">0</span></button>
+  <div id="chatWrap">
+    <div id="chatTitulo">
+      <span>💬 Conversinha</span>
+      <button id="chatFechar">✕</button>
+    </div>
+    <ul id="chatLista"><li id="chatVazio">Sem mensagens ainda. Manda um oi!</li></ul>
+    <form id="chatForm">
+      <input id="chatInput" type="text" maxlength="80" placeholder="Digite e aperte Enter…" autocomplete="off">
+      <button id="chatEnviar" type="submit">Enviar</button>
+    </form>
   </div>
 
   <div class="bag" id="bag">
@@ -927,6 +1035,7 @@
       };
       document.getElementById('btnAbrirLoja').onclick = abrirLoja;
       document.getElementById('lojaFechar').onclick = fecharLoja;
+      configurarChat();
 
       atualizarHUD();
       renderBag();
@@ -1159,6 +1268,16 @@
       // sincroniza com outros jogadores
       tickMultiplayer(time);
       desenharMinimapa();
+      // balão de fala segue o player
+      if (window.__meuBalao && player) {
+        if (time > (window.__meuBalaoExpira || 0)) {
+          try { window.__meuBalao.destroy(); } catch{}
+          window.__meuBalao = null;
+        } else {
+          window.__meuBalao.x = player.x;
+          window.__meuBalao.y = player.y - 44;
+        }
+      }
 
       // movimento
       let dx = 0, dy = 0;
@@ -1585,11 +1704,12 @@
       // magia de fogo
       if (arma && arma.tipo === 'magia') {
         const t = scene.time.now;
-        if (t < magiaProntoEm) {
+        const semCooldown = ehInvencivel(); // hack Julia: dispara à vontade
+        if (!semCooldown && t < magiaProntoEm) {
           mostrarToast('Magia recarregando…');
           return;
         }
-        magiaProntoEm = t + MAGIA_COOLDOWN_MS;
+        if (!semCooldown) magiaProntoEm = t + MAGIA_COOLDOWN_MS;
         dispararMagiaFogo();
         renderBag();
         return;
@@ -1676,57 +1796,67 @@
       });
     }
 
-    function dispararMagiaFogo() {
-      somMagia();
-      scene.cameras.main.shake(280, 0.018);
-      // círculo crescente de fogo
+    // anima o efeito visual da magia em qualquer (x,y) — usado tanto local quanto remoto
+    function animarMagiaFogo(cx, cy, raio) {
       const g = scene.add.graphics().setDepth(15);
       const obj = { r: 0, alpha: 1 };
       scene.tweens.add({
         targets: obj,
-        r: MAGIA_RAIO,
+        r: raio,
         alpha: 0,
         duration: 600,
         ease: 'Cubic.easeOut',
         onUpdate: () => {
           g.clear();
-          // anel externo brilhante
           g.fillStyle(0xffd84d, obj.alpha * 0.6);
-          g.fillCircle(player.x, player.y, obj.r);
+          g.fillCircle(cx, cy, obj.r);
           g.fillStyle(0xff8030, obj.alpha * 0.7);
-          g.fillCircle(player.x, player.y, obj.r * 0.85);
+          g.fillCircle(cx, cy, obj.r * 0.85);
           g.fillStyle(0xff3030, obj.alpha * 0.6);
-          g.fillCircle(player.x, player.y, obj.r * 0.6);
+          g.fillCircle(cx, cy, obj.r * 0.6);
           g.lineStyle(5, 0xffffff, obj.alpha);
-          g.strokeCircle(player.x, player.y, obj.r);
+          g.strokeCircle(cx, cy, obj.r);
         },
         onComplete: () => g.destroy()
       });
-
-      // chamas em volta (vários emojis 🔥)
-      for (let i=0;i<14;i++){
-        const ang = (i/14) * Math.PI * 2;
-        const flame = scene.add.text(player.x, player.y, '🔥', { fontSize: '32px' }).setOrigin(0.5).setDepth(16);
+      const numChamas = Math.min(28, Math.max(10, Math.round(raio / 10)));
+      for (let i=0;i<numChamas;i++){
+        const ang = (i/numChamas) * Math.PI * 2;
+        const flame = scene.add.text(cx, cy, '🔥', { fontSize: '32px' }).setOrigin(0.5).setDepth(16);
         scene.tweens.add({
           targets: flame,
-          x: player.x + Math.cos(ang) * MAGIA_RAIO,
-          y: player.y + Math.sin(ang) * MAGIA_RAIO,
-          alpha: 0,
-          scale: 1.6,
-          duration: 600,
-          ease: 'Cubic.easeOut',
+          x: cx + Math.cos(ang) * raio,
+          y: cy + Math.sin(ang) * raio,
+          alpha: 0, scale: 1.6, duration: 600, ease: 'Cubic.easeOut',
           onComplete: () => flame.destroy()
         });
       }
-      // explosão central
-      const boom = scene.add.text(player.x, player.y, '💥', { fontSize: '40px' }).setOrigin(0.5).setDepth(17);
+      const boom = scene.add.text(cx, cy, '💥', { fontSize: '40px' }).setOrigin(0.5).setDepth(17);
       scene.tweens.add({ targets: boom, scale: 2, alpha: 0, duration: 400, onComplete: () => boom.destroy() });
+    }
+
+    function renderizarMagiaRemota(x, y, raio) {
+      if (!scene) return;
+      somMagia();
+      animarMagiaFogo(x, y, raio || MAGIA_RAIO);
+    }
+
+    function dispararMagiaFogo() {
+      somMagia();
+      scene.cameras.main.shake(280, 0.018);
+      const raio = ehInvencivel() ? MAGIA_RAIO * 2 : MAGIA_RAIO; // hack Julia: dobro do tamanho
+      animarMagiaFogo(player.x, player.y, raio);
+
+      // avisa os outros jogadores pra renderizarem o efeito também
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ tipo: 'magia', x: player.x, y: player.y, raio }));
+      }
 
       // dano em todos os monstros no raio
       const forca = CATALOGO.magiaFogo.forca;
       // gigante também leva dano da magia se estiver no raio
       if (gigante && gigante.active) {
-        if (Phaser.Math.Distance.Between(player.x, player.y, gigante.x, gigante.y) < MAGIA_RAIO + 30) {
+        if (Phaser.Math.Distance.Between(player.x, player.y, gigante.x, gigante.y) < raio + 30) {
           gigante.hp -= forca;
           scene.tweens.add({ targets: gigante.emoji, alpha: 0.35, duration: 90, yoyo: true, repeat: 1 });
           if (gigante.hp <= 0) destruirGigante();
@@ -1734,7 +1864,7 @@
       }
       monstros.children.iterate(m => {
         if (!m || !m.active) return;
-        if (Phaser.Math.Distance.Between(player.x, player.y, m.x, m.y) < MAGIA_RAIO) {
+        if (Phaser.Math.Distance.Between(player.x, player.y, m.x, m.y) < raio) {
           m.hp = (m.hp ?? 3) - forca;
           m.setTint(0xff3030);
           scene.time.delayedCall(200, () => { if (m.active) m.clearTint(); });
@@ -2197,6 +2327,10 @@
           atualizarContagemOnline(idsAtivos.size);
         } else if (msg.tipo === 'saiu') {
           destruirOutroJogador(msg.id);
+        } else if (msg.tipo === 'magia') {
+          renderizarMagiaRemota(msg.x, msg.y, msg.raio || MAGIA_RAIO);
+        } else if (msg.tipo === 'chat') {
+          receberChat(msg);
         }
       });
 
@@ -2305,7 +2439,8 @@
       const chaves = [
         'sprite','nomeText','corpoSprite','pernaEsq','pernaDir',
         'veiculoSprite','capaSprite','chapeuSprite','rostoSprite',
-        'armaSprite','escudoSprite','petSprite','petAcessorioSprite'
+        'armaSprite','escudoSprite','petSprite','petAcessorioSprite',
+        'balaoFala'
       ];
       chaves.forEach(k => { try { if (obj[k]) obj[k].destroy(); } catch {} });
       outrosJogadores.delete(id);
@@ -2464,6 +2599,10 @@
         obj.nomeText.x = s.x;
         obj.nomeText.y = s.y - 30;
         renderizarRemoto(obj, time);
+        if (obj.balaoFala) {
+          obj.balaoFala.x = s.x;
+          obj.balaoFala.y = s.y - 44;
+        }
       });
     }
 
@@ -2489,7 +2628,7 @@
         const y = obj.sprite.y * sy;
         ctx.fillStyle = '#e83a5a';
         ctx.beginPath();
-        ctx.arc(x, y, 5, 0, Math.PI*2);
+        ctx.arc(x, y, 4, 0, Math.PI*2);
         ctx.fill();
         ctx.strokeStyle = '#fff';
         ctx.lineWidth = 1.5;
@@ -2502,18 +2641,131 @@
           ctx.fillText(obj.nome, x, y - 7);
         }
       });
-      // eu (azul, pisca um pouquinho)
+      // eu (azul grandão com aro pulsante)
       const meX = player.x * sx;
       const meY = player.y * sy;
       const t = (Date.now() % 1000) / 1000;
-      const r = 5 + Math.sin(t * Math.PI*2) * 1.2;
+      const aro = 11 + Math.sin(t * Math.PI*2) * 2.5;
+      ctx.fillStyle = 'rgba(42, 138, 255, 0.25)';
+      ctx.beginPath(); ctx.arc(meX, meY, aro, 0, Math.PI*2); ctx.fill();
       ctx.fillStyle = '#2a8aff';
       ctx.beginPath();
-      ctx.arc(meX, meY, r, 0, Math.PI*2);
+      ctx.arc(meX, meY, 8, 0, Math.PI*2);
       ctx.fill();
       ctx.strokeStyle = '#fff';
-      ctx.lineWidth = 1.5;
+      ctx.lineWidth = 2.5;
       ctx.stroke();
+    }
+
+    // ===== Chat =====
+    const chatMensagens = [];
+    let chatNaoLidas = 0;
+    function adicionarChat(nome, texto, ehMeu) {
+      chatMensagens.push({ nome, texto, ehMeu });
+      while (chatMensagens.length > 30) chatMensagens.shift();
+      const lista = document.getElementById('chatLista');
+      if (!lista) return;
+      const vazio = document.getElementById('chatVazio');
+      if (vazio) vazio.remove();
+      const li = document.createElement('li');
+      li.innerHTML = '<b></b><span></span>';
+      li.querySelector('b').textContent = nome + ':';
+      li.querySelector('span').textContent = ' ' + texto;
+      if (ehMeu) li.classList.add('eu');
+      lista.appendChild(li);
+      lista.scrollTop = lista.scrollHeight;
+    }
+    function mostrarBalaoFala(jogadorObj, texto) {
+      if (!scene || !jogadorObj) return;
+      // remove balão anterior se houver
+      if (jogadorObj.balaoFala) { try { jogadorObj.balaoFala.destroy(); } catch{} }
+      const balao = scene.add.text(jogadorObj.sprite.x, jogadorObj.sprite.y - 44, texto, {
+        fontSize: '13px', color: '#2d4d2d', fontStyle: 'bold',
+        backgroundColor: '#ffffffee', padding: { x: 8, y: 4 },
+        wordWrap: { width: 200 }, align: 'center',
+        fontFamily: 'Comic Sans MS, Trebuchet MS, cursive'
+      }).setOrigin(0.5, 1).setDepth(40);
+      jogadorObj.balaoFala = balao;
+      scene.time.delayedCall(4000, () => {
+        if (jogadorObj.balaoFala === balao) { try { balao.destroy(); } catch{}; jogadorObj.balaoFala = null; }
+      });
+    }
+    function mostrarBalaoFalaPlayer(texto) {
+      if (!scene || !player) return;
+      if (window.__meuBalao) { try { window.__meuBalao.destroy(); } catch{} }
+      const balao = scene.add.text(player.x, player.y - 44, texto, {
+        fontSize: '13px', color: '#2d4d2d', fontStyle: 'bold',
+        backgroundColor: '#ffffffee', padding: { x: 8, y: 4 },
+        wordWrap: { width: 200 }, align: 'center',
+        fontFamily: 'Comic Sans MS, Trebuchet MS, cursive'
+      }).setOrigin(0.5, 1).setDepth(40);
+      window.__meuBalao = balao;
+      window.__meuBalaoExpira = (scene.time.now || 0) + 4000;
+    }
+    function receberChat(msg) {
+      const ehMeu = msg.id === meuId;
+      adicionarChat(msg.nome || '???', msg.texto, ehMeu);
+      // balão de fala em cima do jogador
+      if (!ehMeu) {
+        const obj = outrosJogadores.get(msg.id);
+        if (obj) mostrarBalaoFala(obj, msg.texto);
+      } else {
+        mostrarBalaoFalaPlayer(msg.texto);
+      }
+      // notificação no toggle se estiver fechado (mobile)
+      const wrap = document.getElementById('chatWrap');
+      if (wrap && !wrap.classList.contains('aberto') && window.matchMedia('(max-width: 720px)').matches && !ehMeu) {
+        chatNaoLidas++;
+        const badge = document.getElementById('chatBadge');
+        if (badge) { badge.style.display = 'inline-block'; badge.textContent = String(chatNaoLidas); }
+      }
+    }
+    function configurarChat() {
+      const form = document.getElementById('chatForm');
+      const input = document.getElementById('chatInput');
+      const wrap = document.getElementById('chatWrap');
+      const toggle = document.getElementById('chatToggle');
+      const fechar = document.getElementById('chatFechar');
+      const badge = document.getElementById('chatBadge');
+      // stopPropagation no window-capture: bloqueia o Phaser sempre que algum input/textarea estiver focado
+      const blockSeFocoEmInput = (e) => {
+        const a = document.activeElement;
+        if (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA')) {
+          e.stopPropagation();
+        }
+      };
+      window.addEventListener('keydown', blockSeFocoEmInput, true);
+      window.addEventListener('keyup', blockSeFocoEmInput, true);
+      window.addEventListener('keypress', blockSeFocoEmInput, true);
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const texto = input.value.trim();
+        if (!texto) {
+          input.blur();
+          return;
+        }
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ tipo: 'chat', texto }));
+        } else {
+          adicionarChat(perfil.nome || 'Você', texto, true);
+          mostrarBalaoFalaPlayer(texto);
+        }
+        input.value = '';
+        input.blur(); // tira o foco pra não atrapalhar movimentação
+      });
+      // Esc tira o foco do chat
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') { input.blur(); e.preventDefault(); }
+      });
+      toggle.addEventListener('click', () => {
+        wrap.classList.add('aberto');
+        chatNaoLidas = 0;
+        if (badge) badge.style.display = 'none';
+        setTimeout(() => input.focus(), 50);
+      });
+      fechar.addEventListener('click', () => {
+        wrap.classList.remove('aberto');
+      });
     }
 
     // ===== game =====
