@@ -34,4 +34,11 @@ window.GAMES = [
     color: "#9b4fff",
     description: "Arena 10 jogadores. Skins, loja, power-ups."
   },
+  {
+    slug: "runner",
+    title: "Rooftop Runner",
+    emoji: "🏃",
+    color: "#4fdb9b",
+    description: "Corre, pula, desliza. Não bate em nada."
+  },
 ];

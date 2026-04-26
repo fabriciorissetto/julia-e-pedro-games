@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<title>Rooftop Runner</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    background: #0a0e14;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+    color: #e6f1ff;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: none;
+  }
+  #game { position: absolute; inset: 0; }
+
+  .overlay {
+    position: fixed; inset: 0;
+    background: linear-gradient(180deg, #0a0e14 0%, #0f1825 100%);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    z-index: 10;
+    text-align: center;
+  }
+  .overlay.show { display: flex; }
+
+  .title {
+    font-size: clamp(36px, 7vw, 64px);
+    font-weight: 900;
+    letter-spacing: 3px;
+    color: #4f9bff;
+    text-shadow: 0 0 24px rgba(79,155,255,0.7);
+    margin-bottom: 8px;
+  }
+  .subtitle {
+    font-size: clamp(14px, 2.5vw, 18px);
+    color: #8aa2c2;
+    margin-bottom: 28px;
+  }
+
+  .btn {
+    background: linear-gradient(135deg, #4f9bff, #2d7ad6);
+    color: white;
+    border: none;
+    padding: 16px 36px;
+    border-radius: 14px;
+    font-size: 22px;
+    font-weight: 800;
+    cursor: pointer;
+    letter-spacing: 1px;
+    box-shadow: 0 6px 20px rgba(79,155,255,0.35);
+    margin: 6px;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn.green { background: linear-gradient(135deg, #4fdb9b, #2da973); }
+
+  .controls-help {
+    background: #131b29;
+    border: 1px solid #2d3447;
+    border-radius: 12px;
+    padding: 14px 20px;
+    margin-top: 14px;
+    font-size: 14px;
+    line-height: 1.7;
+    text-align: left;
+  }
+  .controls-help b { color: #4fdb9b; }
+
+  /* HUD em jogo */
+  #hud {
+    position: fixed;
+    top: 10px; left: 0; right: 0;
+    display: flex; justify-content: space-between;
+    padding: 0 14px;
+    pointer-events: none;
+    z-index: 5;
+    display: none;
+  }
+  #hud.show { display: flex; }
+
+  .hud-pill {
+    background: #0a0e14d0;
+    border: 1px solid #2d3447;
+    padding: 8px 14px;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 700;
+  }
+  .hud-pill .label { color: #8aa2c2; font-size: 12px; margin-right: 6px; font-weight: 500;}
+
+  #powerup-bar {
+    position: fixed;
+    bottom: 14px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 8px;
+    z-index: 5;
+  }
+  .pwr-icon {
+    background: #131b29;
+    border: 2px solid #4fdb9b;
+    border-radius: 10px;
+    padding: 6px 10px;
+    font-size: 22px;
+    position: relative;
+  }
+  .pwr-icon .timer {
+    position: absolute;
+    bottom: -4px; right: -4px;
+    background: #4fdb9b;
+    color: #0a0e14;
+    font-size: 11px;
+    padding: 1px 4px;
+    border-radius: 5px;
+    font-weight: 800;
+  }
+
+  /* Game over card */
+  .go-card {
+    background: #131b29;
+    border: 1px solid #2d3447;
+    border-radius: 16px;
+    padding: 24px 32px;
+    margin-bottom: 24px;
+  }
+  .go-row {
+    display: flex; justify-content: space-between;
+    gap: 30px;
+    padding: 6px 0;
+    font-size: 18px;
+  }
+  .go-row .v { font-weight: 800; color: #4fdb9b; }
+  .new-best {
+    color: #ffd84f;
+    font-weight: 800;
+    font-size: 20px;
+    margin: 8px 0;
+    animation: pulse 1s infinite;
+  }
+  @keyframes pulse { 50% { transform: scale(1.05); } }
+</style>
+</head>
+<body>
+
+<div id="game"></div>
+
+<div id="hud">
+  <div style="display:flex; flex-direction:column; gap:6px;">
+    <div class="hud-pill"><span class="label">Pontos</span><span id="hud-score">0</span></div>
+    <div class="hud-pill"><span class="label">Recorde</span><span id="hud-best">0</span></div>
+  </div>
+  <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-end;">
+    <div class="hud-pill"><span class="label">🪙</span><span id="hud-coins">0</span></div>
+    <div class="hud-pill"><span class="label">Velocidade</span><span id="hud-speed">1.0x</span></div>
+  </div>
+</div>
+
+<div id="powerup-bar"></div>
+
+<!-- Tela inicial -->
+<div id="ui-menu" class="overlay show">
+  <div class="title">ROOFTOP RUNNER</div>
+  <div class="subtitle">Quanto mais longe, mais pontos. Não bate em nada.</div>
+
+  <button class="btn green" id="btn-start">▶ COMEÇAR</button>
+
+  <div class="controls-help">
+    <div><b>← →</b> ou <b>A D</b>: trocar de pista</div>
+    <div><b>↑</b> / <b>W</b> / <b>Espaço</b>: pular</div>
+    <div><b>↓</b> ou <b>S</b>: deslizar</div>
+    <div style="margin-top:8px; color:#8aa2c2;">📱 No celular: arrasta o dedo (swipe) pra cada lado</div>
+  </div>
+</div>
+
+<!-- Tela game over -->
+<div id="ui-gameover" class="overlay">
+  <div class="title" style="color:#ff4f6f;">Bateu!</div>
+  <div class="go-card">
+    <div class="go-row"><span>Pontos</span><span class="v" id="go-score">0</span></div>
+    <div class="go-row"><span>Moedas</span><span class="v" id="go-coins">0</span></div>
+    <div class="go-row"><span>Recorde</span><span class="v" id="go-best">0</span></div>
+    <div class="new-best" id="go-newbest" style="display:none;">🏆 NOVO RECORDE!</div>
+  </div>
+  <div style="display:flex; gap:8px;">
+    <button class="btn green" id="btn-again">▶ JOGAR DE NOVO</button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+<script>
+'use strict';
+
+// =====================================================================
+// CONFIGURAÇÃO
+// =====================================================================
+const LANES = 3;
+const LANE_WIDTH = 110;          // distância entre pistas em px (na base)
+const PLAYER_Y_FRACTION = 0.78;  // altura do jogador na tela
+const HORIZON_Y_FRACTION = 0.18; // altura do horizonte
+const BASE_SPEED = 380;          // px/s no início (referência de "scroll")
+const SPEED_RAMP = 8;            // +px/s por segundo
+const MAX_SPEED = 1100;
+const JUMP_TIME = 600;           // ms no ar
+const SLIDE_TIME = 600;          // ms deslizando
+const LANE_SWAP_TIME = 120;      // ms pra trocar de pista
+const COIN_VALUE = 1;
+const SCORE_PER_METER = 1;
+
+// Tipos de obstáculo
+// kind: 'jump' (deve pular), 'slide' (deve deslizar), 'block' (não dá pra passar — só trocar pista)
+const OBSTACLE_TYPES = [
+  { kind: 'jump',  emoji: '🚧', label: 'barreira'   }, // pula
+  { kind: 'slide', emoji: '🪧', label: 'placa baixa'}, // desliza
+  { kind: 'block', emoji: '🚂', label: 'trem'       }, // não passa
+  { kind: 'block', emoji: '🚌', label: 'ônibus'     },
+  { kind: 'jump',  emoji: '📦', label: 'caixa'      },
+  { kind: 'slide', emoji: '🚪', label: 'viga'       },
+];
+
+// Power-ups que aparecem na pista
+const PU_TYPES = [
+  { id: 'magnet', emoji: '🧲', duration: 8000 },
+  { id: 'shield', emoji: '🛡️', duration: 0    }, // shield é um charge, não tempo
+  { id: 'boost',  emoji: '⚡', duration: 5000 },
+];
+
+// =====================================================================
+// ESTADO PERSISTENTE
+// =====================================================================
+const STATE_KEY = 'runner_state_v1';
+function loadState() {
+  try {
+    return Object.assign({ best: 0, coins: 0 }, JSON.parse(localStorage.getItem(STATE_KEY) || '{}'));
+  } catch (e) { return { best: 0, coins: 0 }; }
+}
+function saveState() { localStorage.setItem(STATE_KEY, JSON.stringify(state)); }
+let state = loadState();
+
+// =====================================================================
+// HELPERS
+// =====================================================================
+const $ = (id) => document.getElementById(id);
+function showOverlay(name) {
+  for (const ov of document.querySelectorAll('.overlay')) ov.classList.remove('show');
+  if (name) $('ui-' + name).classList.add('show');
+}
+
+// Mapeia número da pista (0,1,2) → x na tela, considerando perspectiva
+// Quanto mais perto da câmera (y maior), mais espaçadas as pistas
+function laneX(scn, lane, depthY) {
+  // depthY: 0 (horizonte) → 1 (na frente)
+  const w = scn.scale.width;
+  const cx = w / 2;
+  const spread = 0.3 + 0.7 * depthY; // mais espaçado perto
+  return cx + (lane - 1) * LANE_WIDTH * spread;
+}
+
+// =====================================================================
+// PHASER
+// =====================================================================
+let game = null;
+let scene = null;
+
+function startGame() {
+  showOverlay(null);
+  $('hud').classList.add('show');
+  $('hud-best').textContent = state.best;
+  $('hud-coins').textContent = state.coins;
+
+  if (game) { game.destroy(true); game = null; }
+  game = new Phaser.Game({
+    type: Phaser.AUTO,
+    parent: 'game',
+    width: window.innerWidth,
+    height: window.innerHeight,
+    backgroundColor: '#1a2742',
+    scale: { mode: Phaser.Scale.RESIZE },
+    scene: { create: createScene, update: updateScene },
+  });
+}
+
+$('btn-start').onclick = startGame;
+$('btn-again').onclick = startGame;
+
+function createScene() {
+  scene = this;
+  scene.gameOver = false;
+  scene.startTime = this.time.now;
+  scene.score = 0;
+  scene.runCoins = 0;
+  scene.distance = 0;
+  scene.speed = BASE_SPEED;
+  scene.lane = 1; // começa na pista do meio
+  scene.targetLane = 1;
+  scene.laneSwapStart = 0;
+  scene.jumpStart = 0;       // 0 = não pulando
+  scene.slideStart = 0;
+  scene.spawnTimer = 0;
+  scene.spawnInterval = 850; // ms entre spawns
+  scene.obstacles = [];
+  scene.coins = [];
+  scene.powerups = [];
+  scene.activePU = {};       // { magnet: endTime, shield: 1, boost: endTime }
+
+  const w = scene.scale.width;
+  const h = scene.scale.height;
+  scene.horizonY = h * HORIZON_Y_FRACTION;
+  scene.playerY = h * PLAYER_Y_FRACTION;
+
+  // Background — gradiente céu + chão
+  const bgSky = this.add.graphics();
+  bgSky.fillGradientStyle(0x1a2742, 0x1a2742, 0x4f9bff, 0x4f9bff, 1);
+  bgSky.fillRect(0, 0, w, scene.horizonY);
+
+  const bgGround = this.add.graphics();
+  bgGround.fillGradientStyle(0x2d3447, 0x2d3447, 0x4a5468, 0x4a5468, 1);
+  bgGround.fillRect(0, scene.horizonY, w, h - scene.horizonY);
+
+  scene.bgSky = bgSky;
+  scene.bgGround = bgGround;
+
+  // Sol/lua decorativo
+  scene.add.circle(w * 0.7, scene.horizonY * 0.5, 36, 0xffd84f, 0.9);
+
+  // Linhas das pistas — desenhadas todo frame (perspective)
+  scene.laneGfx = this.add.graphics();
+
+  // Stripes do chão (animadas pra dar sensação de movimento)
+  scene.stripeOffset = 0;
+  scene.stripeGfx = this.add.graphics();
+
+  // Player
+  scene.playerContainer = this.add.container(w / 2, scene.playerY);
+  scene.playerShadow = this.add.ellipse(0, 24, 60, 18, 0x000000, 0.5);
+  scene.playerSprite = this.add.text(0, 0, '🏃', { fontSize: '64px' }).setOrigin(0.5);
+  scene.playerContainer.add([scene.playerShadow, scene.playerSprite]);
+
+  // Inputs
+  scene.keys = this.input.keyboard.addKeys({
+    LEFT: Phaser.Input.Keyboard.KeyCodes.LEFT,
+    RIGHT: Phaser.Input.Keyboard.KeyCodes.RIGHT,
+    UP: Phaser.Input.Keyboard.KeyCodes.UP,
+    DOWN: Phaser.Input.Keyboard.KeyCodes.DOWN,
+    A: Phaser.Input.Keyboard.KeyCodes.A,
+    D: Phaser.Input.Keyboard.KeyCodes.D,
+    W: Phaser.Input.Keyboard.KeyCodes.W,
+    S: Phaser.Input.Keyboard.KeyCodes.S,
+    SPACE: Phaser.Input.Keyboard.KeyCodes.SPACE,
+  });
+  this.input.keyboard.on('keydown-LEFT',  () => moveLane(-1));
+  this.input.keyboard.on('keydown-A',     () => moveLane(-1));
+  this.input.keyboard.on('keydown-RIGHT', () => moveLane(1));
+  this.input.keyboard.on('keydown-D',     () => moveLane(1));
+  this.input.keyboard.on('keydown-UP',    () => doJump());
+  this.input.keyboard.on('keydown-W',     () => doJump());
+  this.input.keyboard.on('keydown-SPACE', () => doJump());
+  this.input.keyboard.on('keydown-DOWN',  () => doSlide());
+  this.input.keyboard.on('keydown-S',     () => doSlide());
+
+  // Touch — swipe
+  let swipeStart = null;
+  this.input.on('pointerdown', (p) => { swipeStart = { x: p.x, y: p.y, t: scene.time.now }; });
+  this.input.on('pointerup', (p) => {
+    if (!swipeStart) return;
+    const dx = p.x - swipeStart.x;
+    const dy = p.y - swipeStart.y;
+    const dist = Math.hypot(dx, dy);
+    const dt = scene.time.now - swipeStart.t;
+    if (dt > 600 || dist < 30) { swipeStart = null; return; }
+    if (Math.abs(dx) > Math.abs(dy)) {
+      moveLane(dx > 0 ? 1 : -1);
+    } else {
+      if (dy < 0) doJump(); else doSlide();
+    }
+    swipeStart = null;
+  });
+
+  // Spawning começa
+  scene.timeAccum = 0;
+}
+
+function moveLane(dir) {
+  if (scene.gameOver) return;
+  const next = Phaser.Math.Clamp(scene.targetLane + dir, 0, LANES - 1);
+  if (next === scene.targetLane) return;
+  scene.targetLane = next;
+  scene.laneSwapStart = scene.time.now;
+}
+function doJump() {
+  if (scene.gameOver) return;
+  if (scene.jumpStart && scene.time.now - scene.jumpStart < JUMP_TIME) return;
+  if (scene.slideStart && scene.time.now - scene.slideStart < SLIDE_TIME) return;
+  scene.jumpStart = scene.time.now;
+}
+function doSlide() {
+  if (scene.gameOver) return;
+  if (scene.slideStart && scene.time.now - scene.slideStart < SLIDE_TIME) return;
+  if (scene.jumpStart && scene.time.now - scene.jumpStart < JUMP_TIME) return;
+  scene.slideStart = scene.time.now;
+}
+
+// =====================================================================
+// SPAWN
+// =====================================================================
+function spawnPattern() {
+  // chance de power-up
+  if (Math.random() < 0.06) {
+    spawnPowerup(Math.floor(Math.random() * LANES));
+    return;
+  }
+  // padrão: ou um obstáculo + linha de moedas, ou só moedas, ou várias coisas
+  const r = Math.random();
+  if (r < 0.5) {
+    // 1 obstáculo + moedas em outra pista
+    const obsLane = Math.floor(Math.random() * LANES);
+    spawnObstacle(obsLane);
+    // linha de moedas em pista diferente
+    let coinLane;
+    do { coinLane = Math.floor(Math.random() * LANES); } while (coinLane === obsLane);
+    spawnCoinLine(coinLane);
+  } else if (r < 0.8) {
+    // 2 obstáculos diferentes em pistas diferentes
+    const lanes = [0, 1, 2].sort(() => Math.random() - 0.5).slice(0, 2);
+    spawnObstacle(lanes[0]);
+    spawnObstacle(lanes[1]);
+    // moeda na pista que sobrou
+    const safe = [0,1,2].find(l => !lanes.includes(l));
+    if (safe !== undefined) spawnCoinLine(safe);
+  } else {
+    // só linha de moedas em pista aleatória
+    spawnCoinLine(Math.floor(Math.random() * LANES));
+  }
+}
+
+function spawnObstacle(lane) {
+  const t = OBSTACLE_TYPES[Math.floor(Math.random() * OBSTACLE_TYPES.length)];
+  const sprite = scene.add.text(0, 0, t.emoji, { fontSize: '40px' }).setOrigin(0.5, 1);
+  scene.obstacles.push({
+    lane, kind: t.kind, sprite,
+    depth: 0, // 0 = no horizonte, 1 = no jogador
+    width: t.kind === 'block' ? 0.9 : 0.6, // largura proporcional à pista (pra colisão)
+  });
+}
+
+function spawnCoinLine(lane) {
+  const count = 3 + Math.floor(Math.random() * 4);
+  for (let i = 0; i < count; i++) {
+    const sprite = scene.add.text(0, 0, '🪙', { fontSize: '24px' }).setOrigin(0.5);
+    scene.coins.push({
+      lane, sprite,
+      depth: -i * 0.06, // espalha em sequência (negativo = atrás do horizonte)
+      collected: false,
+    });
+  }
+}
+
+function spawnPowerup(lane) {
+  const t = PU_TYPES[Math.floor(Math.random() * PU_TYPES.length)];
+  const sprite = scene.add.text(0, 0, t.emoji, { fontSize: '40px' }).setOrigin(0.5);
+  scene.powerups.push({ lane, id: t.id, duration: t.duration, sprite, depth: 0 });
+}
+
+// =====================================================================
+// UPDATE
+// =====================================================================
+function updateScene(time, delta) {
+  if (!scene || scene.gameOver) return;
+  const dt = delta / 1000;
+  const w = scene.scale.width;
+  const h = scene.scale.height;
+
+  // Velocidade aumenta com tempo
+  scene.speed = Math.min(MAX_SPEED, BASE_SPEED + SPEED_RAMP * (time - scene.startTime) / 1000);
+  if (scene.activePU.boost && scene.activePU.boost > time) {
+    scene.speed *= 1.6;
+  }
+
+  // Distância (pontos)
+  scene.distance += scene.speed * dt / 100;
+  scene.score = Math.floor(scene.distance * SCORE_PER_METER);
+
+  // Spawn
+  scene.timeAccum += delta;
+  const interval = Math.max(380, scene.spawnInterval - (time - scene.startTime) / 30);
+  if (scene.timeAccum > interval) {
+    scene.timeAccum = 0;
+    spawnPattern();
+  }
+
+  // Atualiza posição da pista ativa (lerp pra trocar suave)
+  let visualLane;
+  const swapElapsed = time - scene.laneSwapStart;
+  if (swapElapsed < LANE_SWAP_TIME) {
+    const t01 = swapElapsed / LANE_SWAP_TIME;
+    visualLane = scene.lane + (scene.targetLane - scene.lane) * t01;
+  } else {
+    scene.lane = scene.targetLane;
+    visualLane = scene.lane;
+  }
+
+  // Player x baseado na pista visual (depth=1, ou seja, perto)
+  const playerX = laneX(scene, visualLane, 1);
+  scene.playerContainer.x = playerX;
+
+  // Pulo / slide visual
+  let py = scene.playerY;
+  let pscale = 1;
+  let pAngle = 0;
+  if (scene.jumpStart && time - scene.jumpStart < JUMP_TIME) {
+    const t01 = (time - scene.jumpStart) / JUMP_TIME;
+    const arc = Math.sin(t01 * Math.PI);
+    py = scene.playerY - arc * 70;
+    pscale = 1 + arc * 0.15;
+    scene.playerShadow.setAlpha(0.5 - arc * 0.4);
+  } else {
+    scene.playerShadow.setAlpha(0.5);
+  }
+  if (scene.slideStart && time - scene.slideStart < SLIDE_TIME) {
+    pAngle = -Math.PI / 2; // deita
+    py = scene.playerY + 14;
+    pscale = 0.85;
+  }
+  scene.playerContainer.y = py;
+  scene.playerSprite.setScale(pscale);
+  scene.playerSprite.setRotation(pAngle);
+
+  // Stripes (chão se movendo)
+  scene.stripeOffset = (scene.stripeOffset + scene.speed * dt) % 80;
+  drawRoad(scene);
+
+  // Move e desenha obstáculos
+  const dDepth = scene.speed * dt / 600; // velocidade em depth/s — ajustada pro feel
+  for (let i = scene.obstacles.length - 1; i >= 0; i--) {
+    const o = scene.obstacles[i];
+    o.depth += dDepth;
+    if (o.depth > 1.15) {
+      o.sprite.destroy();
+      scene.obstacles.splice(i, 1);
+      continue;
+    }
+    drawProjected(scene, o.sprite, o.lane, o.depth);
+  }
+  // Moedas
+  for (let i = scene.coins.length - 1; i >= 0; i--) {
+    const c = scene.coins[i];
+    if (c.collected) {
+      c.sprite.destroy();
+      scene.coins.splice(i, 1);
+      continue;
+    }
+    c.depth += dDepth;
+    if (c.depth > 1.15) {
+      c.sprite.destroy();
+      scene.coins.splice(i, 1);
+      continue;
+    }
+    drawProjected(scene, c.sprite, c.lane, c.depth);
+    // bobbing leve
+    c.sprite.y += Math.sin((time + i * 200) / 200) * 4;
+
+    // ímã
+    if (scene.activePU.magnet && scene.activePU.magnet > time && c.depth > 0.4) {
+      const dx = scene.playerContainer.x - c.sprite.x;
+      const dy = scene.playerContainer.y - c.sprite.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist < 350) {
+        c.sprite.x += dx * 0.15;
+        c.sprite.y += dy * 0.15;
+      }
+    }
+    // coleta por proximidade
+    if (c.depth > 0.7) {
+      const dx = scene.playerContainer.x - c.sprite.x;
+      const dy = scene.playerContainer.y - c.sprite.y;
+      if (dx*dx + dy*dy < 50*50) {
+        collectCoin(c);
+      }
+    }
+  }
+  // Power-ups (na pista)
+  for (let i = scene.powerups.length - 1; i >= 0; i--) {
+    const p = scene.powerups[i];
+    p.depth += dDepth;
+    if (p.depth > 1.15) {
+      p.sprite.destroy();
+      scene.powerups.splice(i, 1);
+      continue;
+    }
+    drawProjected(scene, p.sprite, p.lane, p.depth);
+    p.sprite.y += Math.sin((time + i * 300) / 250) * 4;
+    if (p.depth > 0.7 && p.lane === Math.round(visualLane)) {
+      const dx = scene.playerContainer.x - p.sprite.x;
+      const dy = scene.playerContainer.y - p.sprite.y;
+      if (dx*dx + dy*dy < 60*60) {
+        activatePowerup(p);
+        p.sprite.destroy();
+        scene.powerups.splice(i, 1);
+      }
+    }
+  }
+
+  // Colisão obstáculos (só checa quando estão na frente do jogador)
+  for (const o of scene.obstacles) {
+    if (o.depth < 0.78 || o.depth > 0.95) continue;
+    if (o.lane !== Math.round(visualLane)) continue;
+    // Verifica esquiva por jump/slide
+    const isJumping = scene.jumpStart && time - scene.jumpStart < JUMP_TIME;
+    const isSliding = scene.slideStart && time - scene.slideStart < SLIDE_TIME;
+    if (o.kind === 'jump' && isJumping) continue;
+    if (o.kind === 'slide' && isSliding) continue;
+    // bateu!
+    handleHit(o);
+    break;
+  }
+
+  // HUD
+  $('hud-score').textContent = scene.score;
+  $('hud-coins').textContent = state.coins + scene.runCoins;
+  $('hud-speed').textContent = (scene.speed / BASE_SPEED).toFixed(1) + 'x';
+  renderPowerupBar(time);
+}
+
+function drawRoad(scn) {
+  const g = scn.stripeGfx;
+  g.clear();
+  // Linhas divisórias entre pistas (de -0.5 a 2.5)
+  for (let lane = 0; lane <= LANES; lane++) {
+    const x1 = laneX(scn, lane - 0.5, 0);
+    const y1 = scn.horizonY;
+    const x2 = laneX(scn, lane - 0.5, 1);
+    const y2 = scn.scale.height + 40;
+    g.lineStyle(3, 0x8aa2c2, 0.5);
+    g.lineBetween(x1, y1, x2, y2);
+  }
+  // Stripes da pista do meio (linha tracejada animada)
+  for (let lane = 0; lane < LANES; lane++) {
+    for (let i = 0; i < 12; i++) {
+      // depth 0..1 com offset animado
+      let d = (i / 12) + (scn.stripeOffset / 80) / 12;
+      d = d % 1;
+      const xC = laneX(scn, lane, d);
+      const yC = scn.horizonY + (scn.scale.height - scn.horizonY) * d;
+      const sz = 4 + d * 12;
+      g.fillStyle(0xffffff, 0.25);
+      g.fillRect(xC - sz/2, yC - sz/4, sz, sz/2);
+    }
+  }
+}
+
+function drawProjected(scn, sprite, lane, depth) {
+  if (depth < 0) {
+    sprite.setVisible(false);
+    return;
+  }
+  sprite.setVisible(true);
+  const x = laneX(scn, lane, depth);
+  const y = scn.horizonY + (scn.scale.height - scn.horizonY) * depth;
+  sprite.x = x;
+  sprite.y = y;
+  // Escala — vai de 0.25 (longe) até 1.5 (perto)
+  const sc = 0.25 + depth * 1.4;
+  sprite.setScale(sc);
+}
+
+function collectCoin(c) {
+  if (c.collected) return;
+  c.collected = true;
+  scene.runCoins += COIN_VALUE;
+  // efeito: sobe e some
+  scene.tweens.add({
+    targets: c.sprite,
+    y: c.sprite.y - 60,
+    alpha: 0,
+    scale: c.sprite.scaleX * 1.4,
+    duration: 280,
+  });
+}
+
+function activatePowerup(p) {
+  const now = scene.time.now;
+  if (p.id === 'shield') {
+    scene.activePU.shield = (scene.activePU.shield || 0) + 1;
+  } else {
+    scene.activePU[p.id] = now + p.duration;
+  }
+  flashPowerup(p.id);
+}
+
+function flashPowerup(id) {
+  const labels = { magnet: 'ÍMÃ ATIVADO!', shield: 'ESCUDO +1', boost: 'BOOST!' };
+  const t = scene.add.text(scene.scale.width/2, scene.scale.height/3, labels[id], {
+    fontSize: '38px', fontStyle: 'bold', color: '#4fdb9b',
+    stroke: '#000000', strokeThickness: 6,
+  }).setOrigin(0.5);
+  scene.tweens.add({ targets: t, y: t.y - 40, alpha: 0, duration: 1100, onComplete: () => t.destroy() });
+}
+
+function renderPowerupBar(time) {
+  const bar = $('powerup-bar');
+  bar.innerHTML = '';
+  if (scene.activePU.magnet && scene.activePU.magnet > time) {
+    const sec = Math.ceil((scene.activePU.magnet - time) / 1000);
+    bar.innerHTML += `<div class="pwr-icon">🧲<div class="timer">${sec}s</div></div>`;
+  }
+  if (scene.activePU.boost && scene.activePU.boost > time) {
+    const sec = Math.ceil((scene.activePU.boost - time) / 1000);
+    bar.innerHTML += `<div class="pwr-icon">⚡<div class="timer">${sec}s</div></div>`;
+  }
+  if ((scene.activePU.shield || 0) > 0) {
+    bar.innerHTML += `<div class="pwr-icon">🛡️<div class="timer">${scene.activePU.shield}</div></div>`;
+  }
+}
+
+function handleHit(obstacle) {
+  // Shield bloqueia 1 hit
+  if ((scene.activePU.shield || 0) > 0) {
+    scene.activePU.shield -= 1;
+    // remove o obstáculo
+    obstacle.sprite.destroy();
+    scene.obstacles = scene.obstacles.filter(o => o !== obstacle);
+    flashPowerup('shield');
+    // pequena freada
+    scene.startTime += 200;
+    return;
+  }
+  // game over
+  scene.gameOver = true;
+  // shake
+  scene.cameras.main.shake(400, 0.02);
+  // efeito visual
+  scene.tweens.add({
+    targets: scene.playerSprite, angle: 90, scale: 0.6, duration: 600
+  });
+  scene.tweens.add({
+    targets: scene.playerContainer, y: scene.playerContainer.y + 30, duration: 600
+  });
+  // grava recorde
+  const isNewBest = scene.score > state.best;
+  if (isNewBest) state.best = scene.score;
+  state.coins += scene.runCoins;
+  saveState();
+  // tela
+  setTimeout(() => {
+    $('hud').classList.remove('show');
+    $('powerup-bar').innerHTML = '';
+    $('go-score').textContent = scene.score;
+    $('go-coins').textContent = scene.runCoins;
+    $('go-best').textContent = state.best;
+    $('go-newbest').style.display = isNewBest ? 'block' : 'none';
+    showOverlay('gameover');
+  }, 900);
+}
+</script>
+</body>
+</html>
