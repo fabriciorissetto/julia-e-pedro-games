@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>🧪 Testes — Mundinho</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+           background: #1a1a2e; color: #eee; padding: 24px; }
+    h1 { color: #ffb347; margin-bottom: 8px; }
+    .sub { color: #999; margin-bottom: 24px; font-size: 14px; }
+    .suite { margin-bottom: 24px; background: #2d1b3d; border-radius: 8px;
+             padding: 16px; }
+    .suite-title { font-weight: bold; color: #ffd6e8; margin-bottom: 8px;
+                   font-size: 18px; }
+    .case { padding: 6px 0; border-top: 1px solid #3d2b4d;
+            display: flex; gap: 8px; align-items: flex-start; }
+    .case:first-of-type { border-top: 0; }
+    .icon { width: 24px; flex-shrink: 0; font-size: 18px; }
+    .name { flex: 1; }
+    .err { color: #ff6b6b; font-family: monospace; font-size: 12px;
+           margin-top: 4px; white-space: pre-wrap; }
+    .summary { padding: 16px; background: #333;
+               border-radius: 8px; margin-bottom: 16px;
+               font-size: 16px; font-weight: bold; }
+    .summary.ok { background: #1a3d1a; color: #6bff6b; }
+    .summary.fail { background: #3d1a1a; color: #ff6b6b; }
+    .voltar { color: #ffb347; text-decoration: none; font-size: 14px; }
+    .voltar:hover { text-decoration: underline; }
+    #phaser-host { width: 1px; height: 1px; overflow: hidden;
+                   position: fixed; top: -10px; left: -10px; }
+  </style>
+</head>
+<body>
+  <a class="voltar" href="./">← Voltar ao jogo</a>
+  <h1>🧪 Testes — Mundinho</h1>
+  <p class="sub">Regressão automática. Verde = passou. Vermelho = quebrou.</p>
+  <div id="summary" class="summary">Rodando…</div>
+  <div id="results"></div>
+  <div id="phaser-host"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+  <script>
+    // -------- Mini test framework --------
+    const suites = [];
+    let suiteAtual = null;
+    function describe(nome, fn) {
+      suiteAtual = { nome, casos: [] };
+      suites.push(suiteAtual);
+      fn();
+      suiteAtual = null;
+    }
+    function it(nome, fn) {
+      suiteAtual.casos.push({ nome, fn });
+    }
+    function assert(cond, msg) {
+      if (!cond) throw new Error(msg || 'asserção falhou');
+    }
+    function assertEq(a, b, msg) {
+      if (a !== b) throw new Error(`${msg || 'esperado igual'}: ${JSON.stringify(a)} !== ${JSON.stringify(b)}`);
+    }
+    function assertNear(a, b, tol, msg) {
+      if (Math.abs(a - b) > tol) throw new Error(`${msg || 'esperado próximo'}: |${a} - ${b}| > ${tol}`);
+    }
+
+    async function run() {
+      const results = document.getElementById('results');
+      const summary = document.getElementById('summary');
+      let total = 0, pass = 0, fail = 0;
+
+      for (const s of suites) {
+        const div = document.createElement('div');
+        div.className = 'suite';
+        div.innerHTML = `<div class="suite-title">${s.nome}</div>`;
+        results.appendChild(div);
+
+        for (const c of s.casos) {
+          total++;
+          const linha = document.createElement('div');
+          linha.className = 'case';
+          linha.innerHTML = `<span class="icon">⏳</span><div class="name">${c.nome}</div>`;
+          div.appendChild(linha);
+          try {
+            await c.fn();
+            pass++;
+            linha.querySelector('.icon').textContent = '✓';
+            linha.querySelector('.icon').style.color = '#6bff6b';
+          } catch (err) {
+            fail++;
+            linha.querySelector('.icon').textContent = '✗';
+            linha.querySelector('.icon').style.color = '#ff6b6b';
+            const erro = document.createElement('div');
+            erro.className = 'err';
+            erro.textContent = err.message + (err.stack ? '\n' + err.stack.split('\n').slice(0, 3).join('\n') : '');
+            linha.querySelector('.name').appendChild(erro);
+          }
+        }
+      }
+
+      summary.textContent = fail === 0
+        ? `✓ Todos os ${total} testes passaram!`
+        : `✗ ${fail} de ${total} falharam (${pass} ok)`;
+      summary.className = 'summary ' + (fail === 0 ? 'ok' : 'fail');
+    }
+
+    // -------- Helpers --------
+    const noCache = () => `?t=${Date.now()}`;
+
+    async function fetchMapa(nome) {
+      const r = await fetch(`./assets/maps/${nome}.tmj${noCache()}`);
+      assert(r.ok, `mapa ${nome}.tmj não responde 200`);
+      return r.json();
+    }
+
+    async function loadImg(src) {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = src; });
+      return img;
+    }
+
+    function analisarLinhaSpritesheet(img, row, frameW = 96) {
+      const c = document.createElement('canvas');
+      c.width = frameW; c.height = frameW;
+      const ctx = c.getContext('2d');
+      ctx.drawImage(img, 0, -row * frameW);
+      const data = ctx.getImageData(0, 0, frameW, frameW).data;
+      let leftA = 0, rightA = 0, cx = 0, total = 0;
+      let minX = frameW, maxX = 0;
+      for (let y = 0; y < frameW; y++) {
+        for (let x = 0; x < frameW; x++) {
+          const a = data[(y * frameW + x) * 4 + 3];
+          if (a > 50) {
+            if (x < frameW / 2) leftA += a; else rightA += a;
+            cx += x * a; total += a;
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+          }
+        }
+      }
+      return {
+        centroidX: total ? cx / total : frameW / 2,
+        balanceR: (rightA - leftA) / (rightA + leftA), // -1..1, positivo = mais peso direita
+        bbox: { minX, maxX }
+      };
+    }
+
+    // -------- Testes --------
+    describe('Smoke: mapas carregam', () => {
+      it('inicial.tmj responde 200 e tem layers', async () => {
+        const m = await fetchMapa('inicial');
+        assert(m.layers && m.layers.length > 0, 'inicial sem layers');
+        assert(m.tilesets && m.tilesets.length > 0, 'inicial sem tilesets');
+        assert(m.width > 0 && m.height > 0, 'inicial sem dimensões');
+      });
+      it('mundojulia.tmj responde 200 e tem layers', async () => {
+        const m = await fetchMapa('mundojulia');
+        assert(m.layers && m.layers.length > 0, 'mundojulia sem layers');
+      });
+      it('mundopedro.tmj responde 200 e tem layers', async () => {
+        const m = await fetchMapa('mundopedro');
+        assert(m.layers && m.layers.length > 0, 'mundopedro sem layers');
+      });
+      it('test-paredes.tmj tem parede vertical na coluna 10', async () => {
+        const m = await fetchMapa('test-paredes');
+        const colisao = m.layers.find(l => l.name === 'colisao');
+        assert(colisao, 'test-paredes sem layer colisao');
+        // Verifica que a coluna 10 está cheia (tile != 0) em todas as linhas
+        for (let row = 0; row < m.height; row++) {
+          const idx = row * m.width + 10;
+          assert(colisao.data[idx] !== 0, `coluna 10 linha ${row} deveria ser parede`);
+        }
+        // E que a coluna 5 (onde o spawn está) está vazia
+        for (let row = 0; row < m.height; row++) {
+          const idx = row * m.width + 5;
+          assertEq(colisao.data[idx], 0, `coluna 5 linha ${row} deveria estar livre`);
+        }
+      });
+    });
+
+    describe('Convenção de layers', () => {
+      it('inicial.tmj tem layer "chao"', async () => {
+        const m = await fetchMapa('inicial');
+        assert(m.layers.find(l => l.name === 'chao'), 'falta layer chao');
+      });
+      it('inicial.tmj tem pelo menos uma layer "colisao*"', async () => {
+        const m = await fetchMapa('inicial');
+        assert(m.layers.some(l => l.name.toLowerCase().startsWith('colisao')),
+          'falta layer começando com "colisao"');
+      });
+    });
+
+    describe('Spritesheet do player (regressão de direção)', () => {
+      // Bug histórico: ao andar pra direita o personagem aparecia de costas
+      // porque LINHA_DIRECAO mapeava right pra row 2 (que é "up").
+      // Layout real (validado pixel-a-pixel):
+      //   row 0 = down (frente, simétrico)
+      //   row 1 = left (peso à esquerda)
+      //   row 2 = up (costas, simétrico)
+      //   row 3 = right (peso à direita)
+
+      let walk;
+      it('player_walk.png carrega e tem 4 linhas de 96px', async () => {
+        walk = await loadImg('./assets/characters/player_walk.png' + noCache());
+        assertEq(walk.width, 384, 'walk.png deveria ter 384px (4 cols × 96)');
+        assertEq(walk.height, 384, 'walk.png deveria ter 384px (4 rows × 96)');
+      });
+
+      it('row 0 (down) é simétrico horizontalmente — olhando pra frente', async () => {
+        const r = analisarLinhaSpritesheet(walk, 0);
+        assertNear(r.centroidX, 48, 4, 'row 0 deveria ser simétrico (centróide ~48)');
+      });
+
+      it('row 1 (left) tem peso visual à esquerda', async () => {
+        const r = analisarLinhaSpritesheet(walk, 1);
+        assert(r.balanceR < -0.1, `row 1 deveria pender pra esquerda (balanceR=${r.balanceR.toFixed(2)})`);
+      });
+
+      it('row 2 (up) é simétrico horizontalmente — olhando pra trás', async () => {
+        const r = analisarLinhaSpritesheet(walk, 2);
+        assertNear(r.centroidX, 48, 4, 'row 2 deveria ser simétrico (centróide ~48)');
+      });
+
+      it('row 3 (right) tem peso visual à direita — REGRESSÃO do bug "andar pra direita = costas"', async () => {
+        const r = analisarLinhaSpritesheet(walk, 3);
+        assert(r.balanceR > 0.1, `row 3 deveria pender pra direita (balanceR=${r.balanceR.toFixed(2)})`);
+      });
+    });
+
+    describe('index.html: constantes calibradas', () => {
+      // Lê o source do index.html e regex pra detectar regressões nas
+      // constantes críticas (LINHA_DIRECAO e hitbox). Frágil de propósito —
+      // se alguém mudar isso sem atualizar o teste, vai quebrar e a gente
+      // pensa duas vezes antes de aceitar a mudança.
+      let src;
+      it('index.html carrega', async () => {
+        src = await (await fetch('./index.html' + noCache())).text();
+        assert(src.length > 100);
+      });
+
+      it('LINHA_DIRECAO mapeia { down:0, left:1, up:2, right:3 }', () => {
+        const m = src.match(/LINHA_DIRECAO\s*=\s*\{([^}]+)\}/);
+        assert(m, 'não achei LINHA_DIRECAO no index.html');
+        const corpo = m[1].replace(/\s/g, '');
+        assert(corpo.includes('down:0'), `down deveria ser 0 — got: ${corpo}`);
+        assert(corpo.includes('left:1'), `left deveria ser 1 — got: ${corpo}`);
+        assert(corpo.includes('up:2'), `up deveria ser 2 — got: ${corpo}`);
+        assert(corpo.includes('right:3'), `right deveria ser 3 — got: ${corpo}`);
+      });
+
+      it('hitbox: setSize(22, 12) setOffset(36, 51)', () => {
+        // Se isso quebrar, alguém recalibrou — verifique o sprite mudou
+        // e atualize o teste. Valores foram derivados do bbox real do
+        // schwarnhild player_idle.png (frame 96×96, char ocupa x=31-63 y=10-63).
+        assert(/setSize\s*\(\s*22\s*,\s*12\s*\)/.test(src), 'hitbox setSize(22, 12) não encontrado');
+        assert(/setOffset\s*\(\s*36\s*,\s*51\s*\)/.test(src), 'hitbox setOffset(36, 51) não encontrado');
+      });
+    });
+
+    describe('Colisão in-game (test-paredes.tmj)', () => {
+      // Sobe um Phaser real escondido, carrega o mapa de teste,
+      // empurra o player pra direita e verifica que não atravessa a parede.
+      let game, cena;
+      const TILE = 32;
+      const PAREDE_X = 10 * TILE; // = 320
+
+      it('Phaser inicia e carrega test-paredes.tmj', async () => {
+        await new Promise((resolve, reject) => {
+          class TestScene extends Phaser.Scene {
+            constructor() { super('Teste'); }
+            preload() {
+              this.load.tilemapTiledJSON('mapa', './assets/maps/test-paredes.tmj' + noCache());
+              this.load.spritesheet('player', './assets/characters/player_idle.png' + noCache(),
+                { frameWidth: 96, frameHeight: 96 });
+              this.load.on('loaderror', e => reject(new Error('falha de load: ' + e.src)));
+            }
+            create() {
+              const map = this.make.tilemap({ key: 'mapa' });
+              // Pra colisão funcionar, precisa de um tileset declarado.
+              // Reusa o primeiro do mapa (qualquer firstgid serve pra colisao por exclusão).
+              try {
+                const ts = map.tilesets[0];
+                this.load.image('ts0', './assets/maps/' + ts.image + noCache());
+              } catch (e) { /* ok, talvez nao precise */ }
+              const layerColisao = map.createLayer('colisao', map.tilesets.map(t =>
+                map.addTilesetImage(t.name) || t).filter(Boolean), 0, 0);
+              if (layerColisao) layerColisao.setCollisionByExclusion([-1]);
+              const spawn = map.getObjectLayer('spawns').objects.find(o => o.name === 'player');
+              this.player = this.physics.add.sprite(spawn.x, spawn.y, 'player', 0);
+              this.player.body.setSize(22, 12).setOffset(36, 51);
+              if (layerColisao) this.physics.add.collider(this.player, layerColisao);
+              this.layerColisao = layerColisao;
+              cena = this;
+              resolve();
+            }
+          }
+          game = new Phaser.Game({
+            type: Phaser.AUTO, parent: 'phaser-host',
+            width: 100, height: 100, pixelArt: true,
+            physics: { default: 'arcade' },
+            scene: [TestScene]
+          });
+        });
+        assert(cena, 'cena de teste não criou');
+        assert(cena.player, 'player não spawnou');
+      });
+
+      it('player spawna na coluna 5 (à esquerda da parede)', () => {
+        // Spawn definido como (5, 5) tile = pixel (5*32+16, 5*32+16) = (176, 176)
+        assertNear(cena.player.x, 176, 5, 'spawn x errado');
+      });
+
+      it('player NÃO atravessa parede da coluna 10 ao andar pra direita', async () => {
+        // Empurra pra direita por 1 segundo e verifica que ficou antes da parede
+        cena.player.body.setVelocityX(300);
+        await new Promise(r => setTimeout(r, 1200));
+        cena.player.body.setVelocityX(0);
+        const x = cena.player.x;
+        // O hitbox está deslocado: body em x=offset+playerX-spriteHalf? Phaser
+        // posiciona body a partir do (player.x - origin*sprite + offset).
+        // Pra simplificar, garantimos que o centro do player ficou antes
+        // da parede + um sprite (96px de buffer pra qualquer offset).
+        assert(x < PAREDE_X + 32, `player atravessou parede! x=${x} (parede em ${PAREDE_X})`);
+        // E confirmamos que ele se moveu pra direita (não ficou parado)
+        assert(x > 176, `player não saiu do spawn x=${x}`);
+      });
+
+      it('cleanup: destrói game de teste', () => {
+        if (game) game.destroy(true);
+      });
+    });
+
+    // -------- GO --------
+    run();
+  </script>
+</body>
+</html>
