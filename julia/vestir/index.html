@@ -586,6 +586,29 @@ const CATALOGO = {
   acessorio: ACESSORIOS,
 };
 
+// ============== PREVIEWS POR CATEGORIA ==============
+// viewBox para enquadrar a peça no botão e silhueta de fundo (corpo da boneca)
+
+const SILHUETA_PERNAS = '<ellipse cx="148" cy="430" rx="22" ry="80" fill="#ffd6b5"/><ellipse cx="212" cy="430" rx="22" ry="80" fill="#ffd6b5"/>';
+const SILHUETA_TORSO = '<ellipse cx="180" cy="290" rx="60" ry="80" fill="#ffd6b5"/><ellipse cx="105" cy="300" rx="18" ry="60" fill="#ffd6b5" transform="rotate(8 105 300)"/><ellipse cx="255" cy="300" rx="18" ry="60" fill="#ffd6b5" transform="rotate(-8 255 300)"/><circle cx="98" cy="358" r="14" fill="#ffd6b5"/><circle cx="262" cy="358" r="14" fill="#ffd6b5"/>';
+const SILHUETA_CABECA = '<circle cx="180" cy="160" r="56" fill="#ffd6b5"/><ellipse cx="160" cy="160" rx="5" ry="7" fill="#222"/><ellipse cx="200" cy="160" rx="5" ry="7" fill="#222"/><ellipse cx="148" cy="180" rx="7" ry="5" fill="#ff9bb5" opacity="0.6"/><ellipse cx="212" cy="180" rx="7" ry="5" fill="#ff9bb5" opacity="0.6"/><path d="M 168 188 Q 180 198 192 188" stroke="#c44" stroke-width="3" fill="none" stroke-linecap="round"/>';
+
+const PREVIEWS = {
+  cabelo:    { viewBox: '105 65 150 230', fundo: SILHUETA_CABECA },
+  blusa:     { viewBox: '70 200 220 130', fundo: SILHUETA_TORSO },
+  vestido:   { viewBox: '60 200 240 290', fundo: SILHUETA_TORSO + SILHUETA_PERNAS },
+  calca:     { viewBox: '85 295 190 200', fundo: SILHUETA_PERNAS },
+  sapato:    { viewBox: '110 460 140 70', fundo: '' },
+  bolsa:     { viewBox: '40 315 80 85',  fundo: '' },
+  cinto:     { viewBox: '105 280 150 45', fundo: SILHUETA_TORSO },
+  acessorio: { viewBox: '125 60 110 160', fundo: SILHUETA_CABECA },
+};
+
+function previewSVG(item, cat) {
+  const p = PREVIEWS[cat] || { viewBox: '0 0 360 540', fundo: '' };
+  return `<svg viewBox="${p.viewBox}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">${p.fundo}${item.svg}</svg>`;
+}
+
 // ============== ESTADO ==============
 const vestindo = {
   cabelo: 'cabelo-loiro-longo',
@@ -702,25 +725,15 @@ function renderizarItens() {
     btn.className = 'item-btn' + (selecionado ? ' selecionado' : '');
     btn.title = item.nome;
 
-    if (item.swatch && !item.swatch.startsWith('linear-gradient')) {
-      const sw = document.createElement('div');
-      sw.className = 'item-swatch';
-      sw.style.background = item.swatch;
-      btn.appendChild(sw);
-    } else if (item.swatch && item.swatch.startsWith('linear-gradient')) {
-      const sw = document.createElement('div');
-      sw.className = 'item-swatch';
-      sw.style.background = item.swatch;
-      btn.appendChild(sw);
-    } else {
-      // cabelo ou outro: mostra mini SVG do próprio item
-      const mini = document.createElement('div');
-      mini.style.width = '100%';
-      mini.style.height = '100%';
-      const cat2 = CATEGORIAS.find(c => c.id === cat);
-      mini.innerHTML = `<div style="font-size:32px;text-align:center;line-height:1.5;">${cat2.emoji}</div>`;
-      btn.appendChild(mini);
-    }
+    // mostra a peça desenhada em miniatura (com silhueta da boneca de fundo)
+    const mini = document.createElement('div');
+    mini.style.width = '100%';
+    mini.style.height = '100%';
+    mini.style.display = 'flex';
+    mini.style.alignItems = 'center';
+    mini.style.justifyContent = 'center';
+    mini.innerHTML = previewSVG(item, cat);
+    btn.appendChild(mini);
 
     btn.addEventListener('click', () => {
       vestindo[cat] = item.id;
