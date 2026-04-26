@@ -50,10 +50,9 @@
     tile_grass2:        tt(1),    // grama com tuft
     tile_dirt:          tt(24),   // terra batida
     tile_sand:          tt(36),   // terra clara
-    tile_water:         tt(13),   // azul (provisório)
-    tile_mountain:      tt(67),   // pedra cinza
     tile_forest_floor:  tt(0),    // grama
     tile_path:          tt(36),   // caminho de terra
+    // tile_water e tile_mountain ficam procedurais (animados).
   };
 
   window.GTA = window.GTA || {};

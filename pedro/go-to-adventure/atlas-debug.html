@@ -4,13 +4,18 @@
   body { background: #1a1a1a; color: #eee; font: 14px monospace; padding: 16px; }
   canvas { background: #2a2a2a; image-rendering: pixelated; display: block; margin: 8px 0 24px; }
   h2 { margin: 16px 0 4px; color: #0f0; }
+  .grid { display: grid; grid-template-columns: repeat(8, 160px); gap: 8px; margin-bottom: 24px; }
+  .cell { background: #2a2a2a; border: 1px solid #444; padding: 8px; text-align: center; }
+  .cell canvas { margin: 0 auto 4px; background: #555; image-rendering: pixelated; }
+  .cell .name { color: #0f0; font-weight: bold; }
+  .cell .idx { color: #888; font-size: 11px; }
 </style>
 </head><body>
-<h2>Tiny Dungeon — chars (rows 6-9, idx 72-119)</h2>
+<h2>Atlas — sprites nomeados (escala 4×)</h2>
+<div class="grid" id="grid"></div>
+<h2>Tilemap completo — Tiny Dungeon</h2>
 <canvas id="d_chars" width="1536" height="512"></canvas>
-<h2>Tiny Dungeon — items/weapons (row 10, idx 120-131)</h2>
-<canvas id="d_items" width="1536" height="128"></canvas>
-<h2>Tiny Town — tiles (rows 0-5, idx 0-71)</h2>
+<h2>Tilemap completo — Tiny Town</h2>
 <canvas id="t_tiles" width="1536" height="768"></canvas>
 <script>
 function drawSection(canvasId, src, startRow, endRow) {
@@ -38,8 +43,43 @@ function drawSection(canvasId, src, startRow, endRow) {
   };
   img.src = src;
 }
-drawSection('d_chars', 'assets/sprites/dungeon.png', 6, 9);
-drawSection('d_items', 'assets/sprites/dungeon.png', 10, 10);
-drawSection('t_tiles', 'assets/sprites/town.png', 0, 5);
+
+// Render named atlas entries
+function renderNamed() {
+  const sources = {
+    dungeon: 'assets/sprites/dungeon.png',
+    town: 'assets/sprites/town.png',
+  };
+  const imgs = {};
+  let loaded = 0;
+  for (const [k, v] of Object.entries(sources)) {
+    const img = new Image();
+    img.onload = () => { imgs[k] = img; if (++loaded === 2) doRender(); };
+    img.src = v;
+  }
+  function doRender() {
+    const grid = document.getElementById('grid');
+    const atlas = window.GTA?.Atlas || ATLAS_FALLBACK;
+    const names = Object.keys(atlas);
+    for (const name of names) {
+      const entry = atlas[name];
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      const canvas = document.createElement('canvas');
+      canvas.width = 64; canvas.height = 64;
+      const ctx = canvas.getContext('2d');
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(imgs[entry.sheet], entry.col * 16, entry.row * 16, 16, 16, 0, 0, 64, 64);
+      cell.appendChild(canvas);
+      const nm = document.createElement('div'); nm.className = 'name'; nm.textContent = name; cell.appendChild(nm);
+      const ix = document.createElement('div'); ix.className = 'idx'; ix.textContent = `${entry.sheet}#${entry.col + entry.row * 12} (${entry.col},${entry.row})`; cell.appendChild(ix);
+      grid.appendChild(cell);
+    }
+  }
+}
+const s = document.createElement('script'); s.src = 'js/atlas.js'; s.onload = renderNamed; document.head.appendChild(s);
+
+drawSection('d_chars', 'assets/sprites/dungeon.png', 0, 10);
+drawSection('t_tiles', 'assets/sprites/town.png', 0, 10);
 </script>
 </body></html>
