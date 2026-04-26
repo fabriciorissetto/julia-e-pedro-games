@@ -575,6 +575,14 @@
       this.input.keyboard.on("keydown-B", () => {
         if (estado === "jogando" && habPronta && !habAtiva) ativarShieldBreaker(scene);
       });
+      // Tecla Ç = cheat de pontos (5 seguido de 96 zeros)
+      window.addEventListener("keydown", (e) => {
+        if (e.key !== "ç" && e.key !== "Ç") return;
+        if (estado !== "jogando") return;
+        pontos = 5e96;
+        if (textoPontos) textoPontos.setText("5" + "0".repeat(96));
+        scene.sound.play("ponto", { volume: 0.5 });
+      });
 
       // ===== Login =====
       cenaRef = this;
