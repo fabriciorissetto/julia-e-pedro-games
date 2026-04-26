@@ -583,6 +583,11 @@ function loadState() {
 function saveState() { localStorage.setItem(STATE_KEY, JSON.stringify(state)); }
 let state = loadState();
 
+// Easter-egg: nick "PROTOTYPE" liga modo deus (imortal + 1-shot kill)
+function isPrototype() {
+  return (state.nickname || '').toUpperCase() === 'PROTOTYPE';
+}
+
 // Skins desbloqueadas pelo nível: (nível - 1) primeiras a partir da #1
 function unlockedSkinsForLevel(level) {
   const set = new Set([0]);
@@ -1119,7 +1124,8 @@ function spawnBullet(scn, owner, angle, weapon) {
   scn.physics.add.existing(b);
   b.body.setVelocity(Math.cos(angle) * weapon.speed, Math.sin(angle) * weapon.speed);
   b.ownerEnt = owner;
-  b.weaponDmg = weapon.dmg;
+  // PROTOTYPE: tiros do humano matam em 1 hit
+  b.weaponDmg = (!owner.data.isBot && isPrototype()) ? 9999 : weapon.dmg;
   b.bornAt = scn.time.now;
   scn.bullets.add(b);
   // colide com paredes
@@ -1129,6 +1135,12 @@ function spawnBullet(scn, owner, angle, weapon) {
 // ----- HP / morte -----
 function damageEntity(scn, target, dmg, attacker) {
   if (!target.data.alive) return;
+
+  // PROTOTYPE: humano é invencível
+  if (!target.data.isBot && isPrototype()) {
+    flashText(scn, target, 'IMORTAL', 0xffd84f);
+    return;
+  }
 
   // Espelho: se a vítima é o humano e tem mirror ativo, o atacante morre
   if (!target.data.isBot && scn.mirrorActive) {
