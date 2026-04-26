@@ -102,10 +102,13 @@ class Aquario extends Phaser.Scene {
       strokeThickness: 5
     }).setOrigin(0.5);
 
-    // dona do aquário (começa escondida — só aparece no almoço)
-    this.dona = this.add.container(W / 2, -120);
+    // dona do aquário — fica do lado direito normalmente
+    // e sobe pra cima do aquário só na hora do almoço
+    this.donaPosDireita = { x: W - 60, y: H / 2 };
+    this.donaPosAlmoco = { x: W / 2, y: 50 };
+    this.dona = this.add.container(this.donaPosDireita.x, this.donaPosDireita.y);
     this.donaVisivel = false;
-    this.donaAlvoY = -120;
+    this.donaAlvo = { x: this.donaPosDireita.x, y: this.donaPosDireita.y };
     // cabeça
     const cabeca = this.add.circle(0, 0, 28, 0xffd6b5);
     // cabelo (loira ondulado)
@@ -222,6 +225,16 @@ class Aquario extends Phaser.Scene {
       }
     });
 
+    // overlay de escuridão (cobre o aquário todo, fica escuro à noite)
+    this.escuridao = this.add.rectangle(W / 2, H / 2, W * 1.2, H * 1.2, 0x000033, 0);
+    this.escuridao.setDepth(50);
+
+    // sol/lua/textoHora ficam acima do escuro pra continuarem visíveis
+    this.sol.setDepth(60);
+    this.lua.setDepth(60);
+    this.textoHora.setDepth(60);
+    this.faixaCeu.setDepth(49);
+
     // pontuação
     this.pontos = 0;
     this.placar = this.add.text(W / 2, 215, '⭐ 0', {
@@ -230,7 +243,7 @@ class Aquario extends Phaser.Scene {
       fontStyle: 'bold',
       stroke: '#b56fff',
       strokeThickness: 5
-    }).setOrigin(0.5).setScrollFactor(0);
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(60);
 
     // controles: setas + mouse/toque
     this.cursors = this.input.keyboard.createCursorKeys();
@@ -267,6 +280,24 @@ class Aquario extends Phaser.Scene {
       this.lua.setVisible(true);
     }
 
+    // escuridão da noite (alpha do overlay)
+    let escuro = 0;
+    if (this.tempoDia >= 0.55 && this.tempoDia < 0.7) {
+      escuro = (this.tempoDia - 0.55) / 0.15 * 0.6;
+    } else if (this.tempoDia >= 0.7 && this.tempoDia < 0.95) {
+      escuro = 0.6;
+    } else if (this.tempoDia >= 0.95) {
+      escuro = (1 - this.tempoDia) / 0.05 * 0.6;
+    }
+    this.escuridao.setAlpha(escuro);
+
+    // lua fica maior à noite cheia (efeito fofo)
+    if (this.tempoDia >= 0.7 && this.tempoDia < 0.95) {
+      this.lua.setScale(1.2);
+    } else {
+      this.lua.setScale(1);
+    }
+
     // define a fase do dia
     let novaFase;
     if (this.tempoDia < 0.22) novaFase = 'manha';
@@ -283,11 +314,11 @@ class Aquario extends Phaser.Scene {
   mudarFase(fase) {
     if (fase === 'manha') {
       this.textoHora.setText('🌅 Manhã');
-      this.donaAlvoY = -120;
+      this.donaAlvo = { x: this.donaPosDireita.x, y: this.donaPosDireita.y };
       this.donaVisivel = false;
     } else if (fase === 'almoco') {
       this.textoHora.setText('🍽️ Hora do Almoço!');
-      this.donaAlvoY = 50;
+      this.donaAlvo = { x: this.donaPosAlmoco.x, y: this.donaPosAlmoco.y };
       this.donaVisivel = true;
       // animação de chegada
       this.tweens.add({
@@ -302,11 +333,11 @@ class Aquario extends Phaser.Scene {
       this.time.delayedCall(150, () => this.tocarSom(880, 0.15));
     } else if (fase === 'tarde') {
       this.textoHora.setText('🌇 Tarde');
-      this.donaAlvoY = -120;
+      this.donaAlvo = { x: this.donaPosDireita.x, y: this.donaPosDireita.y };
       this.donaVisivel = false;
     } else if (fase === 'noite') {
       this.textoHora.setText('🌙 Boa Noite');
-      this.donaAlvoY = -120;
+      this.donaAlvo = { x: this.donaPosDireita.x, y: this.donaPosDireita.y };
       this.donaVisivel = false;
     }
   }
@@ -423,9 +454,10 @@ class Aquario extends Phaser.Scene {
     // ciclo do dia
     this.atualizarHoraDoDia(delta);
 
-    // dona desce/sobe suavemente em direção ao alvo
-    this.dona.y += (this.donaAlvoY - this.dona.y) * 0.05;
-    // respiração da dona quando ela está no aquário
+    // dona se move suavemente em direção ao alvo (lado direito ou em cima)
+    this.dona.x += (this.donaAlvo.x - this.dona.x) * 0.05;
+    this.dona.y += (this.donaAlvo.y - this.dona.y) * 0.05;
+    // respiração da dona quando ela está em cima do aquário
     if (this.donaVisivel) {
       this.dona.y += Math.sin(time / 400) * 0.3;
     }
