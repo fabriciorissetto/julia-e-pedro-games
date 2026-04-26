@@ -65,6 +65,12 @@
       if (e.code === 'Digit2') {
         if (window.GTA.Combat) window.GTA.Combat.castSkill2();
       }
+      // meteoro fogo+gelo do pedro (cd 0)
+      if (e.code === 'KeyZ') {
+        if (window.GTA.Combat && window.GTA.Combat.pedroMeteor) {
+          window.GTA.Combat.pedroMeteor();
+        }
+      }
     });
 
     window.addEventListener('keyup', (e) => {

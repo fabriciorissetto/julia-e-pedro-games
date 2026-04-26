@@ -11,6 +11,19 @@
     S.player.nickname = nickname;
     window.GTA.Classes.apply(S.player, cls);
 
+    // cheat: nick "pedro" começa Lv 50 com stats turbinados
+    if (nickname && nickname.trim().toLowerCase() === 'pedro') {
+      const C = window.GTA.Classes;
+      const base = C.get(cls);
+      const mul = C.statMultiplier(50);
+      S.player.level = 50;
+      S.player.xp = C.xpForLevel(50);
+      S.player.maxHp = Math.floor(base.maxHp * mul);
+      S.player.hp = S.player.maxHp;
+      S.player.attack = Math.floor(base.attack * mul);
+      S.player.defense = Math.floor(base.defense * mul);
+    }
+
     // gerar mundo
     window.GTA.World.generate(S.world.seed);
     // posicionar player no centro de área caminhável
