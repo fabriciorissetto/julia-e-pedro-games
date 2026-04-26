@@ -37,6 +37,11 @@
   <script>
     const VELOCIDADE = 180;
 
+    // Linha do spritesheet pra cada direção (player_walk.png e player_idle.png).
+    // Cada arquivo é 4x4 frames de 96x96. Se uma direção aparecer errada
+    // no jogo, é só trocar os números aqui.
+    const LINHA_DIRECAO = { down: 0, left: 1, right: 2, up: 3 };
+
     // Cache-busting: força o browser a sempre buscar a versão mais nova do
     // mapa e tilesets. Sem isso, Cmd+S no Tiled nem sempre reflete no F5.
     const noCache = `?t=${Date.now()}`;
@@ -65,6 +70,11 @@
               this.load.image(`ts_${ts.name}`, './assets/maps/' + ts.image + noCache);
             }
           });
+          // Player: 4x4 frames de 96x96 em cada arquivo
+          this.load.spritesheet('player_idle', `./assets/characters/player_idle.png${noCache}`,
+            { frameWidth: 96, frameHeight: 96 });
+          this.load.spritesheet('player_walk', `./assets/characters/player_walk.png${noCache}`,
+            { frameWidth: 96, frameHeight: 96 });
         }
 
         create() {
@@ -76,20 +86,33 @@
             .filter(Boolean);
 
           // Renderiza TODAS as tile layers do mapa na ordem em que aparecem
-          // no .tmj (Tiled grava de baixo pra cima, o que é o que queremos).
-          // Layers com nome começando em "colisao" geram bloqueio no player.
+          // no .tmj. Convenções de nome:
+          //   "colisao*"  -> bloqueia o player
+          //   "acima*"    -> desenha POR CIMA do player (topo de árvore,
+          //                  telhado, ponte alta — coisas que o player passa
+          //                  "por trás" no jogo).
           this.layers = {};
           this.layersColisao = [];
+          const layersAcima = [];
           map.layers.forEach(layerData => {
             const phaserLayer = map.createLayer(layerData.name, tilesets, 0, 0);
             if (!phaserLayer) return;
             this.layers[layerData.name] = phaserLayer;
-            if (layerData.name.toLowerCase().startsWith('colisao')) {
+            const nome = layerData.name.toLowerCase();
+            if (nome.startsWith('colisao')) {
               phaserLayer.setCollisionByExclusion([-1]);
               this.layersColisao.push(phaserLayer);
             }
+            if (nome.startsWith('acima')) {
+              layersAcima.push(phaserLayer);
+            }
           });
+          // Depth: tudo começa em 0. Player vai pra 10, layers "acima" pra 20.
+          // Assim o player fica acima de chão/decoração/colisão mas atrás
+          // das partes "altas" como copa de árvore.
+          this.layersAcima = layersAcima;
 
+          this.criarAnimacoes();
           this.criarPlayer(map);
 
           this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
@@ -100,21 +123,26 @@
           this.wasd = this.input.keyboard.addKeys({ up: 'W', down: 'S', left: 'A', right: 'D' });
         }
 
-        criarPlayer(map) {
-          // Sprite improvisado: bolinha rosa com olhinhos.
-          // Quando tivermos um sprite de personagem decente, troca aqui.
-          const tex = this.textures.createCanvas('player', 24, 24);
-          const ctx = tex.getContext();
-          ctx.fillStyle = '#ff6f91';
-          ctx.beginPath(); ctx.arc(12, 12, 10, 0, Math.PI * 2); ctx.fill();
-          ctx.fillStyle = 'white';
-          ctx.beginPath(); ctx.arc(8, 11, 2.5, 0, Math.PI * 2); ctx.fill();
-          ctx.beginPath(); ctx.arc(16, 11, 2.5, 0, Math.PI * 2); ctx.fill();
-          ctx.fillStyle = 'black';
-          ctx.beginPath(); ctx.arc(8, 11, 1.2, 0, Math.PI * 2); ctx.fill();
-          ctx.beginPath(); ctx.arc(16, 11, 1.2, 0, Math.PI * 2); ctx.fill();
-          tex.refresh();
+        criarAnimacoes() {
+          // 4 direções × 4 frames cada, em ambos os arquivos
+          Object.entries(LINHA_DIRECAO).forEach(([dir, linha]) => {
+            const inicio = linha * 4;
+            this.anims.create({
+              key: `idle_${dir}`,
+              frames: this.anims.generateFrameNumbers('player_idle', { start: inicio, end: inicio + 3 }),
+              frameRate: 4,
+              repeat: -1
+            });
+            this.anims.create({
+              key: `walk_${dir}`,
+              frames: this.anims.generateFrameNumbers('player_walk', { start: inicio, end: inicio + 3 }),
+              frameRate: 8,
+              repeat: -1
+            });
+          });
+        }
 
+        criarPlayer(map) {
           // Spawn no centro do mapa, ou em um object "player" da layer "spawns"
           let x = map.widthInPixels / 2;
           let y = map.heightInPixels / 2;
@@ -124,12 +152,19 @@
             if (obj) { x = obj.x; y = obj.y; }
           }
 
-          this.player = this.physics.add.sprite(x, y, 'player');
+          this.player = this.physics.add.sprite(x, y, 'player_idle', 0);
           this.player.setCollideWorldBounds(true);
-          // Hitbox menor que o sprite — sensação melhor de movimento
-          this.player.body.setSize(16, 14).setOffset(4, 8);
+          this.player.setDepth(10);
+          // Hitbox no pé do personagem (~24x16 px). Sprite é 96x96 mas
+          // o personagem ocupa só uma parte. Ajusta esses números se a
+          // colisão com árvores/casas ficar esquisita (player passando
+          // por cima ou batendo no ar).
+          this.player.body.setSize(24, 16).setOffset(36, 72);
+          this.player.facing = 'down';
+          this.player.anims.play('idle_down');
 
           this.layersColisao.forEach(l => this.physics.add.collider(this.player, l));
+          this.layersAcima.forEach(l => l.setDepth(20));
         }
 
         update() {
@@ -142,17 +177,28 @@
           const cima = this.cursors.up.isDown    || this.wasd.up.isDown;
           const baix = this.cursors.down.isDown  || this.wasd.down.isDown;
 
-          if (esq)  body.setVelocityX(-VELOCIDADE);
-          if (dir)  body.setVelocityX(VELOCIDADE);
-          if (cima) body.setVelocityY(-VELOCIDADE);
-          if (baix) body.setVelocityY(VELOCIDADE);
+          let facing = this.player.facing;
+          let movendo = false;
+
+          // Vertical primeiro, horizontal depois — assim na diagonal o
+          // personagem fica virado pro lado (mais natural que pra cima/baixo).
+          if (cima) { body.setVelocityY(-VELOCIDADE); facing = 'up';    movendo = true; }
+          if (baix) { body.setVelocityY(VELOCIDADE);  facing = 'down';  movendo = true; }
+          if (esq)  { body.setVelocityX(-VELOCIDADE); facing = 'left';  movendo = true; }
+          if (dir)  { body.setVelocityX(VELOCIDADE);  facing = 'right'; movendo = true; }
 
           // Diagonal não pode ser mais rápida que reta
           body.velocity.normalize().scale(VELOCIDADE);
+
+          this.player.facing = facing;
+          const animDesejada = (movendo ? 'walk_' : 'idle_') + facing;
+          if (this.player.anims.currentAnim?.key !== animDesejada) {
+            this.player.anims.play(animDesejada, true);
+          }
         }
       }
 
-      new Phaser.Game({
+      window.game = new Phaser.Game({
         type: Phaser.AUTO,
         parent: 'game',
         backgroundColor: '#1a1a2e',

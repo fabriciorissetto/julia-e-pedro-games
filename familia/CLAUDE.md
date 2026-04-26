@@ -20,12 +20,12 @@ Diferente de `julia/` e `pedro/`, aqui os jogos podem ser mais ambiciosos e usar
 3. **Salvar (Cmd+S)** — Tiled grava direto como JSON, não precisa exportar nada
 4. Refresh no navegador → mapa atualizado
 
-**Convenção de layers no Tiled:**
-- `chao` (ground) — grama, terra, caminhos. Sem colisão.
-- `decoracao` (objects) — flores, pedrinhas decorativas. Sem colisão.
-- `colisao` (collision) — árvores, casas, água. Tiles aqui bloqueiam o player.
+**Convenção de nomes de layers no Tiled:**
+- `chao`, `chao 2`, `decoracao`, etc — visual normal, sem colisão. Pode criar quantas quiser.
+- Nome começando em `colisao` (`colisao`, `colisao_arvores`, etc) — **bloqueia o player**. Pinte aqui troncos, paredes, água.
+- Nome começando em `acima` (`acima`, `acima_arvores`, etc) — **desenha por cima do player**. Use pra topo de árvore, telhado, ponte alta — partes "altas" que o player passa por trás (perspectiva top-down). Truque clássico: tronco da árvore vai em `colisao`, copa vai em `acima`. O player anda atrás da copa.
 
-O nome da layer importa — o código do jogo procura por esses nomes exatos pra saber qual tem colisão.
+O código renderiza todas as tile layers na ordem que aparecem no painel do Tiled. Layers de cima no painel ficam visualmente acima das de baixo (mas o prefixo `acima` força acima do player também).
 
 ## Jogos atuais
 
