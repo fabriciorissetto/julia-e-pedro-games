@@ -100,7 +100,7 @@
     if ((p.nickname || '').trim().toLowerCase() === 'pedro') {
       p.lastDmgFlash = S.now;
       if (window.GTA.UI) {
-        window.GTA.UI.floatingText({ x: p.x, y: p.y - 24, text: '🛡️', color: '#ffe14f', size: 14 });
+        window.GTA.UI.floatingText({ x: p.x, y: p.y - 24, text: '0', color: '#ffe14f', size: 12 });
       }
       return;
     }
