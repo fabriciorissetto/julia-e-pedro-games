@@ -286,10 +286,16 @@
     });
 
     // overlays decorativos (casas, arbustos, frutíferas, pedrinhas)
+    // Pisos ('floor') vão num passe ANTES do Y-sort pra ficarem sempre abaixo do jogador.
     if (state.overlays && state.overlays.size > 0) {
       state.overlays.forEach(function (o) {
         if (o.x < viewL || o.x > viewR || o.y < viewT || o.y > viewB) return;
-        drawables.push({ kind: 'overlay', y: o.y, ref: o });
+        if (o.type === 'floor') {
+          // desenha já — abaixo de tudo, encima dos tiles do mundo
+          drawOverlay(o, camX, camY);
+        } else {
+          drawables.push({ kind: 'overlay', y: o.y, ref: o });
+        }
       });
     }
 

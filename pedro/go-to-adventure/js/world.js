@@ -330,7 +330,8 @@
     // norte=topo: (2,0); sul=base: (2,4); leste=direita: (4,2); oeste=esquerda: (0,2)
     const door = { N: [2, 0], S: [2, 4], E: [4, 2], W: [0, 2] }[doorSide] || [2, 4];
 
-    // 1) piso interno (3x3 dentro)
+    // 1) piso interno (3x3 dentro) — não bloqueia. Renderer trata 'floor' como
+    //    background, sempre desenhado abaixo do jogador.
     for (let dy = 1; dy <= 3; dy++) {
       for (let dx = 1; dx <= 3; dx++) {
         setTile(x0 + dx, y0 + dy, 'floor', false);
@@ -345,23 +346,7 @@
         setTile(x0 + dx, y0 + dy, 'wall', true);
       }
     }
-    // 3) cama 2x1 no canto oposto à porta (top-left interno = (1,1) e (2,1))
-    //    sprite cama tem 2 tiles de largura → marcamos os 2 tiles, ambos block.
-    setTile(x0 + 1, y0 + 1, 'bed', true);
-    setTile(x0 + 2, y0 + 1, 'bed_right', true); // segunda metade só pra colisão; sprite é desenhado uma vez do 1º.
-    // 4) criado-mudo no tile (3,1)
-    setTile(x0 + 3, y0 + 1, 'nightstand', true);
-    // 5) lustre/abajur em cima do criado-mudo — overlay decorativo extra (não bloqueia
-    //    extra; o nightstand já bloqueia). Marcamos um overlay separado num "tile irmão"
-    //    que o renderer usa como prop visual: vou simplesmente sobrepor desenhando o
-    //    sprite 'lamp' na mesma célula. Pra não duplicar storage, uso overlay com
-    //    type='nightstand_lamp' que o render trata como duas peças (criado + lampada).
-    s.overlays.set(key(x0 + 3, y0 + 1), {
-      id: window.GTA.util.uid(),
-      type: 'nightstand_lamp', tx: x0 + 3, ty: y0 + 1,
-      x: (x0 + 3) * T + T / 2, y: (y0 + 1) * T + T / 2,
-      block: true,
-    });
+    // (sem mobília no MVP — Pedro pediu pra tirar cama e criado-mudo)
   }
 
   function overlayBlocks(tx, ty) {
