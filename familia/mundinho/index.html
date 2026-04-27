@@ -96,7 +96,17 @@
           // próprio .tmj. Carrega cada um com a key "ts_<nome>".
           mapaJson.tilesets.forEach(ts => {
             if (ts.image) {
+              // Tileset clássico (uma imagem em grade)
               this.load.image(`ts_${ts.name}`, './assets/maps/' + ts.image + noCache);
+            } else if (ts.tiles) {
+              // Image Collection: cada tile tem sua própria imagem.
+              // Usado pra objetos soltos de tamanho irregular (casas, árvores
+              // grandes). No Tiled: New Tileset → Type "Collection of Images".
+              ts.tiles.forEach(t => {
+                if (t.image) {
+                  this.load.image(`obj_${ts.name}_${t.id}`, './assets/maps/' + t.image + noCache);
+                }
+              });
             }
           });
           // Player: 4x4 frames de 96x96 em cada arquivo
@@ -141,6 +151,7 @@
           // das partes "altas" como copa de árvore.
           this.layersAcima = layersAcima;
 
+          this.renderizarObjetos(map, mapaJson);
           this.criarAnimacoes();
           this.criarPlayer(map);
 
@@ -150,6 +161,82 @@
 
           this.cursors = this.input.keyboard.createCursorKeys();
           this.wasd = this.input.keyboard.addKeys({ up: 'W', down: 'S', left: 'A', right: 'D' });
+        }
+
+        renderizarObjetos(map, mapaJson) {
+          // Renderiza imagens de Image Collection em DOIS tipos de layer:
+          //
+          // 1) Object Layer com tile objects: cada object tem "gid".
+          //    Pintado no Tiled com a ferramenta "Insert Tile" (T).
+          //    Caminho mais semântico pra casas, árvores grandes soltas.
+          //
+          // 2) Tile Layer onde o usuário pintou Image Collection com
+          //    Stamp Brush. O Phaser createLayer não renderiza esses
+          //    tiles porque eles não pertencem a um tileset clássico
+          //    (sem ".image"). Aqui detectamos esses gids e criamos
+          //    sprites manualmente na posição da grid.
+          //
+          // A object layer "spawns" é tratada em criarPlayer.
+          // Convenção de nomes:
+          //   "acima*"  -> depth 20 (acima do player)
+          //   resto     -> depth 5 (abaixo do player=10)
+          this.objetosAcima = [];
+
+          // Helper: gid -> textura key (ou null se não for Image Collection)
+          const gidParaKey = (gid) => {
+            if (!gid) return null;
+            const baseGid = gid & 0x0FFFFFFF; // remove flags de flip
+            const ts = mapaJson.tilesets
+              .filter(t => t.tiles && t.firstgid <= baseGid)
+              .sort((a, b) => b.firstgid - a.firstgid)[0];
+            if (!ts) return null;
+            const localId = baseGid - ts.firstgid;
+            const key = `obj_${ts.name}_${localId}`;
+            return this.textures.exists(key) ? { key, ts, localId } : null;
+          };
+
+          // Tile Layers com Image Collection
+          map.layers.forEach(layerData => {
+            const data = mapaJson.layers.find(l => l.name === layerData.name);
+            if (!data || data.type !== 'tilelayer') return;
+            const ehAcima = layerData.name.toLowerCase().startsWith('acima');
+            const tw = mapaJson.tilewidth, th = mapaJson.tileheight;
+            for (let i = 0; i < data.data.length; i++) {
+              const gid = data.data[i];
+              const info = gidParaKey(gid);
+              if (!info) continue;
+              const col = i % data.width;
+              const row = Math.floor(i / data.width);
+              // Tiled posiciona a imagem de Image Collection numa tile
+              // layer pelo canto bottom-left do tile, igual a tile object.
+              const tile = info.ts.tiles.find(t => t.id === info.localId);
+              const w = tile.imagewidth, h = tile.imageheight;
+              const sprite = this.add.image(
+                col * tw + w / 2,
+                (row + 1) * th - h / 2,
+                info.key
+              );
+              sprite.setDepth(ehAcima ? 20 : 5);
+              if (ehAcima) this.objetosAcima.push(sprite);
+            }
+          });
+
+          // Object Layers com tile objects (Insert Tile no Tiled)
+          map.objects.forEach(layerData => {
+            if (layerData.name === 'spawns') return;
+            const ehAcima = layerData.name.toLowerCase().startsWith('acima');
+            layerData.objects.forEach(obj => {
+              const info = gidParaKey(obj.gid);
+              if (!info) return;
+              const sprite = this.add.image(
+                obj.x + obj.width / 2,
+                obj.y - obj.height / 2,
+                info.key
+              );
+              sprite.setDepth(ehAcima ? 20 : 5);
+              if (ehAcima) this.objetosAcima.push(sprite);
+            });
+          });
         }
 
         criarAnimacoes() {
