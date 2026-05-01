@@ -284,9 +284,9 @@
   // ---------- perfis (easter eggs por nome) ----------
   function decidirPerfil(nomeRaw) {
     const nome = (nomeRaw || '').trim().toLowerCase()
-    if (nome === 'fabricio' || nome === 'marcelo') {
+    if (nome === 'fabricio') {
       return {
-        nome: nome.toUpperCase(),
+        nome: 'FABRICIO',
         tipo: 'super',
         label: '⚡ MODO METRALHADORA',
         cor: '#ffd166',
@@ -299,16 +299,33 @@
         bombaContato: false
       }
     }
+    if (nome === 'marcelo') {
+      return {
+        nome: 'MARCELO',
+        tipo: 'super',
+        label: '⚡🔥 MODO METRALHADORA + FOGO',
+        cor: '#ffd166',
+        cooldown: 50,
+        piercing: 3,
+        vidas: 3,
+        permiteR: true,
+        magiaFogo: true,
+        sprite: 'garrafa',
+        tiroSprite: 'tiro',
+        bombaContato: false
+      }
+    }
     if (nome === 'pedro') {
       return {
         nome: 'PEDRO',
-        tipo: 'tanque',
-        label: '🛡 MODO TANQUE',
-        cor: '#4f9bff',
-        cooldown: 2000,
+        tipo: 'mago',
+        label: '🔥 MODO MAGO DE FOGO',
+        cor: '#ff6f33',
+        cooldown: 50,
         piercing: 1,
         vidas: 5,
         permiteR: false,
+        magiaFogo: true,
         sprite: 'garrafa',
         tiroSprite: 'tiro',
         bombaContato: false
@@ -643,8 +660,9 @@
       this.physics.add.overlap(this.player, this.latas, this.levaDano, null, this)
 
       // input — enableCapture=false pra não bloquear digitação no input HTML do menu
-      this.teclas = this.input.keyboard.addKeys('W,A,S,D,SPACE,R,M,P', false, false)
+      this.teclas = this.input.keyboard.addKeys('W,A,S,D,SPACE,R,M,P,F', false, false)
       this.pausado = false
+      this.proxMagia = 0
 
       // controles touch (mobile)
       this.touch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0
@@ -676,14 +694,21 @@
       this.add.text(W / 2, 38, this.perfil.label, {
         fontSize: '13px', color: this.perfil.cor, fontStyle: 'bold'
       }).setOrigin(0.5, 0)
+      let yHud = 56
       if (this.perfil.permiteR) {
-        this.add.text(W / 2, 56, '(R = + difícil)', {
+        this.add.text(W / 2, yHud, '(R = + difícil)', {
           fontSize: '11px', color: '#9bb'
         }).setOrigin(0.5, 0)
+        yHud += 14
+      }
+      if (this.perfil.magiaFogo) {
+        this.add.text(W / 2, yHud, '(F = 🔥 magia de fogo)', {
+          fontSize: '11px', color: '#ff6f33'
+        }).setOrigin(0.5, 0)
+        yHud += 14
       }
       // label de imortal
-      const yImortal = this.perfil.permiteR ? 72 : 56
-      this.txtImortal = this.add.text(W / 2, yImortal, '💀 IMORTAL', {
+      this.txtImortal = this.add.text(W / 2, yHud, '💀 IMORTAL', {
         fontSize: '13px', color: '#ffd166', fontStyle: 'bold'
       }).setOrigin(0.5, 0).setVisible(this.imortal)
 
@@ -715,9 +740,13 @@
       if (Phaser.Input.Keyboard.JustDown(this.teclas.P)) this.togglePausa()
       if (this.pausado) return
 
-      // R durante o jogo: só no modo super, aumenta dificuldade
+      // R = aumenta dificuldade (perfis com permiteR)
       if (this.perfil.permiteR && Phaser.Input.Keyboard.JustDown(this.teclas.R)) {
         this.aumentarDificuldade()
+      }
+      // F = magia de fogo (perfis com magiaFogo)
+      if (this.perfil.magiaFogo && Phaser.Input.Keyboard.JustDown(this.teclas.F)) {
+        this.magiaFogo()
       }
 
       // movimento: drag no mobile tem prioridade, senão WASD
@@ -851,21 +880,28 @@
       btnTiro.on('pointerupoutside', (p) => { liberaTiro(p); btnTiro.setFillStyle(0xff4f6f, 0.55) })
       btnTiro.on('pointerout', (p) => { btnTiro.setFillStyle(0xff4f6f, 0.55) })
 
-      // botão de habilidade (só modo super) — ao lado do botão de tiro
+      // botão de habilidade — magia de fogo tem prioridade sobre +difícil
       let btnSuper = null
-      if (this.perfil.permiteR) {
+      const usaFogo = this.perfil.magiaFogo
+      const usaR = this.perfil.permiteR && !this.perfil.magiaFogo
+      if (usaFogo || usaR) {
+        const corBtn = usaFogo ? 0xff6f33 : 0xffd166
+        const icon = usaFogo ? '🔥' : '⚡'
         const sx = W - 110, sy = H - 60
-        btnSuper = this.add.circle(sx, sy, 26, 0xffd166, 0.55).setInteractive()
+        btnSuper = this.add.circle(sx, sy, 26, corBtn, 0.55).setInteractive()
         btnSuper.setStrokeStyle(2, 0xffffff, 0.7)
-        const iconSuper = this.add.text(sx, sy, '⚡', { fontSize: '22px' }).setOrigin(0.5)
+        const iconSuper = this.add.text(sx, sy, icon, { fontSize: '22px' }).setOrigin(0.5)
         btnSuper.setDepth(50); iconSuper.setDepth(50)
         btnSuper.on('pointerdown', (p) => {
           this.botaoPointerIds.add(p.id)
-          if (!this.gameOver) this.aumentarDificuldade()
-          btnSuper.setFillStyle(0xffd166, 0.9)
+          if (!this.gameOver) {
+            if (usaFogo) this.magiaFogo()
+            else this.aumentarDificuldade()
+          }
+          btnSuper.setFillStyle(corBtn, 0.9)
         })
-        btnSuper.on('pointerup', (p) => { this.botaoPointerIds.delete(p.id); btnSuper.setFillStyle(0xffd166, 0.55) })
-        btnSuper.on('pointerupoutside', (p) => { this.botaoPointerIds.delete(p.id); btnSuper.setFillStyle(0xffd166, 0.55) })
+        btnSuper.on('pointerup', (p) => { this.botaoPointerIds.delete(p.id); btnSuper.setFillStyle(corBtn, 0.55) })
+        btnSuper.on('pointerupoutside', (p) => { this.botaoPointerIds.delete(p.id); btnSuper.setFillStyle(corBtn, 0.55) })
       }
 
       // drag global pra mover (só ativa se NÃO tocou em botão)
@@ -895,6 +931,73 @@
       // tiro com piercing fica laranja brilhante
       if (this.perfil.piercing > 1) tiro.setTint(0xffaa33)
       somTiro()
+    }
+
+    magiaFogo() {
+      const agora = this.time.now
+      if (agora < this.proxMagia) return // cooldown 3s
+      this.proxMagia = agora + 3000
+
+      // anel de fogo saindo do jogador
+      for (let i = 0; i < 24; i++) {
+        const ang = (i / 24) * Math.PI * 2
+        const cor = Phaser.Utils.Array.GetRandom([0xff3300, 0xff6f33, 0xffaa33, 0xffd166])
+        const p = this.add.circle(this.player.x, this.player.y, 8, cor)
+        this.tweens.add({
+          targets: p,
+          x: this.player.x + Math.cos(ang) * 240,
+          y: this.player.y + Math.sin(ang) * 240,
+          alpha: 0,
+          scale: { from: 1.5, to: 0.3 },
+          duration: 500,
+          onComplete: () => p.destroy()
+        })
+      }
+
+      // destrói todos os inimigos com explosão de fogo
+      const arr = this.latas.getChildren().slice()
+      arr.forEach(lata => {
+        const x = lata.x, y = lata.y
+        for (let i = 0; i < 14; i++) {
+          const cor = Phaser.Utils.Array.GetRandom([0xff3300, 0xff6f33, 0xffaa33, 0xffd166])
+          const p = this.add.circle(x, y, Phaser.Math.Between(3, 8), cor)
+          const ang = Math.random() * Math.PI * 2
+          const sp = Phaser.Math.Between(100, 240)
+          this.tweens.add({
+            targets: p,
+            x: x + Math.cos(ang) * sp,
+            y: y + Math.sin(ang) * sp,
+            alpha: 0,
+            scale: { from: 1, to: 0.2 },
+            duration: Phaser.Math.Between(400, 800),
+            onComplete: () => p.destroy()
+          })
+        }
+        this.destruirLata(lata)
+        this.score += 10
+      })
+      this.txtScore.setText('SCORE: ' + this.score)
+
+      // flash + shake
+      this.cameras.main.flash(180, 255, 100, 30)
+      this.cameras.main.shake(220, 0.012)
+
+      // som de fogo (ruido + tom grave)
+      ruido(0.4, 0.18)
+      bip(220, 0.3, 'sawtooth', 0.12)
+      setTimeout(() => bip(110, 0.4, 'sawtooth', 0.1), 100)
+
+      // texto central
+      const t = this.add.text(W / 2, H / 2, '🔥 MAGIA DE FOGO! 🔥', {
+        fontSize: '38px', color: '#ff6f33', fontFamily: 'Impact, sans-serif'
+      }).setOrigin(0.5)
+      this.tweens.add({
+        targets: t,
+        scale: { from: 0.5, to: 1.5 },
+        alpha: { from: 1, to: 0 },
+        duration: 800,
+        onComplete: () => t.destroy()
+      })
     }
 
     aumentarDificuldade() {
