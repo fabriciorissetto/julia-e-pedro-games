@@ -280,8 +280,8 @@
       const garrafa = this.add.image(W / 2, 340, 'garrafa').setScale(2)
       this.tweens.add({ targets: garrafa, y: 360, duration: 800, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' })
 
-      this.add.text(W / 2, 470, 'WASD pra andar', { fontSize: '18px', color: '#9bb' }).setOrigin(0.5)
-      this.add.text(W / 2, 498, 'Z pra atirar', { fontSize: '18px', color: '#9bb' }).setOrigin(0.5)
+      this.add.text(W / 2, 470, 'WASD pra andar (ou arraste no celular)', { fontSize: '14px', color: '#9bb' }).setOrigin(0.5)
+      this.add.text(W / 2, 494, 'ESPAÇO pra atirar', { fontSize: '14px', color: '#9bb' }).setOrigin(0.5)
 
       const recorde = parseInt(localStorage.getItem('exterminalatas_hi') || '0')
       this.add.text(W / 2, 560, 'RECORDE: ' + recorde, { fontSize: '22px', color: '#ffd166', fontStyle: 'bold' }).setOrigin(0.5)
@@ -359,7 +359,15 @@
       this.physics.add.overlap(this.player, this.latas, this.levaDano, null, this)
 
       // input
-      this.teclas = this.input.keyboard.addKeys('W,A,S,D,Z,R,M')
+      this.teclas = this.input.keyboard.addKeys('W,A,S,D,SPACE,R,M')
+
+      // controles touch (mobile)
+      this.touch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0
+      this.botaoTiroPress = false
+      this.dragTarget = null
+      this.dragPointerId = null
+      this.botaoPointerIds = new Set()
+      if (this.touch) this.criarControlesTouch()
 
       // HUD
       this.txtScore = this.add.text(14, 12, 'SCORE: 0', { fontSize: '20px', color: '#fff', fontStyle: 'bold' })
@@ -407,16 +415,25 @@
         this.aumentarDificuldade()
       }
 
-      // movimento
-      const v = 280
-      this.player.setVelocity(0)
-      if (this.teclas.A.isDown) this.player.setVelocityX(-v)
-      else if (this.teclas.D.isDown) this.player.setVelocityX(v)
-      if (this.teclas.W.isDown) this.player.setVelocityY(-v)
-      else if (this.teclas.S.isDown) this.player.setVelocityY(v)
+      // movimento: drag no mobile tem prioridade, senão WASD
+      if (this.dragTarget) {
+        const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.dragTarget.x, this.dragTarget.y)
+        if (dist > 4) {
+          this.physics.moveTo(this.player, this.dragTarget.x, this.dragTarget.y, 360)
+        } else {
+          this.player.setVelocity(0)
+        }
+      } else {
+        const v = 280
+        this.player.setVelocity(0)
+        if (this.teclas.A.isDown) this.player.setVelocityX(-v)
+        else if (this.teclas.D.isDown) this.player.setVelocityX(v)
+        if (this.teclas.W.isDown) this.player.setVelocityY(-v)
+        else if (this.teclas.S.isDown) this.player.setVelocityY(v)
+      }
 
-      // tiro
-      if (this.teclas.Z.isDown && time > this.proxTiro) {
+      // tiro: espaço OU botão mobile
+      if ((this.teclas.SPACE.isDown || this.botaoTiroPress) && time > this.proxTiro) {
         this.atirar()
         this.proxTiro = time + this.perfil.cooldown
       }
@@ -448,6 +465,67 @@
       const aviso = this.add.rectangle(W / 2, H - 4, W, 8, 0xff4f6f).setOrigin(0.5, 0.5)
       this.tweens.add({ targets: aviso, alpha: 0, duration: 400, onComplete: () => aviso.destroy() })
       if (this.vidas <= 0) this.terminar()
+    }
+
+    criarControlesTouch() {
+      this.input.addPointer(2) // habilita multi-touch (até 3 dedos)
+
+      // botão de tiro (canto inferior direito) — pequeno e translúcido
+      const tx = W - 50, ty = H - 60
+      const btnTiro = this.add.circle(tx, ty, 30, 0xff4f6f, 0.55).setInteractive()
+      btnTiro.setStrokeStyle(2, 0xffffff, 0.7)
+      const iconTiro = this.add.text(tx, ty, '🔫', { fontSize: '24px' }).setOrigin(0.5)
+      btnTiro.setDepth(50); iconTiro.setDepth(50)
+
+      const liberaTiro = (p) => {
+        if (this.botaoPointerIds.has(p.id)) {
+          this.botaoPointerIds.delete(p.id)
+          if (this.botaoPointerIds.size === 0) this.botaoTiroPress = false
+        }
+      }
+      btnTiro.on('pointerdown', (p) => {
+        this.botaoPointerIds.add(p.id)
+        this.botaoTiroPress = true
+        btnTiro.setFillStyle(0xff4f6f, 0.85)
+      })
+      btnTiro.on('pointerup', (p) => { liberaTiro(p); btnTiro.setFillStyle(0xff4f6f, 0.55) })
+      btnTiro.on('pointerupoutside', (p) => { liberaTiro(p); btnTiro.setFillStyle(0xff4f6f, 0.55) })
+      btnTiro.on('pointerout', (p) => { btnTiro.setFillStyle(0xff4f6f, 0.55) })
+
+      // botão de habilidade (só modo super) — ao lado do botão de tiro
+      let btnSuper = null
+      if (this.perfil.permiteR) {
+        const sx = W - 110, sy = H - 60
+        btnSuper = this.add.circle(sx, sy, 26, 0xffd166, 0.55).setInteractive()
+        btnSuper.setStrokeStyle(2, 0xffffff, 0.7)
+        const iconSuper = this.add.text(sx, sy, '⚡', { fontSize: '22px' }).setOrigin(0.5)
+        btnSuper.setDepth(50); iconSuper.setDepth(50)
+        btnSuper.on('pointerdown', (p) => {
+          this.botaoPointerIds.add(p.id)
+          if (!this.gameOver) this.aumentarDificuldade()
+          btnSuper.setFillStyle(0xffd166, 0.9)
+        })
+        btnSuper.on('pointerup', (p) => { this.botaoPointerIds.delete(p.id); btnSuper.setFillStyle(0xffd166, 0.55) })
+        btnSuper.on('pointerupoutside', (p) => { this.botaoPointerIds.delete(p.id); btnSuper.setFillStyle(0xffd166, 0.55) })
+      }
+
+      // drag global pra mover (só ativa se NÃO tocou em botão)
+      this.input.on('pointerdown', (pointer, currentlyOver) => {
+        if (currentlyOver && currentlyOver.length > 0) return // tocou em botão, ignora
+        this.dragPointerId = pointer.id
+        this.dragTarget = { x: pointer.x, y: pointer.y }
+      })
+      this.input.on('pointermove', (pointer) => {
+        if (pointer.isDown && pointer.id === this.dragPointerId) {
+          this.dragTarget = { x: pointer.x, y: pointer.y }
+        }
+      })
+      this.input.on('pointerup', (pointer) => {
+        if (pointer.id === this.dragPointerId) {
+          this.dragPointerId = null
+          this.dragTarget = null
+        }
+      })
     }
 
     atirar() {
