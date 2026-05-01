@@ -346,6 +346,22 @@
         bombaContato: false
       }
     }
+    if (nome === 'henry') {
+      return {
+        nome: 'HENRY',
+        tipo: 'geto',
+        label: '🟫 MODO GETO',
+        cor: '#b8801f',
+        cooldown: 500,
+        piercing: 1,
+        vidas: 3,
+        permiteR: false,
+        sprite: 'geto',
+        tiroSprite: 'cubo',
+        bombaContato: false,
+        inimigoSprite: 'gojo'
+      }
+    }
     if (nome === 'alana') {
       return {
         nome: 'ALANA',
@@ -1234,6 +1250,9 @@
       this.fazerMiku()
       this.fazerMicrofone()
       this.fazerTeto()
+      this.fazerGeto()
+      this.fazerGojo()
+      this.fazerCubo()
       this.scene.start('Menu')
     }
 
@@ -1392,6 +1411,161 @@
       g.fillCircle(20, 11, 1.5)
 
       g.generateTexture('princesa', 40, 80)
+      g.destroy()
+    }
+
+    fazerGeto() {
+      const g = this.add.graphics()
+      const PELE = 0xfde0d0
+      const CABELO = 0x111111
+      const ROUPA = 0x2a2a2a
+      const GOLA = 0xb0b0b0
+
+      // sombra
+      g.fillStyle(0x000000, 0.3)
+      g.fillEllipse(20, 78, 22, 4)
+
+      // pernas (parte de baixo do quimono preto)
+      g.fillStyle(ROUPA, 1)
+      g.fillRect(13, 60, 14, 18)
+
+      // manto/quimono preto longo
+      g.fillStyle(ROUPA, 1)
+      g.fillTriangle(7, 60, 33, 60, 28, 35)
+      g.fillRect(11, 32, 18, 28)
+
+      // gola alta cinza claro (estilo monge)
+      g.fillStyle(GOLA, 1)
+      g.fillTriangle(15, 28, 25, 28, 20, 38)
+      g.fillRect(15, 28, 10, 4)
+
+      // braços largos do quimono
+      g.fillStyle(ROUPA, 1)
+      g.fillRect(7, 32, 5, 22)
+      g.fillRect(28, 32, 5, 22)
+
+      // mãos
+      g.fillStyle(PELE, 1)
+      g.fillCircle(9, 54, 2.5)
+      g.fillCircle(31, 54, 2.5)
+
+      // pescoço
+      g.fillStyle(PELE, 1)
+      g.fillRect(17, 25, 6, 4)
+
+      // cabeça
+      g.fillStyle(PELE, 1)
+      g.fillCircle(20, 17, 9)
+
+      // cabelo preto longo (cobre topo + desce pelos lados)
+      g.fillStyle(CABELO, 1)
+      g.fillEllipse(20, 10, 18, 9)
+      g.fillRect(11, 10, 18, 7)
+      // mechas descendo pelas laterais (cabelo solto)
+      g.fillRect(11, 13, 4, 16)
+      g.fillRect(25, 13, 4, 16)
+      g.fillTriangle(11, 28, 15, 28, 13, 32)
+      g.fillTriangle(29, 28, 25, 28, 27, 32)
+      // franja partida no meio (típica do Geto)
+      g.fillTriangle(13, 18, 18, 14, 17, 22)
+      g.fillTriangle(27, 18, 22, 14, 23, 22)
+      g.fillRect(19, 14, 2, 6)
+
+      // olhos escuros calmos
+      g.fillStyle(0x222222, 1)
+      g.fillEllipse(16, 19, 1.8, 2.5)
+      g.fillEllipse(24, 19, 1.8, 2.5)
+
+      // sobrancelhas
+      g.lineStyle(1, CABELO, 1)
+      g.lineBetween(14, 17, 17, 17)
+      g.lineBetween(23, 17, 26, 17)
+
+      // boca
+      g.lineStyle(1, 0x6b3e2a, 1)
+      g.lineBetween(18, 22, 22, 22)
+
+      g.generateTexture('geto', 40, 80)
+      g.destroy()
+    }
+
+    fazerGojo() {
+      const g = this.add.graphics()
+      const PELE = 0xfde0d0
+      const CABELO = 0xeeeeee
+      const PRETO = 0x222222
+
+      // sombra
+      g.fillStyle(0x000000, 0.3)
+      g.fillEllipse(20, 41, 22, 4)
+
+      // top preto (uniforme jujutsu)
+      g.fillStyle(PRETO, 1)
+      g.fillRoundedRect(11, 22, 18, 18, 3)
+
+      // braços
+      g.fillStyle(PELE, 1)
+      g.fillCircle(10, 26, 3)
+      g.fillCircle(30, 26, 3)
+
+      // pescoço
+      g.fillStyle(PELE, 1)
+      g.fillRect(18, 20, 4, 3)
+
+      // cabeça
+      g.fillStyle(PELE, 1)
+      g.fillCircle(20, 14, 7)
+
+      // cabelo branco - topo arredondado
+      g.fillStyle(CABELO, 1)
+      g.fillEllipse(20, 9, 16, 8)
+      g.fillRect(13, 9, 14, 5)
+      // mechas espetadinhas pra cima
+      g.fillTriangle(15, 6, 18, 3, 17, 9)
+      g.fillTriangle(20, 4, 23, 3, 22, 9)
+      g.fillTriangle(25, 6, 22, 3, 26, 9)
+
+      // BLINDFOLD preto cobrindo os olhos (icônico do Gojo)
+      g.fillStyle(PRETO, 1)
+      g.fillRect(11, 13, 18, 4)
+      // borda do blindfold
+      g.lineStyle(0.5, 0x000000, 1)
+      g.strokeRect(11, 13, 18, 4)
+      // pequeno brilho do blindfold (lateral)
+      g.fillStyle(0x444444, 1)
+      g.fillRect(11, 13, 2, 4)
+
+      // boca pequena
+      g.fillStyle(0xc94a4a, 1)
+      g.fillRect(19, 19, 2, 1)
+
+      g.generateTexture('gojo', 40, 44)
+      g.destroy()
+    }
+
+    fazerCubo() {
+      const g = this.add.graphics()
+      // cubo dourado/marrom
+      g.fillStyle(0xb8801f, 1)
+      g.fillRect(2, 2, 12, 12)
+      // borda preta grossa
+      g.lineStyle(1.5, 0x000000, 1)
+      g.strokeRect(2, 2, 12, 12)
+      // linhas internas (faces do cubo, dá efeito 3D)
+      g.lineStyle(0.7, 0x6a4a0a, 1)
+      g.lineBetween(2, 5, 14, 5)
+      g.lineBetween(2, 11, 14, 11)
+      g.lineBetween(5, 2, 5, 14)
+      g.lineBetween(11, 2, 11, 14)
+      // símbolo místico no centro (X)
+      g.lineStyle(1.2, 0x000000, 1)
+      g.lineBetween(5, 5, 11, 11)
+      g.lineBetween(11, 5, 5, 11)
+      // brilho dourado
+      g.fillStyle(0xffd366, 0.5)
+      g.fillRect(3, 3, 3, 3)
+
+      g.generateTexture('cubo', 16, 16)
       g.destroy()
     }
 
