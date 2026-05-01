@@ -383,6 +383,11 @@
 
   const konamiJaUsado = () => localStorage.getItem(FLAG_UNLOCKED) === 'true'
   const imortalAtivo  = () => localStorage.getItem(FLAG_IMORTAL) === 'true'
+  // pedro/marcelo podem usar o konami code infinitas vezes
+  const modoKonamiLivre = () => {
+    const nome = (window.__perfilAtual && window.__perfilAtual.nome || '').toLowerCase()
+    return nome === 'pedro' || nome === 'marcelo'
+  }
 
   function mostrarToast(msg) {
     const el = document.getElementById('toast')
@@ -399,7 +404,7 @@
   }
 
   function ativarKonami() {
-    if (konamiJaUsado()) return // só pode 1 vez
+    if (konamiJaUsado() && !modoKonamiLivre()) return // pedro/marcelo bypassam o limite
     const cubo = document.getElementById('cubo-konami')
     cubo.classList.add('show')
     const sumir = setTimeout(() => {
@@ -468,7 +473,7 @@
 
   // listener global do konami
   window.addEventListener('keydown', (e) => {
-    if (konamiJaUsado()) return
+    if (konamiJaUsado() && !modoKonamiLivre()) return
     konamiBuffer.push(e.code)
     if (konamiBuffer.length > KONAMI.length) konamiBuffer = konamiBuffer.slice(-KONAMI.length)
     if (konamiBuffer.length === KONAMI.length && konamiBuffer.every((k, i) => k === KONAMI[i])) {
@@ -526,6 +531,7 @@
     constructor() { super('Menu') }
 
     create() {
+      window.__perfilAtual = null // limpa perfil ao voltar ao menu
       // fundo estrelado
       this.estrelas = []
       for (let i = 0; i < 80; i++) {
@@ -591,6 +597,7 @@
 
     init(data) {
       this.perfil = data.perfil || decidirPerfil('')
+      window.__perfilAtual = this.perfil
     }
 
     create() {
@@ -633,8 +640,8 @@
       this.physics.add.overlap(this.tiros, this.latas, this.tiroAcerta, null, this)
       this.physics.add.overlap(this.player, this.latas, this.levaDano, null, this)
 
-      // input
-      this.teclas = this.input.keyboard.addKeys('W,A,S,D,SPACE,R,M,P')
+      // input — enableCapture=false pra não bloquear digitação no input HTML do menu
+      this.teclas = this.input.keyboard.addKeys('W,A,S,D,SPACE,R,M,P', false, false)
       this.pausado = false
 
       // controles touch (mobile)
