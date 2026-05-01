@@ -130,7 +130,10 @@
         cooldown: 50,
         piercing: 3,
         vidas: 3,
-        permiteR: true
+        permiteR: true,
+        sprite: 'garrafa',
+        tiroSprite: 'tiro',
+        bombaContato: false
       }
     }
     if (nome === 'pedro') {
@@ -142,7 +145,40 @@
         cooldown: 2000,
         piercing: 1,
         vidas: 5,
-        permiteR: false
+        permiteR: false,
+        sprite: 'garrafa',
+        tiroSprite: 'tiro',
+        bombaContato: false
+      }
+    }
+    if (nome === 'julia') {
+      return {
+        nome: 'JULIA',
+        tipo: 'princesa',
+        label: '👑 MODO PRINCESA',
+        cor: '#ff6fb5',
+        cooldown: 500,
+        piercing: 1,
+        vidas: 3,
+        permiteR: false,
+        sprite: 'princesa',
+        tiroSprite: 'tiroCoracao',
+        bombaContato: false
+      }
+    }
+    if (nome === 'carol') {
+      return {
+        nome: 'CAROL',
+        tipo: 'chinelo',
+        label: '🩴 MODO CHINELO',
+        cor: '#ff4f6f',
+        cooldown: 500,
+        piercing: 1,
+        vidas: 3,
+        permiteR: false,
+        sprite: 'chinelo',
+        tiroSprite: 'tiro',
+        bombaContato: true
       }
     }
     return {
@@ -153,7 +189,10 @@
       cooldown: 500,
       piercing: 1,
       vidas: 3,
-      permiteR: false
+      permiteR: false,
+      sprite: 'garrafa',
+      tiroSprite: 'tiro',
+      bombaContato: false
     }
   }
 
@@ -288,7 +327,7 @@
       this.vidas = this.perfil.vidas
       this.proxTiro = 0
       this.proxSpawn = 0
-      this.intervaloSpawn = 1100
+      this.intervaloSpawn = 1400
       this.dificuldade = 0
       this.gameOver = false
 
@@ -307,7 +346,7 @@
       }
 
       // player
-      this.player = this.physics.add.sprite(W / 2, H - 90, 'garrafa')
+      this.player = this.physics.add.sprite(W / 2, H - 90, this.perfil.sprite)
       this.player.setCollideWorldBounds(true)
       this.player.body.setSize(28, 40, true)
 
@@ -339,13 +378,13 @@
         }).setOrigin(0.5, 0)
       }
 
-      // dificuldade aumenta com o tempo
+      // dificuldade aumenta com o tempo (mais devagar pra dar tempo de respirar)
       this.time.addEvent({
-        delay: 5000,
+        delay: 6000,
         loop: true,
         callback: () => {
           this.dificuldade++
-          this.intervaloSpawn = Math.max(300, this.intervaloSpawn - 90)
+          this.intervaloSpawn = Math.max(400, this.intervaloSpawn - 70)
         }
       })
     }
@@ -390,13 +429,29 @@
 
       // limpar tiros que saíram
       this.tiros.children.each(t => { if (t.y < -20) t.destroy() })
+      // latas que passaram embaixo: toma dano
       this.latas.children.each(l => {
-        if (l.y > H + 30) l.destroy()
+        if (l.y > H + 30) {
+          l.destroy()
+          this.passouLata()
+        }
       })
     }
 
+    passouLata() {
+      if (this.gameOver) return
+      this.vidas--
+      this.txtVidas.setText('❤'.repeat(Math.max(0, this.vidas)))
+      somDano()
+      this.cameras.main.shake(150, 0.008)
+      // flash vermelho na borda inferior pra avisar que passou
+      const aviso = this.add.rectangle(W / 2, H - 4, W, 8, 0xff4f6f).setOrigin(0.5, 0.5)
+      this.tweens.add({ targets: aviso, alpha: 0, duration: 400, onComplete: () => aviso.destroy() })
+      if (this.vidas <= 0) this.terminar()
+    }
+
     atirar() {
-      const tiro = this.tiros.create(this.player.x, this.player.y - 28, 'tiro')
+      const tiro = this.tiros.create(this.player.x, this.player.y - 28, this.perfil.tiroSprite)
       tiro.body.setSize(8, 16)
       tiro.setVelocityY(-520)
       tiro.acertosRestantes = this.perfil.piercing
@@ -461,6 +516,12 @@
     }
 
     levaDano(player, lata) {
+      // chinelo da Carol: contato detona TODAS as latas com efeito de coração, sem perder vida
+      if (this.perfil.bombaContato) {
+        this.bombaCoracao()
+        return
+      }
+
       this.explodir(lata.x, lata.y)
       lata.destroy()
       this.vidas--
@@ -474,6 +535,58 @@
       this.time.delayedCall(800, () => this.player.setAlpha(1))
 
       if (this.vidas <= 0) this.terminar()
+    }
+
+    bombaCoracao() {
+      // limpa todas as latas da tela, com efeito de coração voando
+      const latasArr = this.latas.getChildren().slice()
+      latasArr.forEach(lata => {
+        const x = lata.x, y = lata.y
+        // 6 corações voando por lata
+        for (let i = 0; i < 6; i++) {
+          const c = this.add.text(x, y, '❤', {
+            fontSize: Phaser.Math.Between(18, 28) + 'px',
+            color: Phaser.Utils.Array.GetRandom(['#ff4f6f', '#ff6fb5', '#ffd166', '#ff9fc4'])
+          }).setOrigin(0.5)
+          const ang = Math.random() * Math.PI * 2
+          const sp = Phaser.Math.Between(80, 200)
+          this.tweens.add({
+            targets: c,
+            x: x + Math.cos(ang) * sp,
+            y: y + Math.sin(ang) * sp,
+            alpha: 0,
+            scale: { from: 1, to: 1.6 },
+            angle: Phaser.Math.Between(-180, 180),
+            duration: Phaser.Math.Between(500, 900),
+            ease: 'Cubic.easeOut',
+            onComplete: () => c.destroy()
+          })
+        }
+        lata.destroy()
+        this.score += 10
+      })
+      this.txtScore.setText('SCORE: ' + this.score)
+
+      // flash rosa + shake leve
+      this.cameras.main.flash(180, 255, 180, 220)
+      this.cameras.main.shake(180, 0.008)
+
+      // som mágico
+      bip(660, 0.08, 'sine', 0.12)
+      setTimeout(() => bip(880, 0.08, 'sine', 0.12), 70)
+      setTimeout(() => bip(1320, 0.15, 'sine', 0.12), 140)
+
+      // texto central
+      const t = this.add.text(W / 2, H / 2, '💖 CHINELADA! 💖', {
+        fontSize: '38px', color: '#ff4f6f', fontFamily: 'Impact, sans-serif'
+      }).setOrigin(0.5)
+      this.tweens.add({
+        targets: t,
+        scale: { from: 0.5, to: 1.4 },
+        alpha: { from: 1, to: 0 },
+        duration: 800,
+        onComplete: () => t.destroy()
+      })
     }
 
     terminar() {
@@ -526,6 +639,9 @@
       this.fazerGarrafa()
       this.fazerLata()
       this.fazerTiro()
+      this.fazerPrincesa()
+      this.fazerChinelo()
+      this.fazerTiroCoracao()
       this.scene.start('Menu')
     }
 
@@ -617,6 +733,116 @@
       g.fillStyle(0xffffff, 0.7)
       g.fillCircle(5, 9, 1.5)
       g.generateTexture('tiro', 12, 16)
+      g.destroy()
+    }
+
+    fazerTiroCoracao() {
+      const g = this.add.graphics()
+      // coração rosa
+      g.fillStyle(0xff6fb5, 1)
+      g.fillCircle(5, 6, 4)
+      g.fillCircle(11, 6, 4)
+      g.fillTriangle(1, 7, 15, 7, 8, 15)
+      g.fillStyle(0xffffff, 0.6)
+      g.fillCircle(4, 5, 1.2)
+      g.generateTexture('tiroCoracao', 16, 16)
+      g.destroy()
+    }
+
+    fazerPrincesa() {
+      const g = this.add.graphics()
+
+      // vestido (triângulo invertido rosa)
+      g.fillStyle(0xff6fb5, 1)
+      g.fillTriangle(4, 76, 36, 76, 20, 36)
+      // detalhe do vestido (mais escuro embaixo)
+      g.fillStyle(0xc94a8a, 1)
+      g.fillTriangle(4, 76, 36, 76, 20, 64)
+      // brilho do vestido
+      g.fillStyle(0xffffff, 0.4)
+      g.fillTriangle(14, 50, 18, 50, 16, 70)
+
+      // tronco (parte de cima do vestido, mais clara)
+      g.fillStyle(0xffaad4, 1)
+      g.fillRoundedRect(12, 30, 16, 14, 3)
+
+      // cabeça
+      g.fillStyle(0xffd6b3, 1)
+      g.fillCircle(20, 22, 9)
+      // olhos
+      g.fillStyle(0x000000, 1)
+      g.fillCircle(17, 22, 1.5)
+      g.fillCircle(23, 22, 1.5)
+      // sorriso
+      g.lineStyle(1.5, 0xc94a8a, 1)
+      g.beginPath()
+      g.arc(20, 25, 2.5, 0, Math.PI, false)
+      g.strokePath()
+      // bochecha
+      g.fillStyle(0xff9fc4, 0.6)
+      g.fillCircle(15, 24, 2)
+      g.fillCircle(25, 24, 2)
+
+      // cabelo loiro (atrás da cabeça)
+      g.fillStyle(0xffe066, 1)
+      g.fillCircle(11, 22, 5)
+      g.fillCircle(29, 22, 5)
+      g.fillRect(10, 22, 20, 12)
+
+      // coroa
+      g.fillStyle(0xffd700, 1)
+      g.fillTriangle(13, 14, 16, 8, 19, 14)
+      g.fillTriangle(17, 14, 20, 6, 23, 14)
+      g.fillTriangle(21, 14, 24, 8, 27, 14)
+      g.fillRect(13, 13, 14, 3)
+      // joia da coroa
+      g.fillStyle(0xff4f6f, 1)
+      g.fillCircle(20, 11, 1.5)
+
+      g.generateTexture('princesa', 40, 80)
+      g.destroy()
+    }
+
+    fazerChinelo() {
+      const g = this.add.graphics()
+
+      // sombra
+      g.fillStyle(0x000000, 0.25)
+      g.fillEllipse(20, 70, 26, 6)
+
+      // sola (visto de cima, oval)
+      g.fillStyle(0x4fdb9b, 1)
+      g.fillEllipse(20, 38, 30, 56)
+      // borda mais escura
+      g.lineStyle(2, 0x2a8866, 1)
+      g.strokeEllipse(20, 38, 30, 56)
+      // brilho
+      g.fillStyle(0xffffff, 0.3)
+      g.fillEllipse(14, 28, 6, 18)
+
+      // tira em V (preta)
+      g.lineStyle(3, 0x222222, 1)
+      g.beginPath()
+      g.moveTo(20, 16)
+      g.lineTo(13, 30)
+      g.moveTo(20, 16)
+      g.lineTo(27, 30)
+      g.strokePath()
+      // pino central (fixa as tiras)
+      g.fillStyle(0x222222, 1)
+      g.fillCircle(20, 16, 2)
+
+      // florzinha decorativa
+      g.fillStyle(0xff6fb5, 1)
+      g.fillCircle(20, 20, 2)
+      g.fillCircle(18, 18, 1.5)
+      g.fillCircle(22, 18, 1.5)
+      g.fillCircle(18, 22, 1.5)
+      g.fillCircle(22, 22, 1.5)
+      g.fillStyle(0xffd166, 1)
+      g.fillCircle(20, 20, 0.8)
+
+      g.generateTexture('chinelo', 40, 76)
       g.destroy()
     }
   }
