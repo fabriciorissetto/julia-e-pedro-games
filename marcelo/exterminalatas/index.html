@@ -346,6 +346,22 @@
         bombaContato: false
       }
     }
+    if (nome === 'alana') {
+      return {
+        nome: 'ALANA',
+        tipo: 'miku',
+        label: '🎤 MODO HATSUNE MIKU',
+        cor: '#39c5bb',
+        cooldown: 50,
+        piercing: 1,
+        vidas: 3,
+        permiteR: false,
+        sprite: 'miku',
+        tiroSprite: 'microfone',
+        bombaContato: false,
+        inimigoSprite: 'teto'
+      }
+    }
     if (nome === 'carol') {
       return {
         nome: 'CAROL',
@@ -1215,6 +1231,9 @@
       this.fazerChinelo()
       this.fazerTiroCoracao()
       this.fazerMenino()
+      this.fazerMiku()
+      this.fazerMicrofone()
+      this.fazerTeto()
       this.scene.start('Menu')
     }
 
@@ -1373,6 +1392,189 @@
       g.fillCircle(20, 11, 1.5)
 
       g.generateTexture('princesa', 40, 80)
+      g.destroy()
+    }
+
+    fazerMiku() {
+      const g = this.add.graphics()
+      const PELE = 0xfde0d0
+      const CABELO = 0x39c5bb     // turquesa Miku
+      const PRETO = 0x222222
+      const CYAN = 0x4cc4d3
+
+      // sombra
+      g.fillStyle(0x000000, 0.3)
+      g.fillEllipse(20, 78, 22, 4)
+
+      // botas pretas (kneehigh)
+      g.fillStyle(PRETO, 1)
+      g.fillRoundedRect(13, 60, 5, 18, 1)
+      g.fillRoundedRect(22, 60, 5, 18, 1)
+
+      // saia preta plissada
+      g.fillStyle(PRETO, 1)
+      g.fillTriangle(7, 60, 33, 60, 28, 47)
+      g.fillRect(11, 47, 18, 13)
+
+      // top preto
+      g.fillStyle(PRETO, 1)
+      g.fillRoundedRect(12, 30, 16, 18, 2)
+
+      // gravata cyan
+      g.fillStyle(CYAN, 1)
+      g.fillTriangle(18, 30, 22, 30, 20, 35)
+      g.fillRect(18, 35, 4, 7)
+
+      // braços
+      g.fillStyle(PELE, 1)
+      g.fillRect(9, 32, 4, 14)
+      g.fillRect(27, 32, 4, 14)
+
+      // pescoço
+      g.fillStyle(PELE, 1)
+      g.fillRect(17, 26, 6, 4)
+
+      // cabeça
+      g.fillStyle(PELE, 1)
+      g.fillCircle(20, 18, 9)
+
+      // olhos turquesa grandes (estilo anime)
+      g.fillStyle(CABELO, 1)
+      g.fillEllipse(16, 19, 3, 4)
+      g.fillEllipse(24, 19, 3, 4)
+      g.fillStyle(0x000000, 1)
+      g.fillCircle(16, 19, 1)
+      g.fillCircle(24, 19, 1)
+      g.fillStyle(0xffffff, 1)
+      g.fillCircle(15, 18, 0.8)
+      g.fillCircle(23, 18, 0.8)
+
+      // boca pequena
+      g.fillStyle(0xc94a4a, 1)
+      g.fillRect(19, 22, 2, 1)
+
+      // cabelo turquesa em cima
+      g.fillStyle(CABELO, 1)
+      g.fillEllipse(20, 10, 18, 8)
+      g.fillRect(11, 10, 18, 4)
+      // franja
+      g.fillTriangle(13, 14, 19, 11, 18, 18)
+      g.fillTriangle(27, 14, 21, 11, 22, 18)
+
+      // twin tails MUITO longos descendo dos lados
+      g.fillStyle(CABELO, 1)
+      // tail esquerda
+      g.fillRoundedRect(2, 14, 6, 50, 2)
+      g.fillCircle(5, 64, 3)
+      // tail direita
+      g.fillRoundedRect(32, 14, 6, 50, 2)
+      g.fillCircle(35, 64, 3)
+      // base do twin tail (rabicó cyan claro)
+      g.fillStyle(CYAN, 1)
+      g.fillRect(2, 14, 6, 2)
+      g.fillRect(32, 14, 6, 2)
+
+      g.generateTexture('miku', 40, 80)
+      g.destroy()
+    }
+
+    fazerMicrofone() {
+      const g = this.add.graphics()
+      // cabeça do microfone (esfera prateada)
+      g.fillStyle(0x999999, 1)
+      g.fillCircle(8, 6, 5)
+      // grade (linhas finas escuras)
+      g.lineStyle(0.5, 0x444444, 1)
+      g.lineBetween(4, 5, 12, 5)
+      g.lineBetween(4, 7, 12, 7)
+      // brilho na esfera
+      g.fillStyle(0xffffff, 0.6)
+      g.fillCircle(6, 4, 1.5)
+
+      // cabo do microfone
+      g.fillStyle(0x222222, 1)
+      g.fillRect(6, 11, 4, 8)
+      // botão vermelho
+      g.fillStyle(0xff4f6f, 1)
+      g.fillCircle(8, 14, 0.8)
+
+      g.generateTexture('microfone', 16, 20)
+      g.destroy()
+    }
+
+    fazerTeto() {
+      const g = this.add.graphics()
+      const PELE = 0xfde0d0
+      const VERMELHO = 0xc92a4a
+      const CABELO = 0xd6325a    // vermelho-magenta Teto
+      const CABELO_DARK = 0x8a1a30
+      const PRETO = 0x222222
+
+      // sombra
+      g.fillStyle(0x000000, 0.3)
+      g.fillEllipse(20, 41, 22, 4)
+
+      // top vermelho/preto
+      g.fillStyle(VERMELHO, 1)
+      g.fillRoundedRect(11, 22, 18, 18, 3)
+      g.fillStyle(PRETO, 1)
+      g.fillRect(11, 36, 18, 4)
+
+      // braços
+      g.fillStyle(PELE, 1)
+      g.fillCircle(10, 26, 3)
+      g.fillCircle(30, 26, 3)
+
+      // pescoço
+      g.fillStyle(PELE, 1)
+      g.fillRect(18, 20, 4, 3)
+
+      // cabeça
+      g.fillStyle(PELE, 1)
+      g.fillCircle(20, 14, 7)
+
+      // cabelo topo + franja
+      g.fillStyle(CABELO, 1)
+      g.fillEllipse(20, 8, 16, 7)
+      g.fillRect(13, 8, 14, 4)
+      g.fillTriangle(14, 12, 20, 9, 18, 16)
+      g.fillTriangle(26, 12, 20, 9, 22, 16)
+
+      // drills (twin drills cônicos saindo dos lados)
+      g.fillStyle(CABELO, 1)
+      // drill esquerdo - 3 esferas decrescentes
+      g.fillCircle(7, 16, 4.5)
+      g.fillCircle(6, 21, 3.8)
+      g.fillCircle(6, 26, 3)
+      // drill direito
+      g.fillCircle(33, 16, 4.5)
+      g.fillCircle(34, 21, 3.8)
+      g.fillCircle(34, 26, 3)
+      // detalhe espiral (linhas escuras)
+      g.lineStyle(1, CABELO_DARK, 1)
+      g.beginPath()
+      g.arc(7, 16, 3, -Math.PI / 4, Math.PI * 1.25)
+      g.strokePath()
+      g.beginPath()
+      g.arc(33, 16, 3, -Math.PI / 4, Math.PI * 1.25)
+      g.strokePath()
+
+      // olhos vermelhos
+      g.fillStyle(0xff2f5f, 1)
+      g.fillEllipse(17, 14, 2.5, 3)
+      g.fillEllipse(23, 14, 2.5, 3)
+      g.fillStyle(0x000000, 1)
+      g.fillCircle(17, 14, 0.8)
+      g.fillCircle(23, 14, 0.8)
+      g.fillStyle(0xffffff, 1)
+      g.fillCircle(16.5, 13.5, 0.5)
+      g.fillCircle(22.5, 13.5, 0.5)
+
+      // boca
+      g.fillStyle(0xc94a4a, 1)
+      g.fillRect(19, 17, 2, 1)
+
+      g.generateTexture('teto', 40, 44)
       g.destroy()
     }
 
