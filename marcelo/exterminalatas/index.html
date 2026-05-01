@@ -33,11 +33,81 @@
       backdrop-filter: blur(6px);
     }
     .back:hover { background: rgba(255,255,255,0.28); }
+
+    /* overlay de seleção de nome */
+    #nome-overlay {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 20;
+      background: rgba(0,0,0,0.65);
+      backdrop-filter: blur(4px);
+    }
+    #nome-overlay.show { display: flex; }
+    .nome-box {
+      background: linear-gradient(135deg, #1a2540 0%, #0b1220 100%);
+      padding: 28px 24px;
+      border-radius: 16px;
+      border: 2px solid #ff7e45;
+      text-align: center;
+      max-width: 380px;
+      width: 86%;
+      box-shadow: 0 20px 60px rgba(255, 126, 69, 0.3);
+    }
+    .nome-box h2 {
+      color: #ffd166;
+      margin-bottom: 6px;
+      font-family: Impact, sans-serif;
+      font-size: 32px;
+      letter-spacing: 0.06em;
+    }
+    .nome-box p { color: #9bb; margin-bottom: 18px; font-size: 13px; }
+    #campo-nome {
+      width: 100%;
+      padding: 12px;
+      font-size: 22px;
+      font-weight: bold;
+      border-radius: 8px;
+      border: 2px solid #4f9bff;
+      background: #0b1220;
+      color: white;
+      text-align: center;
+      margin-bottom: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    #campo-nome:focus { outline: none; border-color: #ff7e45; }
+    #btn-comecar {
+      width: 100%;
+      padding: 14px;
+      font-size: 20px;
+      font-weight: bold;
+      letter-spacing: 0.05em;
+      background: linear-gradient(135deg, #ff7e45, #ff4f6f);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: transform 0.1s;
+    }
+    #btn-comecar:hover { transform: scale(1.03); }
+    #btn-comecar:active { transform: scale(0.98); }
   </style>
 </head>
 <body>
   <a class="back" href="../">← Voltar</a>
   <div id="game"></div>
+
+  <div id="nome-overlay">
+    <div class="nome-box">
+      <h2>QUAL O SEU NOME?</h2>
+      <p>(tente nomes diferentes pra descobrir coisas)</p>
+      <input id="campo-nome" type="text" maxlength="20" autocomplete="off" />
+      <button id="btn-comecar">COMEÇAR</button>
+    </div>
+  </div>
 
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
   <script>
@@ -47,6 +117,57 @@
 
   const W = 480
   const H = 720
+
+  // ---------- perfis (easter eggs por nome) ----------
+  function decidirPerfil(nomeRaw) {
+    const nome = (nomeRaw || '').trim().toLowerCase()
+    if (nome === 'fabricio' || nome === 'marcelo') {
+      return {
+        nome: nome.toUpperCase(),
+        tipo: 'super',
+        label: '⚡ MODO METRALHADORA',
+        cor: '#ffd166',
+        cooldown: 50,
+        piercing: 3,
+        vidas: 3,
+        permiteR: true
+      }
+    }
+    if (nome === 'pedro') {
+      return {
+        nome: 'PEDRO',
+        tipo: 'tanque',
+        label: '🛡 MODO TANQUE',
+        cor: '#4f9bff',
+        cooldown: 2000,
+        piercing: 1,
+        vidas: 5,
+        permiteR: false
+      }
+    }
+    return {
+      nome: nome ? nome.toUpperCase() : 'JOGADOR',
+      tipo: 'normal',
+      label: nome ? nome.toUpperCase() : 'JOGADOR',
+      cor: '#ffffff',
+      cooldown: 500,
+      piercing: 1,
+      vidas: 3,
+      permiteR: false
+    }
+  }
+
+  // ---------- helpers do overlay ----------
+  function mostrarOverlay() {
+    const ov = document.getElementById('nome-overlay')
+    ov.classList.add('show')
+    const inp = document.getElementById('campo-nome')
+    inp.focus()
+    inp.select()
+  }
+  function esconderOverlay() {
+    document.getElementById('nome-overlay').classList.remove('show')
+  }
 
   // ---------- som via WebAudio (sem arquivos) ----------
   let audioCtx = null
@@ -126,13 +247,21 @@
       const recorde = parseInt(localStorage.getItem('exterminalatas_hi') || '0')
       this.add.text(W / 2, 560, 'RECORDE: ' + recorde, { fontSize: '22px', color: '#ffd166', fontStyle: 'bold' }).setOrigin(0.5)
 
-      const start = this.add.text(W / 2, 640, '▶ APERTE Z PRA COMEÇAR', {
-        fontSize: '20px', color: '#fff', backgroundColor: '#ff4f6f', padding: { x: 16, y: 10 }
-      }).setOrigin(0.5)
-      this.tweens.add({ targets: start, scale: 1.05, duration: 500, yoyo: true, repeat: -1 })
+      // overlay de nome
+      mostrarOverlay()
+      const inp = document.getElementById('campo-nome')
+      const btn = document.getElementById('btn-comecar')
 
-      this.input.keyboard.once('keydown-Z', () => this.scene.start('Game'))
-      this.input.on('pointerdown', () => this.scene.start('Game'))
+      const comecar = () => {
+        const perfil = decidirPerfil(inp.value)
+        // remove listeners pra não duplicar
+        btn.onclick = null
+        inp.onkeydown = null
+        esconderOverlay()
+        this.scene.start('Game', { perfil })
+      }
+      btn.onclick = comecar
+      inp.onkeydown = (e) => { if (e.key === 'Enter') comecar() }
     }
 
     update() {
@@ -149,9 +278,14 @@
   class Game extends Phaser.Scene {
     constructor() { super('Game') }
 
+    init(data) {
+      this.perfil = data.perfil || decidirPerfil('')
+    }
+
     create() {
+      esconderOverlay()
       this.score = 0
-      this.vidas = 3
+      this.vidas = this.perfil.vidas
       this.proxTiro = 0
       this.proxSpawn = 0
       this.intervaloSpawn = 1100
@@ -186,14 +320,24 @@
       this.physics.add.overlap(this.player, this.latas, this.levaDano, null, this)
 
       // input
-      this.teclas = this.input.keyboard.addKeys('W,A,S,D,Z,R')
+      this.teclas = this.input.keyboard.addKeys('W,A,S,D,Z,R,M')
 
       // HUD
       this.txtScore = this.add.text(14, 12, 'SCORE: 0', { fontSize: '20px', color: '#fff', fontStyle: 'bold' })
-      this.txtVidas = this.add.text(W - 14, 12, '❤❤❤', { fontSize: '22px' }).setOrigin(1, 0)
+      this.txtVidas = this.add.text(W - 14, 12, '❤'.repeat(this.vidas), { fontSize: '22px' }).setOrigin(1, 0)
 
       const recorde = parseInt(localStorage.getItem('exterminalatas_hi') || '0')
       this.txtRec = this.add.text(W / 2, 12, 'HI: ' + recorde, { fontSize: '16px', color: '#ffd166' }).setOrigin(0.5, 0)
+
+      // mostra perfil ativo
+      this.add.text(W / 2, 38, this.perfil.label, {
+        fontSize: '13px', color: this.perfil.cor, fontStyle: 'bold'
+      }).setOrigin(0.5, 0)
+      if (this.perfil.permiteR) {
+        this.add.text(W / 2, 56, '(R = + difícil)', {
+          fontSize: '11px', color: '#9bb'
+        }).setOrigin(0.5, 0)
+      }
 
       // dificuldade aumenta com o tempo
       this.time.addEvent({
@@ -214,8 +358,14 @@
       })
 
       if (this.gameOver) {
-        if (this.teclas.R.isDown) this.scene.restart()
+        if (this.teclas.R.isDown) this.scene.restart({ perfil: this.perfil })
+        if (this.teclas.M.isDown) this.scene.start('Menu')
         return
+      }
+
+      // R durante o jogo: só no modo super, aumenta dificuldade
+      if (this.perfil.permiteR && Phaser.Input.Keyboard.JustDown(this.teclas.R)) {
+        this.aumentarDificuldade()
       }
 
       // movimento
@@ -229,7 +379,7 @@
       // tiro
       if (this.teclas.Z.isDown && time > this.proxTiro) {
         this.atirar()
-        this.proxTiro = time + 500
+        this.proxTiro = time + this.perfil.cooldown
       }
 
       // spawn lata
@@ -249,7 +399,28 @@
       const tiro = this.tiros.create(this.player.x, this.player.y - 28, 'tiro')
       tiro.body.setSize(8, 16)
       tiro.setVelocityY(-520)
+      tiro.acertosRestantes = this.perfil.piercing
+      // tiro com piercing fica laranja brilhante
+      if (this.perfil.piercing > 1) tiro.setTint(0xffaa33)
       somTiro()
+    }
+
+    aumentarDificuldade() {
+      this.dificuldade += 2
+      this.intervaloSpawn = Math.max(150, this.intervaloSpawn - 200)
+      // aviso na tela
+      const aviso = this.add.text(W / 2, H / 2, 'MAIS DIFÍCIL!', {
+        fontSize: '40px', color: '#ff4f6f', fontFamily: 'Impact, sans-serif'
+      }).setOrigin(0.5)
+      this.tweens.add({
+        targets: aviso,
+        scale: { from: 0.5, to: 1.4 },
+        alpha: { from: 1, to: 0 },
+        duration: 700,
+        onComplete: () => aviso.destroy()
+      })
+      bip(660, 0.1, 'square', 0.12)
+      setTimeout(() => bip(880, 0.15, 'square', 0.12), 100)
     }
 
     spawnLata() {
@@ -263,8 +434,9 @@
 
     tiroAcerta(tiro, lata) {
       this.explodir(lata.x, lata.y)
-      tiro.destroy()
       lata.destroy()
+      tiro.acertosRestantes--
+      if (tiro.acertosRestantes <= 0) tiro.destroy()
       this.score += 10
       this.txtScore.setText('SCORE: ' + this.score)
       somExplode()
@@ -335,8 +507,11 @@
         }).setOrigin(0.5)
       }
 
-      this.add.text(W / 2, H / 2 + 100, 'R pra jogar de novo', {
+      this.add.text(W / 2, H / 2 + 100, 'R = jogar de novo', {
         fontSize: '20px', color: '#fff', backgroundColor: '#4f9bff', padding: { x: 14, y: 8 }
+      }).setOrigin(0.5)
+      this.add.text(W / 2, H / 2 + 150, 'M = trocar de nome', {
+        fontSize: '16px', color: '#9bb'
       }).setOrigin(0.5)
     }
   }
