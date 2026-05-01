@@ -634,7 +634,8 @@
       this.physics.add.overlap(this.player, this.latas, this.levaDano, null, this)
 
       // input
-      this.teclas = this.input.keyboard.addKeys('W,A,S,D,SPACE,R,M')
+      this.teclas = this.input.keyboard.addKeys('W,A,S,D,SPACE,R,M,P')
+      this.pausado = false
 
       // controles touch (mobile)
       this.touch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0
@@ -643,6 +644,17 @@
       this.dragPointerId = null
       this.botaoPointerIds = new Set()
       if (this.touch) this.criarControlesTouch()
+
+      // botão de pause (canto inferior esquerdo, longe dos botões touch)
+      const btPause = this.add.text(14, H - 14, '⏸', {
+        fontSize: '22px',
+        backgroundColor: 'rgba(0,0,0,0.45)',
+        padding: { x: 8, y: 4 }
+      }).setOrigin(0, 1).setDepth(40)
+      btPause.setInteractive({ useHandCursor: true })
+      btPause.on('pointerdown', () => this.togglePausa())
+
+      this.criarMenuPausa()
 
       // HUD
       this.txtScore = this.add.text(14, 12, 'SCORE: 0', { fontSize: '20px', color: '#fff', fontStyle: 'bold' })
@@ -689,6 +701,10 @@
         if (this.teclas.M.isDown) this.scene.start('Menu')
         return
       }
+
+      // pause com P
+      if (Phaser.Input.Keyboard.JustDown(this.teclas.P)) this.togglePausa()
+      if (this.pausado) return
 
       // R durante o jogo: só no modo super, aumenta dificuldade
       if (this.perfil.permiteR && Phaser.Input.Keyboard.JustDown(this.teclas.R)) {
@@ -746,6 +762,58 @@
       const aviso = this.add.rectangle(W / 2, H - 4, W, 8, 0xff4f6f).setOrigin(0.5, 0.5)
       this.tweens.add({ targets: aviso, alpha: 0, duration: 400, onComplete: () => aviso.destroy() })
       if (this.vidas <= 0) this.terminar()
+    }
+
+    criarMenuPausa() {
+      this.menuPausaContainer = this.add.container(0, 0).setDepth(100).setVisible(false)
+
+      const bg = this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.8)
+      const titulo = this.add.text(W / 2, H / 2 - 150, 'PAUSADO', {
+        fontSize: '54px', color: '#ffd166', fontFamily: 'Impact, sans-serif'
+      }).setOrigin(0.5)
+
+      const btnContinuar = this.fazerBotaoMenu(W / 2, H / 2 - 40, '▶ CONTINUAR', '#4f9bff', () => this.togglePausa())
+      const btnReiniciar = this.fazerBotaoMenu(W / 2, H / 2 + 20, '↻ REINICIAR', '#ff7e45', () => {
+        this.pausado = false
+        this.physics.resume()
+        this.scene.restart({ perfil: this.perfil })
+      })
+      const btnSair = this.fazerBotaoMenu(W / 2, H / 2 + 80, '⌂ TROCAR DE NOME', '#ff4f6f', () => {
+        this.pausado = false
+        this.physics.resume()
+        this.scene.start('Menu')
+      })
+
+      const dica = this.add.text(W / 2, H / 2 + 160, 'P pra pausar/continuar', {
+        fontSize: '13px', color: '#9bb'
+      }).setOrigin(0.5)
+
+      this.menuPausaContainer.add([bg, titulo, ...btnContinuar, ...btnReiniciar, ...btnSair, dica])
+    }
+
+    fazerBotaoMenu(x, y, texto, corHex, onClick) {
+      const cor = Phaser.Display.Color.HexStringToColor(corHex).color
+      const bg = this.add.rectangle(x, y, 240, 44, cor, 0.92).setStrokeStyle(2, 0xffffff, 0.7)
+      const txt = this.add.text(x, y, texto, {
+        fontSize: '18px', color: '#fff', fontStyle: 'bold'
+      }).setOrigin(0.5)
+      bg.setInteractive({ useHandCursor: true })
+      bg.on('pointerdown', onClick)
+      bg.on('pointerover', () => { bg.setScale(1.05); txt.setScale(1.05) })
+      bg.on('pointerout',  () => { bg.setScale(1);    txt.setScale(1) })
+      return [bg, txt]
+    }
+
+    togglePausa() {
+      if (this.gameOver) return
+      this.pausado = !this.pausado
+      if (this.pausado) {
+        this.physics.pause()
+        this.menuPausaContainer.setVisible(true)
+      } else {
+        this.physics.resume()
+        this.menuPausaContainer.setVisible(false)
+      }
     }
 
     criarControlesTouch() {
