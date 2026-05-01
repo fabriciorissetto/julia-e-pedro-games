@@ -341,7 +341,9 @@
         permiteR: false,
         sprite: 'chinelo',
         tiroSprite: 'tiro',
-        bombaContato: true
+        bombaContato: true,
+        inimigoSprite: 'menino',
+        frasesInimigo: ['ficou acordado até tarde', 'aprontou', 'arrumou briga']
       }
     }
     return {
@@ -749,10 +751,11 @@
 
       // limpar tiros que saíram
       this.tiros.children.each(t => { if (t.y < -20) t.destroy() })
-      // latas que passaram embaixo: toma dano
+      // latas: tag flutuante segue + remove se passou
       this.latas.children.each(l => {
+        if (l.tag) l.tag.setPosition(l.x, l.y - 30)
         if (l.y > H + 30) {
-          l.destroy()
+          this.destruirLata(l)
           this.passouLata()
         }
       })
@@ -914,16 +917,35 @@
 
     spawnLata() {
       const x = Phaser.Math.Between(30, W - 30)
-      const lata = this.latas.create(x, -20, 'lata')
+      const sprite = this.perfil.inimigoSprite || 'lata'
+      const lata = this.latas.create(x, -20, sprite)
       lata.body.setSize(28, 36)
       const vy = 90 + this.dificuldade * 18 + Phaser.Math.Between(0, 40)
       lata.setVelocityY(vy)
-      lata.setAngularVelocity(Phaser.Math.Between(-80, 80))
+      // só lata gira (menino fica em pé)
+      if (sprite === 'lata') lata.setAngularVelocity(Phaser.Math.Between(-80, 80))
+      // tag com frase aleatória (modo carol)
+      if (this.perfil.frasesInimigo) {
+        const frase = Phaser.Utils.Array.GetRandom(this.perfil.frasesInimigo)
+        lata.tag = this.add.text(x, -42, frase, {
+          fontSize: '11px',
+          color: '#fff',
+          backgroundColor: '#222',
+          padding: { x: 5, y: 2 },
+          stroke: '#000',
+          strokeThickness: 2
+        }).setOrigin(0.5).setDepth(20)
+      }
+    }
+
+    destruirLata(lata) {
+      if (lata.tag) { lata.tag.destroy(); lata.tag = null }
+      lata.destroy()
     }
 
     tiroAcerta(tiro, lata) {
       this.explodir(lata.x, lata.y)
-      lata.destroy()
+      this.destruirLata(lata)
       tiro.acertosRestantes--
       if (tiro.acertosRestantes <= 0) tiro.destroy()
       this.score += 10
@@ -953,7 +975,7 @@
       // imortal: destrói a lata, sem dano
       if (this.imortal) {
         this.explodir(lata.x, lata.y)
-        lata.destroy()
+        this.destruirLata(lata)
         this.score += 10
         this.txtScore.setText('SCORE: ' + this.score)
         return
@@ -966,7 +988,7 @@
       }
 
       this.explodir(lata.x, lata.y)
-      lata.destroy()
+      this.destruirLata(lata)
       this.vidas--
       this.txtVidas.setText('❤'.repeat(Math.max(0, this.vidas)))
       somDano()
@@ -1005,7 +1027,7 @@
             onComplete: () => c.destroy()
           })
         }
-        lata.destroy()
+        this.destruirLata(lata)
         this.score += 10
       })
       this.txtScore.setText('SCORE: ' + this.score)
@@ -1089,6 +1111,7 @@
       this.fazerPrincesa()
       this.fazerChinelo()
       this.fazerTiroCoracao()
+      this.fazerMenino()
       this.scene.start('Menu')
     }
 
@@ -1247,6 +1270,64 @@
       g.fillCircle(20, 11, 1.5)
 
       g.generateTexture('princesa', 40, 80)
+      g.destroy()
+    }
+
+    fazerMenino() {
+      const g = this.add.graphics()
+      const PELE = 0xc89a6f      // bronzeado
+      const CABELO = 0x111111    // preto
+      const OLHO = 0x000000      // escuro
+
+      // sombra
+      g.fillStyle(0x000000, 0.3)
+      g.fillEllipse(20, 41, 22, 4)
+
+      // camiseta
+      g.fillStyle(0xc94a4a, 1)
+      g.fillRoundedRect(10, 22, 20, 18, 3)
+      g.fillStyle(0x8a3535, 1)
+      g.fillRect(10, 36, 20, 4) // barra mais escura embaixo
+
+      // braços
+      g.fillStyle(PELE, 1)
+      g.fillCircle(9, 26, 3)
+      g.fillCircle(31, 26, 3)
+
+      // pescoço
+      g.fillStyle(PELE, 1)
+      g.fillRect(17, 20, 6, 4)
+
+      // cabeça
+      g.fillStyle(PELE, 1)
+      g.fillCircle(20, 14, 8)
+
+      // cabelo preto liso (topo + franja na frente)
+      g.fillStyle(CABELO, 1)
+      g.fillEllipse(20, 8, 18, 8)        // topo
+      g.fillRect(11, 8, 18, 4)           // base do cabelo
+      g.fillTriangle(11, 12, 18, 12, 14, 16)   // mecha esquerda da franja
+      g.fillTriangle(22, 12, 29, 12, 26, 16)   // mecha direita da franja
+      g.fillRect(15, 12, 10, 3)          // meio da franja
+
+      // orelhas (brevíssimas)
+      g.fillStyle(PELE, 1)
+      g.fillCircle(12, 14, 1.5)
+      g.fillCircle(28, 14, 1.5)
+
+      // olhos escuros
+      g.fillStyle(OLHO, 1)
+      g.fillCircle(17, 16, 1.5)
+      g.fillCircle(23, 16, 1.5)
+
+      // boca
+      g.lineStyle(1, 0x6b3e2a, 1)
+      g.beginPath()
+      g.moveTo(18, 19)
+      g.lineTo(22, 19)
+      g.strokePath()
+
+      g.generateTexture('menino', 40, 44)
       g.destroy()
     }
 
