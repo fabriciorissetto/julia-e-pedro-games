@@ -94,6 +94,151 @@
     }
     #btn-comecar:hover { transform: scale(1.03); }
     #btn-comecar:active { transform: scale(0.98); }
+
+    /* ===== Konami Code easter egg ===== */
+    #cubo-konami {
+      position: fixed;
+      top: 50%; left: 50%;
+      width: 100px; height: 100px;
+      background: #000;
+      color: #ffd166;
+      font-size: 64px;
+      font-weight: bold;
+      align-items: center;
+      justify-content: center;
+      border: 3px solid #ffd166;
+      border-radius: 14px;
+      z-index: 50;
+      cursor: pointer;
+      box-shadow: 0 0 40px rgba(255, 209, 102, 0.7);
+      display: none;
+      transform: translate(-50%, -50%);
+      animation: pulseKonami 0.6s ease-in-out infinite alternate;
+    }
+    #cubo-konami.show { display: flex; }
+    @keyframes pulseKonami {
+      from { box-shadow: 0 0 30px rgba(255, 209, 102, 0.5); }
+      to   { box-shadow: 0 0 60px rgba(255, 209, 102, 1); }
+    }
+
+    #modal-konami {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.85);
+      z-index: 60;
+      align-items: center;
+      justify-content: center;
+      display: none;
+    }
+    #modal-konami.show { display: flex; }
+    .modal-konami-box {
+      background: #1a1a2e;
+      border: 2px solid #ffd166;
+      border-radius: 12px;
+      padding: 20px;
+      width: 90%;
+      max-width: 420px;
+      color: white;
+    }
+    .modal-konami-box .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+    .modal-konami-box .modal-header h2 {
+      color: #ffd166;
+      font-family: Impact, sans-serif;
+      font-size: 24px;
+      letter-spacing: 0.06em;
+    }
+    #fechar-konami {
+      background: transparent;
+      border: none;
+      color: white;
+      font-size: 28px;
+      cursor: pointer;
+      padding: 0 6px;
+      line-height: 1;
+    }
+    #busca-konami {
+      width: 100%;
+      padding: 12px;
+      font-size: 16px;
+      border: 1px solid #555;
+      background: #0b1220;
+      color: white;
+      border-radius: 6px;
+      margin-bottom: 14px;
+    }
+    #busca-konami:focus { outline: none; border-color: #ffd166; }
+    #resultados-konami { min-height: 80px; }
+    #resultados-konami .vazio {
+      color: #666;
+      text-align: center;
+      font-style: italic;
+      padding: 22px 0;
+      font-size: 14px;
+    }
+    .resultado-item {
+      background: linear-gradient(135deg, #2a2a4a, #1a1a2e);
+      padding: 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      border: 1px solid #ffd166;
+      transition: transform 0.1s;
+    }
+    .resultado-item:hover { transform: scale(1.02); }
+    .resultado-item .nome { font-size: 28px; font-weight: bold; color: #ffd166; }
+    .resultado-item .desc { font-size: 13px; color: #ccc; margin-top: 6px; }
+
+    #cubo-branco {
+      position: fixed;
+      bottom: 14px;
+      right: 14px;
+      width: 36px;
+      height: 36px;
+      background: white;
+      border: 2px solid #ddd;
+      border-radius: 6px;
+      z-index: 30;
+      cursor: pointer;
+      box-shadow: 0 0 14px rgba(255, 255, 255, 0.6);
+      transition: transform 0.15s;
+      display: none;
+    }
+    #cubo-branco.show { display: block; animation: brilhoBranco 1.4s ease-in-out infinite alternate; }
+    #cubo-branco:hover { transform: scale(1.18); }
+    @keyframes brilhoBranco {
+      from { box-shadow: 0 0 8px rgba(255,255,255,0.4); }
+      to   { box-shadow: 0 0 22px rgba(255,255,255,1); }
+    }
+
+    #toast {
+      position: fixed;
+      top: 30%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.9);
+      color: #ffd166;
+      padding: 18px 26px;
+      border-radius: 10px;
+      border: 1px solid #ffd166;
+      z-index: 70;
+      font-size: 18px;
+      font-weight: bold;
+      letter-spacing: 0.04em;
+      text-align: center;
+      max-width: 80%;
+      display: none;
+    }
+    #toast.show { display: block; animation: toastIn 3s forwards; }
+    @keyframes toastIn {
+      0%   { opacity: 0; transform: translateX(-50%) translateY(20px); }
+      10%  { opacity: 1; transform: translateX(-50%) translateY(0); }
+      85%  { opacity: 1; transform: translateX(-50%) translateY(0); }
+      100% { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+    }
   </style>
 </head>
 <body>
@@ -108,6 +253,24 @@
       <button id="btn-comecar">COMEÇAR</button>
     </div>
   </div>
+
+  <div id="cubo-konami">?</div>
+
+  <div id="modal-konami">
+    <div class="modal-konami-box">
+      <div class="modal-header">
+        <h2>ABA KONAMI</h2>
+        <button id="fechar-konami" type="button">×</button>
+      </div>
+      <input id="busca-konami" type="text" placeholder="🔍 Pesquisar..." autocomplete="off" />
+      <div id="resultados-konami">
+        <p class="vazio">Nada por aqui ainda...</p>
+      </div>
+    </div>
+  </div>
+
+  <div id="cubo-branco" title="???"></div>
+  <div id="toast"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
   <script>
@@ -207,6 +370,115 @@
   function esconderOverlay() {
     document.getElementById('nome-overlay').classList.remove('show')
   }
+
+  // ============================================================
+  // KONAMI CODE EASTER EGG
+  // ============================================================
+  // Sequência clássica: ↑↑↓↓←→←→ B A
+  const KONAMI = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','KeyB','KeyA']
+  let konamiBuffer = []
+
+  const FLAG_UNLOCKED = 'exterminalatas_konami_unlocked'
+  const FLAG_IMORTAL  = 'exterminalatas_imortal'
+
+  const konamiJaUsado = () => localStorage.getItem(FLAG_UNLOCKED) === 'true'
+  const imortalAtivo  = () => localStorage.getItem(FLAG_IMORTAL) === 'true'
+
+  function mostrarToast(msg) {
+    const el = document.getElementById('toast')
+    el.textContent = msg
+    el.classList.remove('show')
+    void el.offsetWidth // força reflow pro animation reiniciar
+    el.classList.add('show')
+    setTimeout(() => el.classList.remove('show'), 3000)
+  }
+
+  function atualizarCuboBranco() {
+    const cubo = document.getElementById('cubo-branco')
+    cubo.classList.toggle('show', konamiJaUsado() && !imortalAtivo())
+  }
+
+  function ativarKonami() {
+    if (konamiJaUsado()) return // só pode 1 vez
+    const cubo = document.getElementById('cubo-konami')
+    cubo.classList.add('show')
+    const sumir = setTimeout(() => {
+      cubo.classList.remove('show')
+      cubo.onclick = null
+    }, 3000)
+    cubo.onclick = () => {
+      clearTimeout(sumir)
+      cubo.classList.remove('show')
+      cubo.onclick = null
+      abrirModalKonami()
+    }
+  }
+
+  function abrirModalKonami() {
+    const modal = document.getElementById('modal-konami')
+    const busca = document.getElementById('busca-konami')
+    const resultados = document.getElementById('resultados-konami')
+    modal.classList.add('show')
+    busca.value = ''
+    resultados.innerHTML = '<p class="vazio">Nada por aqui ainda...</p>'
+    busca.focus()
+
+    busca.oninput = () => {
+      const q = busca.value.trim().toLowerCase().replace(/\s+/g, '')
+      if (q === '') {
+        resultados.innerHTML = '<p class="vazio">Nada por aqui ainda...</p>'
+        return
+      }
+      if (q === 'omarceloeomelhor') {
+        resultados.innerHTML = ''
+        const item = document.createElement('div')
+        item.className = 'resultado-item'
+        item.innerHTML = '<div class="nome">???</div><div class="desc">clique em mim e conhecerá algo nunca já visto</div>'
+        item.onclick = () => {
+          localStorage.setItem(FLAG_UNLOCKED, 'true')
+          modal.classList.remove('show')
+          atualizarCuboBranco()
+          mostrarToast('🎁 ALGO APARECEU NO CANTO DA TELA...')
+        }
+        resultados.appendChild(item)
+      } else {
+        resultados.innerHTML = '<p class="vazio">Nenhum resultado.</p>'
+      }
+    }
+  }
+
+  document.getElementById('fechar-konami').onclick = () => {
+    document.getElementById('modal-konami').classList.remove('show')
+  }
+
+  document.getElementById('cubo-branco').onclick = () => {
+    if (imortalAtivo()) return
+    localStorage.setItem(FLAG_IMORTAL, 'true')
+    atualizarCuboBranco() // some agora
+    mostrarToast('💀 IMORTAL! NADA PODE TE PARAR.')
+    // ativa imediatamente se tem jogo rolando
+    if (window.__gameScene && !window.__gameScene.gameOver) {
+      window.__gameScene.imortal = true
+      if (window.__gameScene.player) {
+        window.__gameScene.player.setTint(0xffd166)
+      }
+      if (window.__gameScene.txtImortal) window.__gameScene.txtImortal.setVisible(true)
+    }
+  }
+
+  // listener global do konami
+  window.addEventListener('keydown', (e) => {
+    if (konamiJaUsado()) return
+    konamiBuffer.push(e.code)
+    if (konamiBuffer.length > KONAMI.length) konamiBuffer = konamiBuffer.slice(-KONAMI.length)
+    if (konamiBuffer.length === KONAMI.length && konamiBuffer.every((k, i) => k === KONAMI[i])) {
+      konamiBuffer = []
+      ativarKonami()
+    }
+  })
+
+  // se o usuário já desbloqueou em sessão anterior, mostra o cubo branco
+  atualizarCuboBranco()
 
   // ---------- som via WebAudio (sem arquivos) ----------
   let audioCtx = null
@@ -330,6 +602,8 @@
       this.intervaloSpawn = 1400
       this.dificuldade = 0
       this.gameOver = false
+      this.imortal = imortalAtivo()
+      window.__gameScene = this
 
       // estrelas
       this.estrelas = []
@@ -349,6 +623,7 @@
       this.player = this.physics.add.sprite(W / 2, H - 90, this.perfil.sprite)
       this.player.setCollideWorldBounds(true)
       this.player.body.setSize(28, 40, true)
+      if (this.imortal) this.player.setTint(0xffd166)
 
       // grupos
       this.tiros = this.physics.add.group()
@@ -385,6 +660,11 @@
           fontSize: '11px', color: '#9bb'
         }).setOrigin(0.5, 0)
       }
+      // label de imortal
+      const yImortal = this.perfil.permiteR ? 72 : 56
+      this.txtImortal = this.add.text(W / 2, yImortal, '💀 IMORTAL', {
+        fontSize: '13px', color: '#ffd166', fontStyle: 'bold'
+      }).setOrigin(0.5, 0).setVisible(this.imortal)
 
       // dificuldade aumenta com o tempo (mais devagar pra dar tempo de respirar)
       this.time.addEvent({
@@ -457,6 +737,7 @@
 
     passouLata() {
       if (this.gameOver) return
+      if (this.imortal) return
       this.vidas--
       this.txtVidas.setText('❤'.repeat(Math.max(0, this.vidas)))
       somDano()
@@ -594,6 +875,15 @@
     }
 
     levaDano(player, lata) {
+      // imortal: destrói a lata, sem dano
+      if (this.imortal) {
+        this.explodir(lata.x, lata.y)
+        lata.destroy()
+        this.score += 10
+        this.txtScore.setText('SCORE: ' + this.score)
+        return
+      }
+
       // chinelo da Carol: contato detona TODAS as latas com efeito de coração, sem perder vida
       if (this.perfil.bombaContato) {
         this.bombaCoracao()
