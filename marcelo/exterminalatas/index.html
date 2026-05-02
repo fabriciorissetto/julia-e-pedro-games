@@ -284,6 +284,24 @@
   // ---------- perfis (easter eggs por nome) ----------
   function decidirPerfil(nomeRaw) {
     const nome = (nomeRaw || '').trim().toLowerCase()
+    // modo gojo desbloqueado pela aba konami: override tudo
+    if (modoGojoAtivo()) {
+      return {
+        nome: 'GOJO',
+        tipo: 'gojo',
+        label: '👁 MODO GOJO',
+        cor: '#b866ff',
+        cooldown: 50,
+        piercing: 1,
+        vidas: 3,
+        permiteR: false,
+        magiaFogo: false,
+        vazioRoxo: true,
+        sprite: 'gojoPlayer',
+        tiroSprite: 'bolaVermelha',
+        bombaContato: false
+      }
+    }
     if (nome === 'fabricio') {
       return {
         nome: 'FABRICIO',
@@ -431,6 +449,9 @@
 
   const FLAG_UNLOCKED = 'exterminalatas_konami_unlocked'
   const FLAG_IMORTAL  = 'exterminalatas_imortal'
+  const FLAG_GOJO     = 'exterminalatas_modo_gojo'
+
+  const modoGojoAtivo = () => localStorage.getItem(FLAG_GOJO) === 'true'
 
   const konamiJaUsado = () => localStorage.getItem(FLAG_UNLOCKED) === 'true'
   const imortalAtivo  = () => localStorage.getItem(FLAG_IMORTAL) === 'true'
@@ -495,6 +516,18 @@
           modal.classList.remove('show')
           atualizarCuboBranco()
           mostrarToast('🎁 ALGO APARECEU NO CANTO DA TELA...')
+        }
+        resultados.appendChild(item)
+      } else if (q === 'laposoereversão' || q === 'laposoereversao') {
+        resultados.innerHTML = ''
+        const item = document.createElement('div')
+        item.className = 'resultado-item'
+        item.style.borderColor = '#b866ff'
+        item.innerHTML = '<div class="nome" style="color:#b866ff">👁 GOJO</div><div class="desc">Ative o MODO GOJO — sem cooldown, bolas vermelhas e Vazio Roxo (T)</div>'
+        item.onclick = () => {
+          localStorage.setItem(FLAG_GOJO, 'true')
+          modal.classList.remove('show')
+          mostrarToast('👁 MODO GOJO ATIVADO!')
         }
         resultados.appendChild(item)
       } else {
@@ -692,9 +725,10 @@
       this.physics.add.overlap(this.player, this.latas, this.levaDano, null, this)
 
       // input — enableCapture=false pra não bloquear digitação no input HTML do menu
-      this.teclas = this.input.keyboard.addKeys('W,A,S,D,SPACE,R,M,P,F', false, false)
+      this.teclas = this.input.keyboard.addKeys('W,A,S,D,SPACE,R,M,P,F,T', false, false)
       this.pausado = false
       this.proxMagia = 0
+      this.proxVazio = 0
 
       // controles touch (mobile)
       this.touch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0
@@ -739,6 +773,12 @@
         }).setOrigin(0.5, 0)
         yHud += 14
       }
+      if (this.perfil.vazioRoxo) {
+        this.add.text(W / 2, yHud, '(T = 👁 vazio roxo)', {
+          fontSize: '11px', color: '#b866ff'
+        }).setOrigin(0.5, 0)
+        yHud += 14
+      }
       // label de imortal
       this.txtImortal = this.add.text(W / 2, yHud, '💀 IMORTAL', {
         fontSize: '13px', color: '#ffd166', fontStyle: 'bold'
@@ -779,6 +819,10 @@
       // F = magia de fogo (perfis com magiaFogo)
       if (this.perfil.magiaFogo && Phaser.Input.Keyboard.JustDown(this.teclas.F)) {
         this.magiaFogo()
+      }
+      // T = vazio roxo (modo gojo)
+      if (this.perfil.vazioRoxo && Phaser.Input.Keyboard.JustDown(this.teclas.T)) {
+        this.ativarVazioRoxo()
       }
 
       // movimento: drag no mobile tem prioridade, senão WASD
@@ -912,13 +956,17 @@
       btnTiro.on('pointerupoutside', (p) => { liberaTiro(p); btnTiro.setFillStyle(0xff4f6f, 0.55) })
       btnTiro.on('pointerout', (p) => { btnTiro.setFillStyle(0xff4f6f, 0.55) })
 
-      // botão de habilidade — magia de fogo tem prioridade sobre +difícil
+      // botão de habilidade — vazio roxo > magia de fogo > +difícil
       let btnSuper = null
-      const usaFogo = this.perfil.magiaFogo
-      const usaR = this.perfil.permiteR && !this.perfil.magiaFogo
-      if (usaFogo || usaR) {
-        const corBtn = usaFogo ? 0xff6f33 : 0xffd166
-        const icon = usaFogo ? '🔥' : '⚡'
+      let acaoBtn = null, corBtn = 0, icon = ''
+      if (this.perfil.vazioRoxo) {
+        acaoBtn = () => this.ativarVazioRoxo(); corBtn = 0xb866ff; icon = '👁'
+      } else if (this.perfil.magiaFogo) {
+        acaoBtn = () => this.magiaFogo(); corBtn = 0xff6f33; icon = '🔥'
+      } else if (this.perfil.permiteR) {
+        acaoBtn = () => this.aumentarDificuldade(); corBtn = 0xffd166; icon = '⚡'
+      }
+      if (acaoBtn) {
         const sx = W - 110, sy = H - 60
         btnSuper = this.add.circle(sx, sy, 26, corBtn, 0.55).setInteractive()
         btnSuper.setStrokeStyle(2, 0xffffff, 0.7)
@@ -926,10 +974,7 @@
         btnSuper.setDepth(50); iconSuper.setDepth(50)
         btnSuper.on('pointerdown', (p) => {
           this.botaoPointerIds.add(p.id)
-          if (!this.gameOver) {
-            if (usaFogo) this.magiaFogo()
-            else this.aumentarDificuldade()
-          }
+          if (!this.gameOver) acaoBtn()
           btnSuper.setFillStyle(corBtn, 0.9)
         })
         btnSuper.on('pointerup', (p) => { this.botaoPointerIds.delete(p.id); btnSuper.setFillStyle(corBtn, 0.55) })
@@ -963,6 +1008,77 @@
       // tiro com piercing fica laranja brilhante
       if (this.perfil.piercing > 1) tiro.setTint(0xffaa33)
       somTiro()
+    }
+
+    ativarVazioRoxo() {
+      const agora = this.time.now
+      if (agora < this.proxVazio) return // cooldown 3s
+      this.proxVazio = agora + 3000
+
+      // esfera roxa GIGANTE que sobe destruindo tudo no caminho
+      const vazio = this.physics.add.sprite(this.player.x, this.player.y - 50, 'vazioRoxo')
+      vazio.setVelocityY(-700)
+      vazio.body.setSize(60, 60)
+      vazio.setDepth(15)
+      // colisão com inimigos
+      this.physics.add.overlap(vazio, this.latas, (v, lata) => {
+        this.explodirRoxo(lata.x, lata.y)
+        this.destruirLata(lata)
+        this.score += 10
+        this.txtScore.setText('SCORE: ' + this.score)
+      })
+      // pulse
+      this.tweens.add({
+        targets: vazio,
+        scaleX: { from: 0.8, to: 1.3 },
+        scaleY: { from: 0.8, to: 1.3 },
+        duration: 600,
+        ease: 'Sine.easeInOut',
+        yoyo: true,
+        repeat: -1
+      })
+      // remove ao sair da tela
+      this.time.delayedCall(2500, () => { if (vazio.active) vazio.destroy() })
+
+      // som místico
+      bip(440, 0.2, 'sine', 0.15)
+      setTimeout(() => bip(660, 0.2, 'sine', 0.15), 100)
+      setTimeout(() => bip(880, 0.3, 'sine', 0.15), 200)
+      ruido(0.3, 0.08)
+
+      // flash roxo + shake
+      this.cameras.main.flash(200, 130, 50, 200)
+      this.cameras.main.shake(180, 0.01)
+
+      // texto central
+      const t = this.add.text(W / 2, H / 2, '👁 VAZIO ROXO', {
+        fontSize: '38px', color: '#b866ff', fontFamily: 'Impact, sans-serif'
+      }).setOrigin(0.5)
+      this.tweens.add({
+        targets: t,
+        scale: { from: 0.5, to: 1.5 },
+        alpha: { from: 1, to: 0 },
+        duration: 800,
+        onComplete: () => t.destroy()
+      })
+    }
+
+    explodirRoxo(x, y) {
+      for (let i = 0; i < 14; i++) {
+        const cor = Phaser.Utils.Array.GetRandom([0x4a0080, 0x8a2bd1, 0xb866ff, 0xe0b3ff])
+        const p = this.add.circle(x, y, Phaser.Math.Between(2, 6), cor)
+        const ang = Math.random() * Math.PI * 2
+        const sp = Phaser.Math.Between(80, 200)
+        this.tweens.add({
+          targets: p,
+          x: x + Math.cos(ang) * sp,
+          y: y + Math.sin(ang) * sp,
+          alpha: 0,
+          scale: { from: 1, to: 0.1 },
+          duration: Phaser.Math.Between(400, 700),
+          onComplete: () => p.destroy()
+        })
+      }
     }
 
     magiaFogo() {
@@ -1253,6 +1369,9 @@
       this.fazerGeto()
       this.fazerGojo()
       this.fazerCubo()
+      this.fazerGojoPlayer()
+      this.fazerBolaVermelha()
+      this.fazerVazioRoxo()
       this.scene.start('Menu')
     }
 
@@ -1411,6 +1530,112 @@
       g.fillCircle(20, 11, 1.5)
 
       g.generateTexture('princesa', 40, 80)
+      g.destroy()
+    }
+
+    fazerGojoPlayer() {
+      const g = this.add.graphics()
+      const PELE = 0xfde0d0
+      const CABELO = 0xeeeeee
+      const PRETO = 0x222222
+      const AZUL = 0x4a90e2
+
+      // sombra
+      g.fillStyle(0x000000, 0.3)
+      g.fillEllipse(20, 78, 22, 4)
+
+      // pernas (calça preta)
+      g.fillStyle(PRETO, 1)
+      g.fillRect(13, 60, 6, 18)
+      g.fillRect(21, 60, 6, 18)
+
+      // jaqueta uniforme jujutsu (preta longa)
+      g.fillStyle(PRETO, 1)
+      g.fillRoundedRect(11, 32, 18, 30, 2)
+
+      // detalhe do uniforme (zíper / borda branca)
+      g.fillStyle(0xeeeeee, 0.6)
+      g.fillRect(19, 32, 2, 28)
+
+      // braços
+      g.fillStyle(PRETO, 1)
+      g.fillRect(7, 33, 5, 22)
+      g.fillRect(28, 33, 5, 22)
+      // mãos
+      g.fillStyle(PELE, 1)
+      g.fillCircle(9, 55, 2.5)
+      g.fillCircle(31, 55, 2.5)
+
+      // pescoço
+      g.fillStyle(PELE, 1)
+      g.fillRect(17, 26, 6, 4)
+
+      // cabeça
+      g.fillStyle(PELE, 1)
+      g.fillCircle(20, 18, 9)
+
+      // cabelo branco - topo
+      g.fillStyle(CABELO, 1)
+      g.fillEllipse(20, 11, 18, 8)
+      g.fillRect(11, 11, 18, 5)
+      // mechas espetadinhas
+      g.fillTriangle(14, 8, 17, 4, 16, 11)
+      g.fillTriangle(20, 4, 23, 4, 21, 11)
+      g.fillTriangle(26, 8, 23, 4, 24, 11)
+
+      // BLINDFOLD preto cobrindo os olhos
+      g.fillStyle(PRETO, 1)
+      g.fillRect(11, 17, 18, 5)
+      g.lineStyle(0.5, 0x000000, 1)
+      g.strokeRect(11, 17, 18, 5)
+      g.fillStyle(0x444444, 1)
+      g.fillRect(11, 17, 2, 5)
+
+      // boca
+      g.fillStyle(0xc94a4a, 1)
+      g.fillRect(19, 24, 2, 1)
+
+      g.generateTexture('gojoPlayer', 40, 80)
+      g.destroy()
+    }
+
+    fazerBolaVermelha() {
+      const g = this.add.graphics()
+      // glow externo
+      g.fillStyle(0xff0000, 0.3)
+      g.fillCircle(8, 8, 8)
+      // bola vermelha brilhante (Cursed Technique: Red)
+      g.fillStyle(0xff1010, 1)
+      g.fillCircle(8, 8, 6)
+      g.fillStyle(0xff5555, 0.9)
+      g.fillCircle(8, 7, 4)
+      g.fillStyle(0xffaaaa, 0.7)
+      g.fillCircle(7, 6, 2)
+      g.generateTexture('bolaVermelha', 16, 16)
+      g.destroy()
+    }
+
+    fazerVazioRoxo() {
+      const g = this.add.graphics()
+      // glow externo (vazio)
+      g.fillStyle(0x4a0080, 0.4)
+      g.fillCircle(36, 36, 34)
+      // esfera roxa principal
+      g.fillStyle(0x4a0080, 1)
+      g.fillCircle(36, 36, 28)
+      g.fillStyle(0x8a2bd1, 1)
+      g.fillCircle(36, 36, 22)
+      g.fillStyle(0xb866ff, 0.85)
+      g.fillCircle(36, 36, 16)
+      g.fillStyle(0xe0b3ff, 0.6)
+      g.fillCircle(33, 32, 7)
+      // bordas escuras (vazio absoluto)
+      g.lineStyle(2, 0x1a0033, 1)
+      g.strokeCircle(36, 36, 28)
+      // marca redonda dentro (núcleo)
+      g.fillStyle(0xffffff, 0.5)
+      g.fillCircle(34, 33, 2)
+      g.generateTexture('vazioRoxo', 72, 72)
       g.destroy()
     }
 
