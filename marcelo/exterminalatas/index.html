@@ -285,6 +285,26 @@
   function decidirPerfil(nomeRaw) {
     const nome = (nomeRaw || '').trim().toLowerCase()
     // modo gojo desbloqueado pela aba konami: override tudo
+    if (modoSukunaAtivo()) {
+      return {
+        nome: 'SUKUNA',
+        tipo: 'sukuna',
+        label: '💀 MODO SUKUNA',
+        cor: '#ff2222',
+        cooldown: 50,
+        piercing: 2,
+        vidas: 3,
+        permiteR: false,
+        magiaFogo: false,
+        vazioRoxo: false,
+        corteMundial: true,
+        sprite: 'sukunaPlayer',
+        tiroSprite: 'corte',
+        inimigoSprite: 'gojoSemBraco',
+        bombaContato: false,
+        semTint: true
+      }
+    }
     if (modoGojoAtivo()) {
       return {
         nome: 'GOJO',
@@ -299,7 +319,9 @@
         vazioRoxo: true,
         sprite: 'gojoPlayer',
         tiroSprite: 'bolaVermelha',
-        bombaContato: false
+        tiroAlternado: ['bolaVermelha', 'bolaAzul'],
+        bombaContato: false,
+        semTint: true
       }
     }
     if (nome === 'fabricio') {
@@ -450,8 +472,10 @@
   const FLAG_UNLOCKED = 'exterminalatas_konami_unlocked'
   const FLAG_IMORTAL  = 'exterminalatas_imortal'
   const FLAG_GOJO     = 'exterminalatas_modo_gojo'
+  const FLAG_SUKUNA   = 'exterminalatas_modo_sukuna'
 
-  const modoGojoAtivo = () => localStorage.getItem(FLAG_GOJO) === 'true'
+  const modoGojoAtivo   = () => localStorage.getItem(FLAG_GOJO) === 'true'
+  const modoSukunaAtivo = () => localStorage.getItem(FLAG_SUKUNA) === 'true'
 
   const konamiJaUsado = () => localStorage.getItem(FLAG_UNLOCKED) === 'true'
   const imortalAtivo  = () => localStorage.getItem(FLAG_IMORTAL) === 'true'
@@ -523,11 +547,25 @@
         const item = document.createElement('div')
         item.className = 'resultado-item'
         item.style.borderColor = '#b866ff'
-        item.innerHTML = '<div class="nome" style="color:#b866ff">👁 GOJO</div><div class="desc">Ative o MODO GOJO — sem cooldown, bolas vermelhas e Vazio Roxo (T)</div>'
+        item.innerHTML = '<div class="nome" style="color:#b866ff">👁 GOJO</div><div class="desc">Ative o MODO GOJO — bolas vermelhas + azuis (maiores), Vazio Roxo (T)</div>'
         item.onclick = () => {
           localStorage.setItem(FLAG_GOJO, 'true')
+          localStorage.removeItem(FLAG_SUKUNA)
           modal.classList.remove('show')
           mostrarToast('👁 MODO GOJO ATIVADO!')
+        }
+        resultados.appendChild(item)
+      } else if (q === 'thukunagugukaga') {
+        resultados.innerHTML = ''
+        const item = document.createElement('div')
+        item.className = 'resultado-item'
+        item.style.borderColor = '#ff2222'
+        item.innerHTML = '<div class="nome" style="color:#ff2222">💀 SUKUNA</div><div class="desc">Ative o MODO SUKUNA — cortes que destroem 2 inimigos, Corte Mundial (Y)</div>'
+        item.onclick = () => {
+          localStorage.setItem(FLAG_SUKUNA, 'true')
+          localStorage.removeItem(FLAG_GOJO)
+          modal.classList.remove('show')
+          mostrarToast('💀 MODO SUKUNA ATIVADO!')
         }
         resultados.appendChild(item)
       } else {
@@ -725,10 +763,12 @@
       this.physics.add.overlap(this.player, this.latas, this.levaDano, null, this)
 
       // input — enableCapture=false pra não bloquear digitação no input HTML do menu
-      this.teclas = this.input.keyboard.addKeys('W,A,S,D,SPACE,R,M,P,F,T', false, false)
+      this.teclas = this.input.keyboard.addKeys('W,A,S,D,SPACE,R,M,P,F,T,Y', false, false)
       this.pausado = false
       this.proxMagia = 0
       this.proxVazio = 0
+      this.proxCorte = 0
+      this.contadorTiro = 0
 
       // controles touch (mobile)
       this.touch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0
@@ -779,6 +819,12 @@
         }).setOrigin(0.5, 0)
         yHud += 14
       }
+      if (this.perfil.corteMundial) {
+        this.add.text(W / 2, yHud, '(Y = ⚔ corte mundial)', {
+          fontSize: '11px', color: '#ff2222'
+        }).setOrigin(0.5, 0)
+        yHud += 14
+      }
       // label de imortal
       this.txtImortal = this.add.text(W / 2, yHud, '💀 IMORTAL', {
         fontSize: '13px', color: '#ffd166', fontStyle: 'bold'
@@ -823,6 +869,10 @@
       // T = vazio roxo (modo gojo)
       if (this.perfil.vazioRoxo && Phaser.Input.Keyboard.JustDown(this.teclas.T)) {
         this.ativarVazioRoxo()
+      }
+      // Y = corte mundial (modo sukuna)
+      if (this.perfil.corteMundial && Phaser.Input.Keyboard.JustDown(this.teclas.Y)) {
+        this.ativarCorteMundial()
       }
 
       // movimento: drag no mobile tem prioridade, senão WASD
@@ -956,10 +1006,12 @@
       btnTiro.on('pointerupoutside', (p) => { liberaTiro(p); btnTiro.setFillStyle(0xff4f6f, 0.55) })
       btnTiro.on('pointerout', (p) => { btnTiro.setFillStyle(0xff4f6f, 0.55) })
 
-      // botão de habilidade — vazio roxo > magia de fogo > +difícil
+      // botão de habilidade — corte mundial > vazio roxo > magia de fogo > +difícil
       let btnSuper = null
       let acaoBtn = null, corBtn = 0, icon = ''
-      if (this.perfil.vazioRoxo) {
+      if (this.perfil.corteMundial) {
+        acaoBtn = () => this.ativarCorteMundial(); corBtn = 0xff2222; icon = '⚔'
+      } else if (this.perfil.vazioRoxo) {
         acaoBtn = () => this.ativarVazioRoxo(); corBtn = 0xb866ff; icon = '👁'
       } else if (this.perfil.magiaFogo) {
         acaoBtn = () => this.magiaFogo(); corBtn = 0xff6f33; icon = '🔥'
@@ -1001,12 +1053,18 @@
     }
 
     atirar() {
-      const tiro = this.tiros.create(this.player.x, this.player.y - 28, this.perfil.tiroSprite)
-      tiro.body.setSize(8, 16)
+      let tipoTiro = this.perfil.tiroSprite
+      if (this.perfil.tiroAlternado) {
+        tipoTiro = this.perfil.tiroAlternado[this.contadorTiro % this.perfil.tiroAlternado.length]
+        this.contadorTiro++
+      }
+      const tiro = this.tiros.create(this.player.x, this.player.y - 28, tipoTiro)
+      // hitbox proporcional ao sprite (70% do tamanho)
+      tiro.body.setSize(tiro.width * 0.7, tiro.height * 0.7)
       tiro.setVelocityY(-520)
       tiro.acertosRestantes = this.perfil.piercing
-      // tiro com piercing fica laranja brilhante
-      if (this.perfil.piercing > 1) tiro.setTint(0xffaa33)
+      // tint laranja só pra tiros padrão sem cor especial
+      if (this.perfil.piercing > 1 && !this.perfil.semTint) tiro.setTint(0xffaa33)
       somTiro()
     }
 
@@ -1015,40 +1073,40 @@
       if (agora < this.proxVazio) return // cooldown 3s
       this.proxVazio = agora + 3000
 
-      // esfera roxa GIGANTE que sobe destruindo tudo no caminho
-      const vazio = this.physics.add.sprite(this.player.x, this.player.y - 50, 'vazioRoxo')
-      vazio.setVelocityY(-700)
-      vazio.body.setSize(60, 60)
-      vazio.setDepth(15)
-      // colisão com inimigos
-      this.physics.add.overlap(vazio, this.latas, (v, lata) => {
+      // anel de vazio roxo saindo do jogador
+      for (let i = 0; i < 28; i++) {
+        const ang = (i / 28) * Math.PI * 2
+        const cor = Phaser.Utils.Array.GetRandom([0x4a0080, 0x8a2bd1, 0xb866ff, 0xe0b3ff])
+        const p = this.add.circle(this.player.x, this.player.y, 9, cor)
+        this.tweens.add({
+          targets: p,
+          x: this.player.x + Math.cos(ang) * 260,
+          y: this.player.y + Math.sin(ang) * 260,
+          alpha: 0,
+          scale: { from: 1.6, to: 0.2 },
+          duration: 600,
+          onComplete: () => p.destroy()
+        })
+      }
+
+      // destrói TODOS inimigos com explosão roxa (igual magia de fogo)
+      const arr = this.latas.getChildren().slice()
+      arr.forEach(lata => {
         this.explodirRoxo(lata.x, lata.y)
         this.destruirLata(lata)
         this.score += 10
-        this.txtScore.setText('SCORE: ' + this.score)
       })
-      // pulse
-      this.tweens.add({
-        targets: vazio,
-        scaleX: { from: 0.8, to: 1.3 },
-        scaleY: { from: 0.8, to: 1.3 },
-        duration: 600,
-        ease: 'Sine.easeInOut',
-        yoyo: true,
-        repeat: -1
-      })
-      // remove ao sair da tela
-      this.time.delayedCall(2500, () => { if (vazio.active) vazio.destroy() })
+      this.txtScore.setText('SCORE: ' + this.score)
 
-      // som místico
+      // flash roxo + shake
+      this.cameras.main.flash(200, 130, 50, 200)
+      this.cameras.main.shake(220, 0.012)
+
+      // som místico (escala ascendente)
       bip(440, 0.2, 'sine', 0.15)
       setTimeout(() => bip(660, 0.2, 'sine', 0.15), 100)
       setTimeout(() => bip(880, 0.3, 'sine', 0.15), 200)
       ruido(0.3, 0.08)
-
-      // flash roxo + shake
-      this.cameras.main.flash(200, 130, 50, 200)
-      this.cameras.main.shake(180, 0.01)
 
       // texto central
       const t = this.add.text(W / 2, H / 2, '👁 VAZIO ROXO', {
@@ -1061,6 +1119,74 @@
         duration: 800,
         onComplete: () => t.destroy()
       })
+    }
+
+    ativarCorteMundial() {
+      const agora = this.time.now
+      if (agora < this.proxCorte) return // cooldown 4s
+      this.proxCorte = agora + 4000
+
+      // 3 slashes vermelhos atravessando a tela em ângulos diferentes
+      const angulos = [-15, 0, 15]
+      angulos.forEach((angDeg, idx) => {
+        this.time.delayedCall(idx * 100, () => {
+          const slash = this.add.rectangle(W / 2, H / 2, W * 1.5, 6, 0xff3333, 1)
+          slash.setRotation(Phaser.Math.DegToRad(angDeg))
+          slash.setDepth(15)
+          this.tweens.add({
+            targets: slash,
+            alpha: 0,
+            scaleY: { from: 1, to: 5 },
+            duration: 500,
+            onComplete: () => slash.destroy()
+          })
+          bip(2200, 0.05, 'sawtooth', 0.1)
+          setTimeout(() => bip(1500, 0.1, 'sawtooth', 0.1), 30)
+        })
+      })
+
+      // destrói todos inimigos com efeito de corte
+      const arr = this.latas.getChildren().slice()
+      arr.forEach(lata => {
+        this.explodirCorte(lata.x, lata.y)
+        this.destruirLata(lata)
+        this.score += 10
+      })
+      this.txtScore.setText('SCORE: ' + this.score)
+
+      // flash + shake
+      this.cameras.main.flash(180, 255, 50, 50)
+      this.cameras.main.shake(280, 0.014)
+
+      // texto central
+      const t = this.add.text(W / 2, H / 2, '⚔ CORTE MUNDIAL', {
+        fontSize: '38px', color: '#ff3333', fontFamily: 'Impact, sans-serif'
+      }).setOrigin(0.5)
+      this.tweens.add({
+        targets: t,
+        scale: { from: 0.5, to: 1.5 },
+        alpha: { from: 1, to: 0 },
+        duration: 800,
+        onComplete: () => t.destroy()
+      })
+    }
+
+    explodirCorte(x, y) {
+      for (let i = 0; i < 12; i++) {
+        const cor = Phaser.Utils.Array.GetRandom([0xff2222, 0xff5555, 0xffffff, 0xff8800])
+        const p = this.add.circle(x, y, Phaser.Math.Between(2, 5), cor)
+        const ang = Math.random() * Math.PI * 2
+        const sp = Phaser.Math.Between(80, 200)
+        this.tweens.add({
+          targets: p,
+          x: x + Math.cos(ang) * sp,
+          y: y + Math.sin(ang) * sp,
+          alpha: 0,
+          scale: { from: 1, to: 0.1 },
+          duration: Phaser.Math.Between(400, 700),
+          onComplete: () => p.destroy()
+        })
+      }
     }
 
     explodirRoxo(x, y) {
@@ -1371,7 +1497,11 @@
       this.fazerCubo()
       this.fazerGojoPlayer()
       this.fazerBolaVermelha()
+      this.fazerBolaAzul()
       this.fazerVazioRoxo()
+      this.fazerSukunaPlayer()
+      this.fazerCorte()
+      this.fazerGojoSemBraco()
       this.scene.start('Menu')
     }
 
@@ -1612,6 +1742,171 @@
       g.fillStyle(0xffaaaa, 0.7)
       g.fillCircle(7, 6, 2)
       g.generateTexture('bolaVermelha', 16, 16)
+      g.destroy()
+    }
+
+    fazerBolaAzul() {
+      const g = this.add.graphics()
+      // glow externo (maior)
+      g.fillStyle(0x0066ff, 0.4)
+      g.fillCircle(13, 13, 13)
+      // bola azul brilhante (Reversed Cursed Technique: Blue)
+      g.fillStyle(0x0080ff, 1)
+      g.fillCircle(13, 13, 10)
+      g.fillStyle(0x33aaff, 0.9)
+      g.fillCircle(13, 12, 7)
+      g.fillStyle(0x99ccff, 0.7)
+      g.fillCircle(12, 11, 4)
+      g.fillStyle(0xffffff, 0.8)
+      g.fillCircle(11, 10, 1.5)
+      g.generateTexture('bolaAzul', 26, 26)
+      g.destroy()
+    }
+
+    fazerSukunaPlayer() {
+      const g = this.add.graphics()
+      const PELE = 0xfde0d0
+      const CABELO = 0xff7080      // vermelho-rosa
+      const MARCAS = 0x222222
+      const PRETO = 0x222222
+
+      // sombra
+      g.fillStyle(0x000000, 0.3)
+      g.fillEllipse(20, 78, 22, 4)
+
+      // pernas (calça preta)
+      g.fillStyle(PRETO, 1)
+      g.fillRect(13, 56, 6, 22)
+      g.fillRect(21, 56, 6, 22)
+
+      // peito (sem camisa, pele)
+      g.fillStyle(PELE, 1)
+      g.fillRoundedRect(11, 30, 18, 28, 3)
+
+      // marcas pretas no peito (linhas tribais)
+      g.fillStyle(MARCAS, 1)
+      g.fillRect(13, 35, 14, 1.5)
+      g.fillRect(13, 40, 14, 1.5)
+      g.fillTriangle(15, 45, 25, 45, 20, 51)
+
+      // braços (pele)
+      g.fillStyle(PELE, 1)
+      g.fillRect(7, 32, 4, 22)
+      g.fillRect(29, 32, 4, 22)
+      // marcas nos braços
+      g.fillStyle(MARCAS, 1)
+      g.fillRect(7, 38, 4, 1.5)
+      g.fillRect(7, 44, 4, 1.5)
+      g.fillRect(29, 38, 4, 1.5)
+      g.fillRect(29, 44, 4, 1.5)
+
+      // pescoço
+      g.fillStyle(PELE, 1)
+      g.fillRect(17, 26, 6, 5)
+
+      // cabeça
+      g.fillStyle(PELE, 1)
+      g.fillCircle(20, 18, 9)
+
+      // marcas pretas no rosto (4 linhas verticais — assinatura do Sukuna)
+      g.fillStyle(MARCAS, 1)
+      g.fillRect(15, 14, 1.5, 8)
+      g.fillRect(18, 13, 1.5, 9)
+      g.fillRect(21, 13, 1.5, 9)
+      g.fillRect(24, 14, 1.5, 8)
+
+      // olhos vermelhos
+      g.fillStyle(0xff2222, 1)
+      g.fillEllipse(16.5, 18, 1.5, 2.5)
+      g.fillEllipse(23.5, 18, 1.5, 2.5)
+
+      // boca (linha sinistra)
+      g.lineStyle(1, 0x6b3e2a, 1)
+      g.lineBetween(18, 23, 22, 23)
+
+      // cabelo rosa-laranja espetado pra cima
+      g.fillStyle(CABELO, 1)
+      g.fillEllipse(20, 9, 18, 8)
+      g.fillRect(11, 9, 18, 5)
+      g.fillTriangle(13, 6, 15, 1, 16, 9)
+      g.fillTriangle(17, 4, 19, 0, 20, 8)
+      g.fillTriangle(21, 4, 23, 0, 22, 8)
+      g.fillTriangle(25, 6, 27, 1, 26, 9)
+
+      g.generateTexture('sukunaPlayer', 40, 80)
+      g.destroy()
+    }
+
+    fazerCorte() {
+      const g = this.add.graphics()
+      // arco do corte (vermelho com brilho branco) - formato horizontal de slash
+      g.fillStyle(0xff2222, 0.8)
+      g.fillRect(2, 4, 20, 4)
+      g.fillStyle(0xff5555, 1)
+      g.fillRect(3, 5, 18, 2)
+      g.fillStyle(0xffffff, 0.9)
+      g.fillRect(4, 6, 16, 1)
+      // pontas finas
+      g.fillStyle(0xff2222, 1)
+      g.fillTriangle(0, 6, 4, 4, 4, 8)
+      g.fillTriangle(24, 6, 20, 4, 20, 8)
+      g.generateTexture('corte', 24, 12)
+      g.destroy()
+    }
+
+    fazerGojoSemBraco() {
+      const g = this.add.graphics()
+      const PELE = 0xfde0d0
+      const CABELO = 0xeeeeee
+      const PRETO = 0x222222
+
+      // sombra
+      g.fillStyle(0x000000, 0.3)
+      g.fillEllipse(20, 41, 22, 4)
+
+      // top preto
+      g.fillStyle(PRETO, 1)
+      g.fillRoundedRect(11, 22, 18, 18, 3)
+
+      // braço esquerdo presente (pele)
+      g.fillStyle(PELE, 1)
+      g.fillCircle(10, 26, 3)
+
+      // braço direito DECEPADO — marca de sangue no ombro
+      g.fillStyle(0x9a0000, 1)
+      g.fillCircle(30, 26, 3)
+      g.fillStyle(0x6a0000, 0.85)
+      g.fillRect(28, 26, 4, 6)
+
+      // pescoço
+      g.fillStyle(PELE, 1)
+      g.fillRect(18, 20, 4, 3)
+
+      // cabeça
+      g.fillStyle(PELE, 1)
+      g.fillCircle(20, 14, 7)
+
+      // cabelo branco
+      g.fillStyle(CABELO, 1)
+      g.fillEllipse(20, 9, 16, 8)
+      g.fillRect(13, 9, 14, 5)
+      g.fillTriangle(15, 6, 18, 3, 17, 9)
+      g.fillTriangle(20, 4, 23, 3, 22, 9)
+      g.fillTriangle(25, 6, 22, 3, 26, 9)
+
+      // BLINDFOLD preto
+      g.fillStyle(PRETO, 1)
+      g.fillRect(11, 13, 18, 4)
+      g.lineStyle(0.5, 0x000000, 1)
+      g.strokeRect(11, 13, 18, 4)
+      g.fillStyle(0x444444, 1)
+      g.fillRect(11, 13, 2, 4)
+
+      // boca
+      g.fillStyle(0xc94a4a, 1)
+      g.fillRect(19, 19, 2, 1)
+
+      g.generateTexture('gojoSemBraco', 40, 44)
       g.destroy()
     }
 
