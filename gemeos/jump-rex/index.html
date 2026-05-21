@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Jump Rex</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      height: 100%;
+      background: #1a1a2e;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      overflow: hidden;
+    }
+    body { display: flex; align-items: center; justify-content: center; }
+    #game {
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .back-link {
+      position: fixed; top: 12px; left: 12px;
+      color: #fff; text-decoration: none;
+      font-size: 14px; opacity: 0.6;
+      padding: 6px 10px; border-radius: 6px;
+      background: rgba(0,0,0,0.3);
+      z-index: 10;
+    }
+    .back-link:hover { opacity: 1; }
+
+    /* Nickname modal */
+    #nick-modal {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.75);
+      display: none;
+      align-items: center; justify-content: center;
+      z-index: 1000;
+    }
+    #nick-modal.show { display: flex; }
+    #nick-modal .box {
+      background: #2d2d4d; padding: 32px; border-radius: 16px;
+      color: white; text-align: center; min-width: 320px;
+      box-shadow: 0 16px 48px rgba(0,0,0,0.6);
+    }
+    #nick-modal h2 { margin-bottom: 8px; font-size: 1.5rem; }
+    #nick-modal p { margin-bottom: 16px; opacity: 0.8; font-size: 0.9rem; }
+    #nick-modal input {
+      width: 100%; padding: 12px; font-size: 1.2rem;
+      border-radius: 8px; border: 2px solid #9b6fff;
+      background: #1a1a2e; color: white; text-align: center;
+      margin-bottom: 16px; outline: none;
+    }
+    #nick-modal input:focus { border-color: #4fdbb5; }
+    #nick-modal button {
+      padding: 12px 32px; font-size: 1.1rem; font-weight: bold;
+      background: linear-gradient(135deg, #9b6fff, #4fdbb5);
+      color: white; border: none; border-radius: 8px;
+      cursor: pointer;
+    }
+    #nick-modal button:hover { transform: scale(1.05); }
+  </style>
+</head>
+<body>
+  <a class="back-link" href="../">← Voltar</a>
+  <div id="game"></div>
+
+  <div id="nick-modal">
+    <div class="box">
+      <h2>🦖 Como você se chama?</h2>
+      <p>Esse será seu nick pra sempre</p>
+      <input id="nick-input" type="text" maxlength="12" placeholder="Seu nick" />
+      <br/>
+      <button id="nick-confirm">Confirmar</button>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+  <script>
+    // ===== Storage =====
+    const STORAGE = {
+      get(key, def) {
+        try {
+          const v = localStorage.getItem('jumpRex.' + key);
+          return v === null ? def : JSON.parse(v);
+        } catch { return def; }
+      },
+      set(key, val) {
+        try { localStorage.setItem('jumpRex.' + key, JSON.stringify(val)); } catch {}
+      }
+    };
+
+    // ===== Skins (10) =====
+    const SKINS = [
+      { id: 'classic',  name: 'Rex Clássico',   price: 0,   body: 0x808080, accent: 0xffffff },
+      { id: 'red',      name: 'Rex Vermelho',   price: 10,  body: 0xe74c3c, accent: 0xffffff },
+      { id: 'green',    name: 'Rex Verde',      price: 20,  body: 0x27ae60, accent: 0xffffff },
+      { id: 'blue',     name: 'Rex Azul',       price: 30,  body: 0x3498db, accent: 0xffffff },
+      { id: 'yellow',   name: 'Rex Amarelo',    price: 40,  body: 0xf1c40f, accent: 0x222222 },
+      { id: 'pink',     name: 'Rex Rosa',       price: 60,  body: 0xff6fb5, accent: 0xffffff },
+      { id: 'purple',   name: 'Rex Roxo',       price: 80,  body: 0x9b59b6, accent: 0xffffff },
+      { id: 'gold',     name: 'Rex Dourado',    price: 120, body: 0xffd700, accent: 0x4a3500 },
+      { id: 'rainbow',  name: 'Rex Arco-íris',  price: 200, body: 0xff0000, accent: 0xffffff, rainbow: true },
+      { id: 'fire',     name: 'Rex de Fogo',    price: 300, body: 0xff4400, accent: 0xffff00, fire: true },
+    ];
+
+    function getSelectedSkin() {
+      const id = STORAGE.get('selectedSkin', 'classic');
+      return SKINS.find(s => s.id === id) || SKINS[0];
+    }
+
+    // ===== Dino visual (Phaser container) =====
+    function buildDino(scene, x, y, skin, scale = 1) {
+      const c = scene.add.container(x, y);
+      const s = scale;
+      const parts = [];
+
+      if (skin.fire) {
+        const aura = scene.add.rectangle(-4 * s, 0, 60 * s, 60 * s, 0xff8800, 0.5);
+        scene.tweens.add({ targets: aura, alpha: 0.15, duration: 300, yoyo: true, repeat: -1 });
+        c.add(aura);
+        parts.push(aura);
+      }
+
+      const tail = scene.add.rectangle(-18 * s, -2 * s, 18 * s, 10 * s, skin.body);
+      const body = scene.add.rectangle(0, 0, 32 * s, 30 * s, skin.body);
+      const leg1 = scene.add.rectangle(-6 * s, 18 * s, 8 * s, 14 * s, skin.body);
+      const leg2 = scene.add.rectangle(8 * s, 18 * s, 8 * s, 14 * s, skin.body);
+      const head = scene.add.rectangle(14 * s, -22 * s, 26 * s, 24 * s, skin.body);
+      const mouth = scene.add.rectangle(22 * s, -18 * s, 10 * s, 4 * s, skin.body);
+      const eye = scene.add.rectangle(20 * s, -28 * s, 5 * s, 5 * s, skin.accent);
+
+      c.add([tail, body, leg1, leg2, head, mouth, eye]);
+      parts.push(tail, body, leg1, leg2, head, mouth);
+
+      c.legs = [leg1, leg2];
+      c.skin = skin;
+      c.parts = parts;
+
+      if (skin.rainbow) {
+        const colors = [0xff0000, 0xff8800, 0xffff00, 0x00cc66, 0x0088ff, 0x6644ff, 0xff00ff];
+        let i = 0;
+        c.rainbowTimer = scene.time.addEvent({
+          delay: 180, loop: true,
+          callback: () => {
+            i = (i + 1) % colors.length;
+            [tail, body, leg1, leg2, head, mouth].forEach(r => r.setFillStyle(colors[i]));
+          }
+        });
+      }
+
+      return c;
+    }
+
+    // ===== Nickname HTML overlay =====
+    function promptNickname(onDone) {
+      const modal = document.getElementById('nick-modal');
+      const input = document.getElementById('nick-input');
+      const btn = document.getElementById('nick-confirm');
+      modal.classList.add('show');
+      input.value = '';
+      setTimeout(() => input.focus(), 100);
+      const finish = () => {
+        const v = input.value.trim();
+        if (!v) return;
+        STORAGE.set('nickname', v);
+        modal.classList.remove('show');
+        btn.removeEventListener('click', finish);
+        input.removeEventListener('keydown', onKey);
+        onDone(v);
+      };
+      const onKey = (e) => { if (e.key === 'Enter') finish(); };
+      btn.addEventListener('click', finish);
+      input.addEventListener('keydown', onKey);
+    }
+
+    function makeButton(scene, x, y, text, bgColor, onClick, w = 260, h = 56) {
+      const color = Phaser.Display.Color.HexStringToColor(bgColor).color;
+      const bg = scene.add.rectangle(x, y, w, h, color).setStrokeStyle(3, 0xffffff);
+      const t = scene.add.text(x, y, text, {
+        fontSize: '24px', fontFamily: 'Arial Black, Arial, sans-serif',
+        color: '#ffffff'
+      }).setOrigin(0.5);
+      bg.setInteractive({ useHandCursor: true });
+      bg.on('pointerdown', onClick);
+      bg.on('pointerover', () => { bg.setScale(1.05); t.setScale(1.05); });
+      bg.on('pointerout',  () => { bg.setScale(1.0);  t.setScale(1.0); });
+      return { bg, t };
+    }
+
+    // ===== MENU =====
+    class MenuScene extends Phaser.Scene {
+      constructor() { super('Menu'); }
+      create() {
+        const { width, height } = this.scale;
+        this.add.rectangle(0, 0, width, height, 0xe6dfff).setOrigin(0);
+        this.add.rectangle(0, height * 0.78, width, height * 0.22, 0xc9a47a).setOrigin(0);
+        this.add.rectangle(0, height * 0.78, width, 4, 0x333333).setOrigin(0);
+
+        this.add.text(width / 2, height * 0.18, 'JUMP REX', {
+          fontFamily: 'Arial Black, Arial, sans-serif',
+          fontSize: '64px', color: '#2d2d4d',
+          stroke: '#ffffff', strokeThickness: 6
+        }).setOrigin(0.5);
+
+        this.add.text(width / 2, height * 0.30, '🦖 corre, pula, coleta cubos', {
+          fontSize: '18px', color: '#555'
+        }).setOrigin(0.5);
+
+        const wallet = STORAGE.get('wallet', 0);
+        this.add.text(width - 20, 20, `🟨 ${wallet}`, {
+          fontSize: '22px', color: '#333', fontStyle: 'bold'
+        }).setOrigin(1, 0);
+
+        const nick = STORAGE.get('nickname', null);
+        if (nick) {
+          this.add.text(20, 20, `👤 ${nick}`, { fontSize: '18px', color: '#333' });
+        }
+
+        makeButton(this, width / 2, height * 0.48, 'JOGAR', '#27ae60', () => {
+          if (!STORAGE.get('nickname', null)) {
+            promptNickname(() => this.scene.start('Game'));
+          } else {
+            this.scene.start('Game');
+          }
+        });
+
+        makeButton(this, width / 2, height * 0.62, 'LOJA', '#9b6fff', () => {
+          this.scene.start('Shop');
+        });
+
+        const skin = getSelectedSkin();
+        buildDino(this, width / 2, height * 0.86, skin, 1.4);
+      }
+    }
+
+    // ===== SHOP =====
+    class ShopScene extends Phaser.Scene {
+      constructor() { super('Shop'); }
+      create() {
+        const { width, height } = this.scale;
+        this.add.rectangle(0, 0, width, height, 0xf2eeff).setOrigin(0);
+
+        this.add.text(width / 2, 32, 'LOJA', {
+          fontSize: '40px', fontFamily: 'Arial Black, Arial, sans-serif',
+          color: '#2d2d4d'
+        }).setOrigin(0.5);
+
+        this.add.text(width - 20, 32, `🟨 ${STORAGE.get('wallet', 0)}`, {
+          fontSize: '24px', color: '#333', fontStyle: 'bold'
+        }).setOrigin(1, 0.5);
+
+        const back = this.add.text(20, 32, '← Voltar', {
+          fontSize: '20px', color: '#9b6fff', fontStyle: 'bold'
+        }).setOrigin(0, 0.5).setInteractive({ useHandCursor: true });
+        back.on('pointerdown', () => this.scene.start('Menu'));
+
+        const cols = 5, rows = 2;
+        const padX = 30, topY = 70;
+        const cellW = (width - padX * 2) / cols;
+        const cellH = (height - topY - 20) / rows;
+
+        SKINS.forEach((skin, i) => {
+          const col = i % cols;
+          const row = Math.floor(i / cols);
+          const cx = padX + cellW * (col + 0.5);
+          const cy = topY + cellH * (row + 0.5);
+          this.makeSkinCard(cx, cy, cellW - 14, cellH - 14, skin);
+        });
+      }
+
+      makeSkinCard(x, y, w, h, skin) {
+        const owned = STORAGE.get('owned', ['classic']);
+        const selected = STORAGE.get('selectedSkin', 'classic');
+        const isOwned = owned.includes(skin.id);
+        const isSelected = selected === skin.id;
+
+        const bg = this.add.rectangle(x, y, w, h, 0xffffff);
+        bg.setStrokeStyle(isSelected ? 4 : 2, isSelected ? 0x27ae60 : 0xcccccc);
+
+        buildDino(this, x, y - h * 0.12, skin, 0.85);
+
+        this.add.text(x, y + h * 0.22, skin.name, {
+          fontSize: '13px', color: '#222', fontStyle: 'bold'
+        }).setOrigin(0.5);
+
+        let statusText, statusColor;
+        if (isSelected)      { statusText = '✓ Usando'; statusColor = '#27ae60'; }
+        else if (isOwned)    { statusText = 'Tocar p/ usar'; statusColor = '#3498db'; }
+        else                 { statusText = `🟨 ${skin.price}`; statusColor = '#e67e22'; }
+
+        this.add.text(x, y + h * 0.36, statusText, {
+          fontSize: '13px', color: statusColor, fontStyle: 'bold'
+        }).setOrigin(0.5);
+
+        bg.setInteractive({ useHandCursor: true });
+        bg.on('pointerdown', () => this.tryBuyOrSelect(skin));
+        bg.on('pointerover', () => bg.setStrokeStyle(4, 0x9b6fff));
+        bg.on('pointerout',  () => bg.setStrokeStyle(isSelected ? 4 : 2, isSelected ? 0x27ae60 : 0xcccccc));
+      }
+
+      tryBuyOrSelect(skin) {
+        const owned = STORAGE.get('owned', ['classic']);
+        if (owned.includes(skin.id)) {
+          STORAGE.set('selectedSkin', skin.id);
+          this.scene.restart();
+          return;
+        }
+        const wallet = STORAGE.get('wallet', 0);
+        if (wallet >= skin.price) {
+          STORAGE.set('wallet', wallet - skin.price);
+          owned.push(skin.id);
+          STORAGE.set('owned', owned);
+          STORAGE.set('selectedSkin', skin.id);
+          this.scene.restart();
+        } else {
+          const { width, height } = this.scale;
+          const t = this.add.text(width / 2, height / 2, 'Cubos insuficientes!', {
+            fontSize: '28px', color: '#e74c3c', fontStyle: 'bold',
+            backgroundColor: '#ffffff'
+          }).setOrigin(0.5).setPadding(12);
+          this.tweens.add({ targets: t, alpha: 0, duration: 1400, onComplete: () => t.destroy() });
+        }
+      }
+    }
+
+    // ===== GAME =====
+    class GameScene extends Phaser.Scene {
+      constructor() { super('Game'); }
+
+      create() {
+        const { width, height } = this.scale;
+        this.W = width; this.H = height;
+        this.floorY = height * 0.78;
+
+        this.add.rectangle(0, 0, width, height, 0xe6f0ff).setOrigin(0);
+        this.add.rectangle(0, this.floorY, width, height - this.floorY, 0xc9a47a).setOrigin(0);
+        this.add.rectangle(0, this.floorY, width, 4, 0x333333).setOrigin(0);
+
+        // Clouds (decorative)
+        for (let i = 0; i < 4; i++) {
+          const cx = Phaser.Math.Between(0, width);
+          const cy = Phaser.Math.Between(40, 120);
+          this.add.rectangle(cx, cy, 60, 14, 0xffffff, 0.8);
+          this.add.rectangle(cx + 10, cy - 8, 30, 14, 0xffffff, 0.8);
+        }
+
+        // State
+        this.runCubes = 0;
+        this.gameSpeedBase = 280;
+        this.gameSpeed = this.gameSpeedBase;
+        this.hasAbility = false;
+        this.abilityArmed = false;
+        this.gameOver = false;
+
+        // Player
+        this.skin = getSelectedSkin();
+        this.player = buildDino(this, 110, this.floorY - 30, this.skin, 1);
+        this.playerVY = 0;
+        this.gravity = 1900;
+        this.jumpV = -720;
+        this.superJumpV = -1100;
+        this.grounded = true;
+
+        // Nickname under player (proportional to skin: skin scale is 1, so size scales with it)
+        const nick = STORAGE.get('nickname', '');
+        if (nick) {
+          this.nickText = this.add.text(this.player.x, this.floorY + 6, nick, {
+            fontSize: '13px', color: '#222', fontStyle: 'bold',
+            stroke: '#ffffff', strokeThickness: 3
+          }).setOrigin(0.5, 0);
+        }
+
+        // HUD: cube counter (top, subtle)
+        this.cubeCounterText = this.add.text(width / 2, 16, '🟨 0', {
+          fontSize: '18px', color: '#555', fontStyle: 'bold'
+        }).setOrigin(0.5, 0).setAlpha(0.7);
+
+        // HUD: ability slot (bottom center, also tappable as A on mobile)
+        this.abilityBg = this.add.rectangle(width / 2, height - 32, 44, 44, 0x9b6fff)
+          .setStrokeStyle(2, 0xffffff).setVisible(false);
+        this.abilityIcon = this.add.text(width / 2, height - 32, '⬆', {
+          fontSize: '24px', color: '#ffffff', fontStyle: 'bold'
+        }).setOrigin(0.5).setVisible(false);
+        this.abilityBg.setInteractive({ useHandCursor: true });
+        this.abilityBg.on('pointerdown', (p, x, y, e) => {
+          e.stopPropagation();
+          this.tryActivateAbility();
+        });
+
+        // First-time tutorial label
+        this.tutorialShown = STORAGE.get('tutorialA', false);
+        this.tutorialText = this.add.text(width / 2, height - 70, 'Aperte A para ativar!', {
+          fontSize: '14px', color: '#9b6fff', fontStyle: 'bold',
+          backgroundColor: '#ffffff'
+        }).setOrigin(0.5).setPadding(8, 4).setVisible(false);
+        this.tweens.add({ targets: this.tutorialText, y: height - 76, yoyo: true, repeat: -1, duration: 500 });
+
+        // Lists
+        this.obstacles = [];
+        this.cubes = [];
+        this.nextObstacleAt = 1400;
+        this.nextCubeAt = 900;
+        this.legTimer = 0;
+
+        // Input
+        this.input.on('pointerdown', () => this.tryJump());
+        this.input.keyboard.on('keydown-SPACE', () => this.tryJump());
+        this.input.keyboard.on('keydown-UP', () => this.tryJump());
+        this.input.keyboard.on('keydown-A', () => this.tryActivateAbility());
+      }
+
+      tryJump() {
+        if (this.gameOver) return;
+        if (!this.grounded) return;
+        if (this.abilityArmed) {
+          this.playerVY = this.superJumpV;
+          this.abilityArmed = false;
+          this.hasAbility = false;
+          this.abilityBg.setVisible(false);
+          this.abilityIcon.setVisible(false);
+          this.flashTrail(0xff66ff);
+        } else {
+          this.playerVY = this.jumpV;
+        }
+        this.grounded = false;
+      }
+
+      tryActivateAbility() {
+        if (this.gameOver) return;
+        if (!this.hasAbility) return;
+        this.abilityArmed = true;
+        if (!this.tutorialShown) {
+          STORAGE.set('tutorialA', true);
+          this.tutorialShown = true;
+          this.tutorialText.setVisible(false);
+        }
+        if (this.grounded) this.tryJump();
+        else {
+          // Visual hint that it's armed for next landing
+          this.tweens.add({ targets: this.abilityBg, scaleX: 1.2, scaleY: 1.2, yoyo: true, duration: 150 });
+        }
+      }
+
+      flashTrail(color) {
+        const t = this.add.rectangle(this.player.x, this.player.y, 70, 70, color, 0.5);
+        this.tweens.add({
+          targets: t, alpha: 0, scaleX: 2.2, scaleY: 2.2,
+          duration: 450, onComplete: () => t.destroy()
+        });
+      }
+
+      update(time, delta) {
+        if (this.gameOver) return;
+        const dt = delta / 1000;
+
+        // Physics
+        this.playerVY += this.gravity * dt;
+        this.player.y += this.playerVY * dt;
+        if (this.player.y >= this.floorY - 30) {
+          this.player.y = this.floorY - 30;
+          this.playerVY = 0;
+          if (!this.grounded && this.abilityArmed) {
+            // Armed mid-air: super-jump immediately on landing tick? Easier: just allow the next jump press.
+          }
+          this.grounded = true;
+        }
+
+        if (this.nickText) this.nickText.x = this.player.x;
+
+        // Leg shuffle while running
+        if (this.grounded) {
+          this.legTimer += delta;
+          if (this.legTimer > 110) {
+            this.legTimer = 0;
+            const a = this.player.legs[0].y, b = this.player.legs[1].y;
+            this.player.legs[0].y = b; this.player.legs[1].y = a;
+          }
+        } else {
+          this.player.legs[0].y = 18; this.player.legs[1].y = 18;
+        }
+
+        const sp = this.gameSpeed * dt;
+
+        for (let i = this.obstacles.length - 1; i >= 0; i--) {
+          const o = this.obstacles[i];
+          o.x -= sp;
+          if (o.x < -60) { o.destroy(); this.obstacles.splice(i, 1); continue; }
+          if (this.checkHit(o)) return this.die();
+        }
+
+        for (let i = this.cubes.length - 1; i >= 0; i--) {
+          const c = this.cubes[i];
+          c.x -= sp;
+          if (c.x < -40) { c.destroy(); this.cubes.splice(i, 1); continue; }
+          if (this.checkHit(c)) this.collectCube(c, i);
+        }
+
+        // Spawn obstacles
+        this.nextObstacleAt -= delta;
+        if (this.nextObstacleAt <= 0) {
+          this.spawnObstacle();
+          const minGap = Math.max(650, 1500 - this.runCubes * 18);
+          const maxGap = Math.max(1000, 2300 - this.runCubes * 22);
+          this.nextObstacleAt = Phaser.Math.Between(minGap, maxGap);
+        }
+
+        // Spawn cubes
+        this.nextCubeAt -= delta;
+        if (this.nextCubeAt <= 0) {
+          this.spawnCube();
+          this.nextCubeAt = Phaser.Math.Between(1400, 2800);
+        }
+      }
+
+      spawnObstacle() {
+        const isHigh = Math.random() < 0.18 && this.runCubes >= 5;
+        const w = Phaser.Math.Between(20, 38);
+        const h = isHigh ? 22 : Phaser.Math.Between(28, 54);
+        const y = isHigh ? this.floorY - 90 : this.floorY - h / 2;
+        const color = isHigh ? 0x884444 : 0x2d6d2d;
+        const obs = this.add.rectangle(this.W + 30, y, w, h, color);
+        obs.setStrokeStyle(2, 0x000000);
+        obs.hitW = w; obs.hitH = h;
+        this.obstacles.push(obs);
+      }
+
+      spawnCube() {
+        const isPower = Math.random() < 0.28 && !this.hasAbility;
+        const y = this.floorY - Phaser.Math.Between(60, 150);
+        const color = isPower ? 0x9b6fff : 0xffd700;
+        const c = this.add.rectangle(this.W + 30, y, 24, 24, color);
+        c.setStrokeStyle(2, 0xffffff);
+        c.isPower = isPower;
+        c.hitW = 24; c.hitH = 24;
+        c.baseY = y;
+        this.tweens.add({ targets: c, y: y - 8, yoyo: true, repeat: -1, duration: 600 });
+        if (isPower) {
+          this.tweens.add({ targets: c, scaleX: 1.18, scaleY: 1.18, yoyo: true, repeat: -1, duration: 350 });
+        }
+        this.cubes.push(c);
+      }
+
+      collectCube(c, i) {
+        if (c.isPower) {
+          this.hasAbility = true;
+          this.abilityBg.setVisible(true);
+          this.abilityIcon.setVisible(true);
+          if (!this.tutorialShown) this.tutorialText.setVisible(true);
+          this.flashTrail(0xb088ff);
+        } else {
+          this.runCubes++;
+          this.cubeCounterText.setText('🟨 ' + this.runCubes);
+          this.gameSpeed = this.gameSpeedBase + this.runCubes * 7;
+          this.tweens.add({
+            targets: this.cubeCounterText, scale: 1.4, duration: 110, yoyo: true
+          });
+          // Save to wallet immediately so a long run banks cubes even if game closes
+          const wallet = STORAGE.get('wallet', 0);
+          STORAGE.set('wallet', wallet + 1);
+        }
+        c.destroy();
+        this.cubes.splice(i, 1);
+      }
+
+      checkHit(obj) {
+        const px = this.player.x, py = this.player.y;
+        const dx = Math.abs(obj.x - px);
+        const dy = Math.abs(obj.y - py);
+        const w = (obj.hitW + 28) / 2;
+        const h = (obj.hitH + 46) / 2;
+        return dx < w && dy < h;
+      }
+
+      die() {
+        if (this.gameOver) return;
+        this.gameOver = true;
+        this.cameras.main.shake(220, 0.012);
+        this.player.parts.forEach(p => p.setFillStyle(0x666666));
+        this.time.delayedCall(450, () => this.showGameOver());
+      }
+
+      showGameOver() {
+        const { width, height } = this.scale;
+        this.add.rectangle(0, 0, width, height, 0x000000, 0.6).setOrigin(0);
+        this.add.text(width / 2, height * 0.26, 'GAME OVER', {
+          fontSize: '56px', fontFamily: 'Arial Black, Arial, sans-serif',
+          color: '#ffffff', stroke: '#e74c3c', strokeThickness: 6
+        }).setOrigin(0.5);
+
+        this.add.text(width / 2, height * 0.40, `🟨 ${this.runCubes} cubos coletados`, {
+          fontSize: '22px', color: '#ffd700', fontStyle: 'bold'
+        }).setOrigin(0.5);
+        this.add.text(width / 2, height * 0.47, `Total: 🟨 ${STORAGE.get('wallet', 0)}`, {
+          fontSize: '18px', color: '#ffffff'
+        }).setOrigin(0.5);
+
+        makeButton(this, width / 2, height * 0.62, 'JOGAR NOVAMENTE', '#27ae60',
+          () => this.scene.restart(), 300, 54);
+        makeButton(this, width / 2, height * 0.76, 'VOLTAR AO MENU', '#9b6fff',
+          () => this.scene.start('Menu'), 300, 54);
+      }
+    }
+
+    // ===== Boot =====
+    new Phaser.Game({
+      type: Phaser.AUTO,
+      parent: 'game',
+      width: 900,
+      height: 460,
+      backgroundColor: '#e6f0ff',
+      scale: {
+        mode: Phaser.Scale.FIT,
+        autoCenter: Phaser.Scale.CENTER_BOTH
+      },
+      scene: [MenuScene, ShopScene, GameScene]
+    });
+  </script>
+</body>
+</html>
