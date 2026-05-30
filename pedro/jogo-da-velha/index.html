@@ -39,6 +39,57 @@
       font-size: 28px;
       letter-spacing: 1px;
     }
+    .escondido { display: none !important; }
+
+    /* Tela de escolha de modo */
+    #tela-modo {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      margin-top: 30px;
+    }
+    #tela-modo .subtitulo {
+      font-size: 18px;
+      opacity: 0.8;
+      margin-bottom: 8px;
+    }
+    .opcoes-modo {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .botao-modo {
+      background: #232342;
+      border: 2px solid rgba(255,255,255,0.1);
+      color: #fff;
+      padding: 24px 28px;
+      border-radius: 16px;
+      font-size: 18px;
+      font-weight: 600;
+      cursor: pointer;
+      min-width: 200px;
+      transition: transform 0.1s, border-color 0.15s, background 0.15s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+    .botao-modo .emoji { font-size: 48px; }
+    .botao-modo .desc {
+      font-size: 13px;
+      font-weight: 400;
+      opacity: 0.7;
+    }
+    .botao-modo:hover {
+      transform: translateY(-4px);
+      background: #2c2c52;
+      border-color: #4f9bff;
+    }
+    .botao-modo.robo:hover { border-color: #ff4f6f; }
+
+    /* Placar */
     .placar {
       display: flex;
       gap: 12px;
@@ -138,11 +189,8 @@
     }
     button:hover { filter: brightness(1.1); }
     button:active { transform: scale(0.96); }
-    button.secundario {
-      background: rgba(255,255,255,0.1);
-    }
+    button.secundario { background: rgba(255,255,255,0.1); }
 
-    /* shake leve ao ganhar */
     .shake { animation: tremer 0.4s; }
     @keyframes tremer {
       0%, 100% { transform: translateX(0); }
@@ -158,95 +206,211 @@
 
   <h1>⭕ Jogo da Velha ❌</h1>
 
-  <div class="placar">
-    <div class="item x">
-      <div class="rotulo">X</div>
-      <div class="valor" id="placar-x">0</div>
-    </div>
-    <div class="item empate">
-      <div class="rotulo">EMPATES</div>
-      <div class="valor" id="placar-empate">0</div>
-    </div>
-    <div class="item o">
-      <div class="rotulo">O</div>
-      <div class="valor" id="placar-o">0</div>
+  <!-- Tela inicial: escolher modo -->
+  <div id="tela-modo">
+    <div class="subtitulo">Escolha o modo:</div>
+    <div class="opcoes-modo">
+      <button class="botao-modo" data-modo="humano">
+        <div class="emoji">👥</div>
+        <div>2 jogadores</div>
+        <div class="desc">No mesmo aparelho</div>
+      </button>
+      <button class="botao-modo robo" data-modo="robo">
+        <div class="emoji">🤖</div>
+        <div>Contra o robô</div>
+        <div class="desc">Você é o X, o robô é o O</div>
+      </button>
     </div>
   </div>
 
-  <div id="status">Vez do <span class="marca-x">X</span></div>
+  <!-- Tela do jogo -->
+  <div id="tela-jogo" class="escondido" style="display: flex; flex-direction: column; align-items: center; width: 100%;">
+    <div class="placar">
+      <div class="item x">
+        <div class="rotulo" id="rotulo-x">X</div>
+        <div class="valor" id="placar-x">0</div>
+      </div>
+      <div class="item empate">
+        <div class="rotulo">EMPATES</div>
+        <div class="valor" id="placar-empate">0</div>
+      </div>
+      <div class="item o">
+        <div class="rotulo" id="rotulo-o">O</div>
+        <div class="valor" id="placar-o">0</div>
+      </div>
+    </div>
 
-  <div id="tabuleiro"></div>
+    <div id="status">Vez do <span class="marca-x">X</span></div>
 
-  <div class="botoes">
-    <button id="nova-rodada">Nova rodada</button>
-    <button id="zerar-placar" class="secundario">Zerar placar</button>
+    <div id="tabuleiro"></div>
+
+    <div class="botoes">
+      <button id="nova-rodada">Nova rodada</button>
+      <button id="zerar-placar" class="secundario">Zerar placar</button>
+      <button id="trocar-modo" class="secundario">Trocar modo</button>
+    </div>
   </div>
 
   <script>
-    // Estado do jogo
+    // ---------- Estado ----------
     let tabuleiro = ["", "", "", "", "", "", "", "", ""];
     let vezDe = "X";
     let acabou = false;
+    let modo = "humano"; // "humano" ou "robo"
 
-    // Placar guardado no localStorage (pra continuar de onde parou)
-    const placar = {
-      X: Number(localStorage.getItem("velha-x")) || 0,
-      O: Number(localStorage.getItem("velha-o")) || 0,
-      empate: Number(localStorage.getItem("velha-empate")) || 0,
-    };
+    // Placar separado por modo (cada modo tem seu próprio histórico)
+    let placar = { X: 0, O: 0, empate: 0 };
 
-    // Todas as combinações que dão vitória
     const linhasVitoria = [
-      [0, 1, 2], [3, 4, 5], [6, 7, 8], // horizontais
-      [0, 3, 6], [1, 4, 7], [2, 5, 8], // verticais
-      [0, 4, 8], [2, 4, 6],            // diagonais
+      [0, 1, 2], [3, 4, 5], [6, 7, 8],
+      [0, 3, 6], [1, 4, 7], [2, 5, 8],
+      [0, 4, 8], [2, 4, 6],
     ];
 
+    // ---------- Elementos ----------
+    const elTelaModo = document.getElementById("tela-modo");
+    const elTelaJogo = document.getElementById("tela-jogo");
     const elTabuleiro = document.getElementById("tabuleiro");
     const elStatus = document.getElementById("status");
     const elPlacarX = document.getElementById("placar-x");
     const elPlacarO = document.getElementById("placar-o");
     const elPlacarEmpate = document.getElementById("placar-empate");
+    const elRotuloX = document.getElementById("rotulo-x");
+    const elRotuloO = document.getElementById("rotulo-o");
 
+    // ---------- Escolha de modo ----------
+    document.querySelectorAll(".botao-modo").forEach(btn => {
+      btn.addEventListener("click", () => iniciarModo(btn.dataset.modo));
+    });
+
+    function iniciarModo(novoModo) {
+      modo = novoModo;
+      carregarPlacar();
+
+      // Rótulos do placar muda no modo robô
+      if (modo === "robo") {
+        elRotuloX.textContent = "VOCÊ (X)";
+        elRotuloO.textContent = "ROBÔ (O)";
+      } else {
+        elRotuloX.textContent = "X";
+        elRotuloO.textContent = "O";
+      }
+
+      elTelaModo.classList.add("escondido");
+      elTelaJogo.classList.remove("escondido");
+
+      tabuleiro = ["", "", "", "", "", "", "", "", ""];
+      vezDe = "X";
+      acabou = false;
+      montarTabuleiro();
+      atualizarPlacar();
+      atualizarStatus();
+    }
+
+    function voltarParaModo() {
+      elTelaJogo.classList.add("escondido");
+      elTelaModo.classList.remove("escondido");
+    }
+
+    // ---------- Tabuleiro ----------
     function montarTabuleiro() {
       elTabuleiro.innerHTML = "";
       for (let i = 0; i < 9; i++) {
         const celula = document.createElement("div");
         celula.className = "celula";
         celula.dataset.indice = i;
-        celula.addEventListener("click", () => jogar(i));
+        celula.addEventListener("click", () => jogarHumano(i));
         elTabuleiro.appendChild(celula);
       }
     }
 
-    function jogar(indice) {
+    function jogarHumano(indice) {
       if (acabou) return;
       if (tabuleiro[indice] !== "") return;
+      // No modo robô, jogador humano só joga quando é a vez do X
+      if (modo === "robo" && vezDe !== "X") return;
 
-      tabuleiro[indice] = vezDe;
+      executarJogada(indice, vezDe);
+    }
+
+    function executarJogada(indice, marca) {
+      tabuleiro[indice] = marca;
       const celula = elTabuleiro.children[indice];
-      celula.textContent = vezDe;
-      celula.classList.add("preenchida", vezDe.toLowerCase());
+      celula.textContent = marca;
+      celula.classList.add("preenchida", marca.toLowerCase());
 
-      const vencedor = checarVitoria();
-      if (vencedor) {
-        finalizarVitoria(vencedor);
-        return;
-      }
-
-      if (tabuleiro.every(c => c !== "")) {
-        finalizarEmpate();
-        return;
-      }
+      const vencedor = checarVitoria(tabuleiro);
+      if (vencedor) return finalizarVitoria(vencedor);
+      if (tabuleiro.every(c => c !== "")) return finalizarEmpate();
 
       vezDe = vezDe === "X" ? "O" : "X";
       atualizarStatus();
+
+      // Vez do robô?
+      if (modo === "robo" && vezDe === "O" && !acabou) {
+        setTimeout(jogarRobo, 400); // pequena pausa pra parecer que ele "pensa"
+      }
     }
 
-    function checarVitoria() {
+    // ---------- Robô (algoritmo minimax) ----------
+    // O robô olha TODAS as jogadas possíveis até o fim do jogo, e escolhe
+    // a que dá a melhor situação pra ele assumindo que o adversário também
+    // joga o melhor possível. Por isso ele é imbatível no jogo da velha.
+    function jogarRobo() {
+      const indice = melhorJogada(tabuleiro, "O");
+      executarJogada(indice, "O");
+    }
+
+    function melhorJogada(estado, jogador) {
+      let melhorPontos = -Infinity;
+      let melhorIndice = -1;
+      for (let i = 0; i < 9; i++) {
+        if (estado[i] === "") {
+          estado[i] = jogador;
+          const pontos = minimax(estado, false);
+          estado[i] = "";
+          if (pontos > melhorPontos) {
+            melhorPontos = pontos;
+            melhorIndice = i;
+          }
+        }
+      }
+      return melhorIndice;
+    }
+
+    function minimax(estado, vezDoRobo) {
+      const v = checarVitoria(estado);
+      if (v) return v.jogador === "O" ? 10 : -10;
+      if (estado.every(c => c !== "")) return 0; // velha
+
+      if (vezDoRobo) {
+        let melhor = -Infinity;
+        for (let i = 0; i < 9; i++) {
+          if (estado[i] === "") {
+            estado[i] = "O";
+            melhor = Math.max(melhor, minimax(estado, false));
+            estado[i] = "";
+          }
+        }
+        return melhor;
+      } else {
+        let pior = Infinity;
+        for (let i = 0; i < 9; i++) {
+          if (estado[i] === "") {
+            estado[i] = "X";
+            pior = Math.min(pior, minimax(estado, true));
+            estado[i] = "";
+          }
+        }
+        return pior;
+      }
+    }
+
+    // ---------- Verificações ----------
+    function checarVitoria(estado) {
       for (const [a, b, c] of linhasVitoria) {
-        if (tabuleiro[a] && tabuleiro[a] === tabuleiro[b] && tabuleiro[b] === tabuleiro[c]) {
-          return { jogador: tabuleiro[a], linha: [a, b, c] };
+        if (estado[a] && estado[a] === estado[b] && estado[b] === estado[c]) {
+          return { jogador: estado[a], linha: [a, b, c] };
         }
       }
       return null;
@@ -259,7 +423,14 @@
       atualizarPlacar();
 
       linha.forEach(i => elTabuleiro.children[i].classList.add("vitoria"));
-      elStatus.innerHTML = `<span class="marca-${jogador.toLowerCase()}">${jogador}</span> venceu! 🎉`;
+
+      let texto;
+      if (modo === "robo") {
+        texto = jogador === "X" ? "Você venceu! 🎉" : "O robô venceu! 🤖";
+      } else {
+        texto = `<span class="marca-${jogador.toLowerCase()}">${jogador}</span> venceu! 🎉`;
+      }
+      elStatus.innerHTML = texto;
       elTabuleiro.classList.add("shake");
       setTimeout(() => elTabuleiro.classList.remove("shake"), 400);
     }
@@ -272,8 +443,15 @@
       elStatus.textContent = "Deu velha! 🤝";
     }
 
+    // ---------- Status / Placar ----------
     function atualizarStatus() {
-      elStatus.innerHTML = `Vez do <span class="marca-${vezDe.toLowerCase()}">${vezDe}</span>`;
+      if (modo === "robo") {
+        elStatus.innerHTML = vezDe === "X"
+          ? `Sua vez (<span class="marca-x">X</span>)`
+          : `Robô pensando... 🤖`;
+      } else {
+        elStatus.innerHTML = `Vez do <span class="marca-${vezDe.toLowerCase()}">${vezDe}</span>`;
+      }
     }
 
     function atualizarPlacar() {
@@ -282,37 +460,38 @@
       elPlacarEmpate.textContent = placar.empate;
     }
 
+    function chavePlacar() {
+      return `velha-${modo}`;
+    }
+
+    function carregarPlacar() {
+      const salvo = localStorage.getItem(chavePlacar());
+      placar = salvo ? JSON.parse(salvo) : { X: 0, O: 0, empate: 0 };
+    }
+
     function salvarPlacar() {
-      localStorage.setItem("velha-x", placar.X);
-      localStorage.setItem("velha-o", placar.O);
-      localStorage.setItem("velha-empate", placar.empate);
+      localStorage.setItem(chavePlacar(), JSON.stringify(placar));
     }
 
     function novaRodada() {
       tabuleiro = ["", "", "", "", "", "", "", "", ""];
       acabou = false;
-      // Quem perdeu começa a próxima — se foi empate, mantém alternância
-      vezDe = vezDe === "X" ? "O" : "X";
+      // No modo robô o humano (X) sempre começa. No modo humano alterna.
+      vezDe = modo === "robo" ? "X" : (vezDe === "X" ? "O" : "X");
       montarTabuleiro();
       atualizarStatus();
     }
 
     function zerarPlacar() {
-      if (!confirm("Zerar o placar de verdade?")) return;
-      placar.X = 0;
-      placar.O = 0;
-      placar.empate = 0;
+      if (!confirm("Zerar o placar deste modo?")) return;
+      placar = { X: 0, O: 0, empate: 0 };
       salvarPlacar();
       atualizarPlacar();
     }
 
     document.getElementById("nova-rodada").addEventListener("click", novaRodada);
     document.getElementById("zerar-placar").addEventListener("click", zerarPlacar);
-
-    // Início
-    montarTabuleiro();
-    atualizarPlacar();
-    atualizarStatus();
+    document.getElementById("trocar-modo").addEventListener("click", voltarParaModo);
   </script>
 </body>
 </html>
