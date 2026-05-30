@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <title>Jogo da Velha</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #1a1a2e;
+      min-height: 100%;
+      font-family: system-ui, -apple-system, sans-serif;
+      color: #fff;
+      overflow-x: hidden;
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px;
+      min-height: 100vh;
+    }
+    #voltar {
+      position: fixed;
+      top: 12px;
+      left: 12px;
+      background: rgba(0,0,0,0.4);
+      color: #fff;
+      text-decoration: none;
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 14px;
+      z-index: 10;
+    }
+    h1 {
+      margin: 40px 0 8px;
+      font-size: 28px;
+      letter-spacing: 1px;
+    }
+    .placar {
+      display: flex;
+      gap: 12px;
+      margin: 8px 0 16px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .placar .item {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      padding: 10px 16px;
+      border-radius: 12px;
+      text-align: center;
+      min-width: 80px;
+    }
+    .placar .item .rotulo {
+      font-size: 12px;
+      opacity: 0.7;
+      letter-spacing: 1px;
+    }
+    .placar .item .valor {
+      font-size: 22px;
+      font-weight: bold;
+      margin-top: 2px;
+    }
+    .placar .x .valor { color: #4f9bff; }
+    .placar .o .valor { color: #ff4f6f; }
+    .placar .empate .valor { color: #aaa; }
+
+    #status {
+      font-size: 20px;
+      margin: 4px 0 16px;
+      min-height: 28px;
+      text-align: center;
+    }
+    #status .marca-x { color: #4f9bff; font-weight: bold; }
+    #status .marca-o { color: #ff4f6f; font-weight: bold; }
+
+    #tabuleiro {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      width: min(90vw, 420px);
+      aspect-ratio: 1 / 1;
+      background: rgba(255,255,255,0.05);
+      padding: 8px;
+      border-radius: 16px;
+      position: relative;
+    }
+    .celula {
+      background: #232342;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: clamp(48px, 14vw, 88px);
+      font-weight: bold;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.15s, transform 0.1s;
+      border: 2px solid transparent;
+    }
+    .celula:hover:not(.preenchida) {
+      background: #2c2c52;
+      transform: scale(1.02);
+    }
+    .celula.preenchida { cursor: default; }
+    .celula.x { color: #4f9bff; }
+    .celula.o { color: #ff4f6f; }
+    .celula.vitoria {
+      background: #3a3a6e;
+      border-color: #ffd84f;
+      animation: piscar 0.6s ease infinite alternate;
+    }
+    @keyframes piscar {
+      from { box-shadow: 0 0 0 0 rgba(255,216,79,0.4); }
+      to   { box-shadow: 0 0 24px 4px rgba(255,216,79,0.6); }
+    }
+
+    .botoes {
+      margin-top: 20px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    button {
+      background: #4f9bff;
+      color: #fff;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.1s, filter 0.15s;
+    }
+    button:hover { filter: brightness(1.1); }
+    button:active { transform: scale(0.96); }
+    button.secundario {
+      background: rgba(255,255,255,0.1);
+    }
+
+    /* shake leve ao ganhar */
+    .shake { animation: tremer 0.4s; }
+    @keyframes tremer {
+      0%, 100% { transform: translateX(0); }
+      20% { transform: translateX(-6px); }
+      40% { transform: translateX(6px); }
+      60% { transform: translateX(-4px); }
+      80% { transform: translateX(4px); }
+    }
+  </style>
+</head>
+<body>
+  <a id="voltar" href="../">← voltar</a>
+
+  <h1>⭕ Jogo da Velha ❌</h1>
+
+  <div class="placar">
+    <div class="item x">
+      <div class="rotulo">X</div>
+      <div class="valor" id="placar-x">0</div>
+    </div>
+    <div class="item empate">
+      <div class="rotulo">EMPATES</div>
+      <div class="valor" id="placar-empate">0</div>
+    </div>
+    <div class="item o">
+      <div class="rotulo">O</div>
+      <div class="valor" id="placar-o">0</div>
+    </div>
+  </div>
+
+  <div id="status">Vez do <span class="marca-x">X</span></div>
+
+  <div id="tabuleiro"></div>
+
+  <div class="botoes">
+    <button id="nova-rodada">Nova rodada</button>
+    <button id="zerar-placar" class="secundario">Zerar placar</button>
+  </div>
+
+  <script>
+    // Estado do jogo
+    let tabuleiro = ["", "", "", "", "", "", "", "", ""];
+    let vezDe = "X";
+    let acabou = false;
+
+    // Placar guardado no localStorage (pra continuar de onde parou)
+    const placar = {
+      X: Number(localStorage.getItem("velha-x")) || 0,
+      O: Number(localStorage.getItem("velha-o")) || 0,
+      empate: Number(localStorage.getItem("velha-empate")) || 0,
+    };
+
+    // Todas as combinações que dão vitória
+    const linhasVitoria = [
+      [0, 1, 2], [3, 4, 5], [6, 7, 8], // horizontais
+      [0, 3, 6], [1, 4, 7], [2, 5, 8], // verticais
+      [0, 4, 8], [2, 4, 6],            // diagonais
+    ];
+
+    const elTabuleiro = document.getElementById("tabuleiro");
+    const elStatus = document.getElementById("status");
+    const elPlacarX = document.getElementById("placar-x");
+    const elPlacarO = document.getElementById("placar-o");
+    const elPlacarEmpate = document.getElementById("placar-empate");
+
+    function montarTabuleiro() {
+      elTabuleiro.innerHTML = "";
+      for (let i = 0; i < 9; i++) {
+        const celula = document.createElement("div");
+        celula.className = "celula";
+        celula.dataset.indice = i;
+        celula.addEventListener("click", () => jogar(i));
+        elTabuleiro.appendChild(celula);
+      }
+    }
+
+    function jogar(indice) {
+      if (acabou) return;
+      if (tabuleiro[indice] !== "") return;
+
+      tabuleiro[indice] = vezDe;
+      const celula = elTabuleiro.children[indice];
+      celula.textContent = vezDe;
+      celula.classList.add("preenchida", vezDe.toLowerCase());
+
+      const vencedor = checarVitoria();
+      if (vencedor) {
+        finalizarVitoria(vencedor);
+        return;
+      }
+
+      if (tabuleiro.every(c => c !== "")) {
+        finalizarEmpate();
+        return;
+      }
+
+      vezDe = vezDe === "X" ? "O" : "X";
+      atualizarStatus();
+    }
+
+    function checarVitoria() {
+      for (const [a, b, c] of linhasVitoria) {
+        if (tabuleiro[a] && tabuleiro[a] === tabuleiro[b] && tabuleiro[b] === tabuleiro[c]) {
+          return { jogador: tabuleiro[a], linha: [a, b, c] };
+        }
+      }
+      return null;
+    }
+
+    function finalizarVitoria({ jogador, linha }) {
+      acabou = true;
+      placar[jogador]++;
+      salvarPlacar();
+      atualizarPlacar();
+
+      linha.forEach(i => elTabuleiro.children[i].classList.add("vitoria"));
+      elStatus.innerHTML = `<span class="marca-${jogador.toLowerCase()}">${jogador}</span> venceu! 🎉`;
+      elTabuleiro.classList.add("shake");
+      setTimeout(() => elTabuleiro.classList.remove("shake"), 400);
+    }
+
+    function finalizarEmpate() {
+      acabou = true;
+      placar.empate++;
+      salvarPlacar();
+      atualizarPlacar();
+      elStatus.textContent = "Deu velha! 🤝";
+    }
+
+    function atualizarStatus() {
+      elStatus.innerHTML = `Vez do <span class="marca-${vezDe.toLowerCase()}">${vezDe}</span>`;
+    }
+
+    function atualizarPlacar() {
+      elPlacarX.textContent = placar.X;
+      elPlacarO.textContent = placar.O;
+      elPlacarEmpate.textContent = placar.empate;
+    }
+
+    function salvarPlacar() {
+      localStorage.setItem("velha-x", placar.X);
+      localStorage.setItem("velha-o", placar.O);
+      localStorage.setItem("velha-empate", placar.empate);
+    }
+
+    function novaRodada() {
+      tabuleiro = ["", "", "", "", "", "", "", "", ""];
+      acabou = false;
+      // Quem perdeu começa a próxima — se foi empate, mantém alternância
+      vezDe = vezDe === "X" ? "O" : "X";
+      montarTabuleiro();
+      atualizarStatus();
+    }
+
+    function zerarPlacar() {
+      if (!confirm("Zerar o placar de verdade?")) return;
+      placar.X = 0;
+      placar.O = 0;
+      placar.empate = 0;
+      salvarPlacar();
+      atualizarPlacar();
+    }
+
+    document.getElementById("nova-rodada").addEventListener("click", novaRodada);
+    document.getElementById("zerar-placar").addEventListener("click", zerarPlacar);
+
+    // Início
+    montarTabuleiro();
+    atualizarPlacar();
+    atualizarStatus();
+  </script>
+</body>
+</html>

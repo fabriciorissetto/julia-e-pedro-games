@@ -48,4 +48,11 @@ window.GAMES = [
     color: "#9b4fff",
     description: "MMORPG sandbox pixel art. 4 classes, mobs, craft."
   },
+  {
+    slug: "jogo-da-velha",
+    title: "Jogo da Velha",
+    emoji: "⭕",
+    color: "#4fdb9b",
+    description: "Clássico X vs O, 2 jogadores, placar salvo"
+  },
 ];
