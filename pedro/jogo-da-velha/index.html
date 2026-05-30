@@ -215,12 +215,35 @@
         <div>2 jogadores</div>
         <div class="desc">No mesmo aparelho</div>
       </button>
-      <button class="botao-modo robo" data-modo="robo">
+      <button class="botao-modo robo" id="abrir-dificuldade">
         <div class="emoji">🤖</div>
         <div>Contra o robô</div>
-        <div class="desc">Você é o X, o robô é o O</div>
+        <div class="desc">Escolha a dificuldade</div>
       </button>
     </div>
+  </div>
+
+  <!-- Tela de escolha de dificuldade -->
+  <div id="tela-dificuldade" class="escondido" style="display: flex; flex-direction: column; align-items: center; gap: 20px; margin-top: 30px;">
+    <div class="subtitulo" style="font-size: 18px; opacity: 0.8;">Qual a dificuldade do robô?</div>
+    <div class="opcoes-modo">
+      <button class="botao-modo" data-dificuldade="facil" style="border-color: rgba(79, 219, 155, 0.4);">
+        <div class="emoji">😊</div>
+        <div>Fácil</div>
+        <div class="desc">Joga aleatório</div>
+      </button>
+      <button class="botao-modo" data-dificuldade="medio" style="border-color: rgba(255, 216, 79, 0.4);">
+        <div class="emoji">🤔</div>
+        <div>Médio</div>
+        <div class="desc">Ataca e defende, mas erra</div>
+      </button>
+      <button class="botao-modo robo" data-dificuldade="dificil">
+        <div class="emoji">😈</div>
+        <div>Difícil</div>
+        <div class="desc">Imbatível (minimax)</div>
+      </button>
+    </div>
+    <button id="voltar-modo" class="secundario">← voltar</button>
   </div>
 
   <!-- Tela do jogo -->
@@ -257,6 +280,7 @@
     let vezDe = "X";
     let acabou = false;
     let modo = "humano"; // "humano" ou "robo"
+    let dificuldade = "dificil"; // "facil", "medio", "dificil"
 
     // Placar separado por modo (cada modo tem seu próprio histórico)
     let placar = { X: 0, O: 0, empate: 0 };
@@ -269,6 +293,7 @@
 
     // ---------- Elementos ----------
     const elTelaModo = document.getElementById("tela-modo");
+    const elTelaDificuldade = document.getElementById("tela-dificuldade");
     const elTelaJogo = document.getElementById("tela-jogo");
     const elTabuleiro = document.getElementById("tabuleiro");
     const elStatus = document.getElementById("status");
@@ -279,8 +304,26 @@
     const elRotuloO = document.getElementById("rotulo-o");
 
     // ---------- Escolha de modo ----------
-    document.querySelectorAll(".botao-modo").forEach(btn => {
+    document.querySelectorAll("#tela-modo .botao-modo[data-modo]").forEach(btn => {
       btn.addEventListener("click", () => iniciarModo(btn.dataset.modo));
+    });
+
+    document.getElementById("abrir-dificuldade").addEventListener("click", () => {
+      elTelaModo.classList.add("escondido");
+      elTelaDificuldade.classList.remove("escondido");
+    });
+
+    document.getElementById("voltar-modo").addEventListener("click", () => {
+      elTelaDificuldade.classList.add("escondido");
+      elTelaModo.classList.remove("escondido");
+    });
+
+    document.querySelectorAll("#tela-dificuldade .botao-modo").forEach(btn => {
+      btn.addEventListener("click", () => {
+        dificuldade = btn.dataset.dificuldade;
+        elTelaDificuldade.classList.add("escondido");
+        iniciarModo("robo");
+      });
     });
 
     function iniciarModo(novoModo) {
@@ -290,7 +333,8 @@
       // Rótulos do placar muda no modo robô
       if (modo === "robo") {
         elRotuloX.textContent = "VOCÊ (X)";
-        elRotuloO.textContent = "ROBÔ (O)";
+        const emojiDif = { facil: "😊", medio: "🤔", dificil: "😈" }[dificuldade];
+        elRotuloO.textContent = `ROBÔ ${emojiDif}`;
       } else {
         elRotuloX.textContent = "X";
         elRotuloO.textContent = "O";
@@ -352,14 +396,55 @@
       }
     }
 
-    // ---------- Robô (algoritmo minimax) ----------
-    // O robô olha TODAS as jogadas possíveis até o fim do jogo, e escolhe
-    // a que dá a melhor situação pra ele assumindo que o adversário também
-    // joga o melhor possível. Por isso ele é imbatível no jogo da velha.
+    // ---------- Robô ----------
     function jogarRobo() {
-      const indice = melhorJogada(tabuleiro, "O");
+      let indice;
+      if (dificuldade === "facil") {
+        indice = jogadaAleatoria(tabuleiro);
+      } else if (dificuldade === "medio") {
+        indice = jogadaMedia(tabuleiro);
+      } else {
+        indice = melhorJogada(tabuleiro, "O");
+      }
       executarJogada(indice, "O");
     }
+
+    // Fácil: escolhe uma casa vazia qualquer
+    function jogadaAleatoria(estado) {
+      const vazias = [];
+      for (let i = 0; i < 9; i++) if (estado[i] === "") vazias.push(i);
+      return vazias[Math.floor(Math.random() * vazias.length)];
+    }
+
+    // Médio: 1) se pode ganhar agora, ganha. 2) se o adversário ia ganhar
+    // na próxima, bloqueia. 3) caso contrário, joga aleatório.
+    // Não usa estratégia profunda — dá pra ganhar dele com forks.
+    function jogadaMedia(estado) {
+      // Tenta ganhar
+      const ganhar = jogadaQueVence(estado, "O");
+      if (ganhar !== -1) return ganhar;
+      // Bloqueia
+      const bloqueio = jogadaQueVence(estado, "X");
+      if (bloqueio !== -1) return bloqueio;
+      // Aleatório
+      return jogadaAleatoria(estado);
+    }
+
+    function jogadaQueVence(estado, jogador) {
+      for (let i = 0; i < 9; i++) {
+        if (estado[i] === "") {
+          estado[i] = jogador;
+          const venceu = checarVitoria(estado);
+          estado[i] = "";
+          if (venceu && venceu.jogador === jogador) return i;
+        }
+      }
+      return -1;
+    }
+
+    // Difícil: minimax. Olha TODAS as jogadas até o fim do jogo e escolhe
+    // a melhor assumindo que o adversário também joga o melhor possível.
+    // Por isso é imbatível.
 
     function melhorJogada(estado, jogador) {
       let melhorPontos = -Infinity;
@@ -461,7 +546,7 @@
     }
 
     function chavePlacar() {
-      return `velha-${modo}`;
+      return modo === "robo" ? `velha-robo-${dificuldade}` : "velha-humano";
     }
 
     function carregarPlacar() {
