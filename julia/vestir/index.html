@@ -43,31 +43,21 @@
   /* Área das duas crianças */
   #palco {
     flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 3vw;
-    padding: 60px 16px 16px;
+    padding: 70px 92px 12px;
     position: relative;
     overflow: hidden;
   }
 
   .boneca-wrap {
     position: relative;
-    height: min(82vh, 620px);
+    height: min(100%, 640px);
     aspect-ratio: 280 / 560;
     display: flex;
     flex-direction: column;
     align-items: center;
     border-radius: 32px;
     cursor: pointer;
-    transition: transform 0.2s, opacity 0.2s, background 0.2s;
-    opacity: 0.8;
-  }
-  .boneca-wrap svg {
-    width: 100%;
-    flex: 1;
-    min-height: 0;
+    transition: transform 0.2s, background 0.2s;
   }
   /* contorno suave em tudo que é preenchido e não tem traço próprio — deixa o desenho mais caprichado */
   .boneca-wrap svg g > :not([stroke]):not([fill="none"]),
@@ -89,19 +79,129 @@
     0%, 100% { opacity: 0; transform: scale(0.6) rotate(0deg); }
     50% { opacity: 0.9; transform: scale(1.1) rotate(20deg); }
   }
-  /* chão */
-  #palco::before {
-    content: '';
+  /* ===== cenário e camadas do palco ===== */
+  #cenario, #brilhos { position: absolute; inset: 0; pointer-events: none; }
+  #cenario { z-index: 0; }
+  #brilhos { z-index: 1; }
+  #criancas {
+    position: relative;
+    z-index: 2;
+    height: 100%;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 3vw;
+  }
+  .lampada { animation: lampada 1.5s ease-in-out infinite alternate; }
+  @keyframes lampada { from { opacity: 0.45; } to { opacity: 1; } }
+  .holofote { transform-origin: 50% 0; animation: holofote 4s ease-in-out infinite alternate; }
+  .holofote.h2 { animation-delay: -2s; }
+  @keyframes holofote { from { transform: rotate(-8deg); } to { transform: rotate(8deg); } }
+
+  /* botões de cenário (topo) */
+  #cenarios {
     position: absolute;
-    left: 0; right: 0; bottom: 0;
-    height: 24%;
-    background: linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(255,240,250,0.75) 100%);
+    top: 12px;
+    right: 12px;
+    z-index: 5;
+    display: flex;
+    gap: 6px;
+    background: rgba(255,255,255,0.75);
+    padding: 5px;
+    border-radius: 22px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  }
+  .cen-btn {
+    font-size: 24px;
+    width: 44px;
+    height: 44px;
+    border: 3px solid transparent;
+    border-radius: 50%;
+    background: white;
+    cursor: pointer;
+    padding: 0;
+  }
+  .cen-btn.ativa { border-color: #b56fff; background: #ffe7ff; }
+
+  /* botões grandes de brincadeira */
+  .acao-btn {
+    position: absolute;
+    bottom: 16px;
+    z-index: 5;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    border: 4px solid white;
+    font-size: 32px;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    transition: transform 0.1s;
+  }
+  .acao-btn:active { transform: scale(0.9); }
+  #btn-surpresa { left: 16px; background: linear-gradient(135deg, #ffd16f, #ffa066); }
+  #btn-desfile { right: 16px; background: linear-gradient(135deg, #ff9bd3, #b56fff); }
+
+  /* ===== cor da pele (muda via --pele no wrap) ===== */
+  .boneca-wrap .pele { fill: var(--pele, #ffd6b5); }
+  .boneca-wrap .pele-sombra { fill: var(--pele-sombra, #f5b894); }
+
+  /* ===== olhos piscando, risada ===== */
+  .boneca-wrap .olho {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: pisca 4.6s infinite;
+  }
+  #wrap-menino .olho { animation-delay: 1.9s; }
+  @keyframes pisca {
+    0%, 93%, 100% { transform: scaleY(1); }
+    96% { transform: scaleY(0.1); }
+  }
+  .olho-feliz, .boca-rindo { display: none; }
+  .rindo .olho, .rindo .boca { display: none; }
+  .rindo .olho-feliz, .rindo .boca-rindo { display: inline; }
+  .rindo .corpo-anim { animation: risada 0.25s ease-in-out 4; }
+  @keyframes risada {
+    0%, 100% { transform: translateY(0) rotate(0); }
+    50% { transform: translateY(-6px) rotate(2deg); }
+  }
+
+  /* corpo animável (desfile / surpresa) */
+  .corpo-anim {
+    width: 100%;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    transform-origin: 50% 100%;
+  }
+  .corpo-anim svg { width: 100%; height: 100%; }
+  .pop .corpo-anim { animation: pop 0.5s ease-out; }
+  @keyframes pop {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.12) rotate(-3deg); }
+    70% { transform: scale(0.96) rotate(2deg); }
+    100% { transform: scale(1); }
+  }
+  .desfilando .corpo-anim { animation: danca 0.4s ease-in-out infinite alternate; }
+  .desfilando #wrap-menino .corpo-anim { animation-delay: -0.2s; }
+  @keyframes danca {
+    from { transform: translateY(0) rotate(-5deg); }
+    to { transform: translateY(-16px) rotate(5deg); }
+  }
+  .confete {
+    position: absolute;
+    top: -40px;
+    z-index: 6;
     pointer-events: none;
+    animation: cair 2.4s linear forwards;
+  }
+  @keyframes cair {
+    from { transform: translateY(0) rotate(0); opacity: 1; }
+    to { transform: translateY(110vh) rotate(540deg); opacity: 0.8; }
   }
   .boneca-wrap.ativa {
     opacity: 1;
     transform: scale(1.04);
-    background: radial-gradient(ellipse at center, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0) 70%);
+    background: radial-gradient(ellipse at center, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0) 70%);
   }
   .etiqueta {
     font-size: 34px;
@@ -287,8 +387,14 @@
   /* Mobile */
   @media (max-width: 700px) {
     #app { flex-direction: column; }
-    #palco { flex: 0 0 46vh; padding: 54px 8px 4px; gap: 6vw; }
+    #palco { flex: 0 0 46vh; padding: 58px 8px 4px; }
+    #criancas { gap: 6vw; }
     .boneca-wrap { height: 100%; }
+    #cenarios { top: 10px; right: 8px; gap: 3px; padding: 3px; }
+    .cen-btn { width: 34px; height: 34px; font-size: 18px; border-width: 2px; }
+    .acao-btn { width: 48px; height: 48px; font-size: 24px; bottom: 8px; border-width: 3px; }
+    #btn-surpresa { left: 8px; }
+    #btn-desfile { right: 8px; }
     .etiqueta { font-size: 22px; padding: 0 12px; border-width: 3px; }
     #painel {
       width: 100%;
@@ -298,7 +404,8 @@
     }
     .quem-btn { font-size: 26px; padding: 2px; }
     #busca { padding: 8px 12px 8px 40px; font-size: 16px; }
-    .cat-btn { font-size: 20px; padding: 4px 0; border-radius: 12px; }
+    #categorias { grid-template-columns: repeat(7, 1fr); gap: 4px; }
+    .cat-btn { font-size: 19px; padding: 4px 0; border-radius: 12px; }
     #itens { grid-template-columns: repeat(4, 1fr); gap: 6px; }
   }
 </style>
@@ -330,6 +437,16 @@
       <circle cx="5" cy="5" r="3" fill="#ffffff"/>
       <circle cx="15" cy="15" r="3" fill="#ffffff"/>
     </pattern>
+    <linearGradient id="grad-metal" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#9aa5b1"/>
+      <stop offset="35%" stop-color="#eef2f6"/>
+      <stop offset="65%" stop-color="#c3cbd4"/>
+      <stop offset="100%" stop-color="#7d8894"/>
+    </linearGradient>
+    <linearGradient id="grad-fada" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffd6f5" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#b5d6ff" stop-opacity="0.6"/>
+    </linearGradient>
     <pattern id="pat-cachecol" width="20" height="16" patternUnits="userSpaceOnUse">
       <rect width="20" height="16" fill="#ff6f6f"/>
       <rect width="20" height="8" fill="#ffffff"/>
@@ -338,7 +455,14 @@
 </svg>
 
 <div id="app">
-  <div id="palco"></div>
+  <div id="palco">
+    <div id="cenario"></div>
+    <div id="brilhos"></div>
+    <div id="cenarios"></div>
+    <div id="criancas"></div>
+    <button id="btn-surpresa" class="acao-btn" title="Surpresa">🎲</button>
+    <button id="btn-desfile" class="acao-btn" title="Desfile">💃</button>
+  </div>
 
   <div id="painel">
     <div id="quem">
@@ -362,40 +486,65 @@
 // Medidas (viewBox 360x540): ombros y=222, cintura y=302, quadril y=338,
 // pernas até y=504, mão esquerda em (106,352). Todas as roupas seguem essas medidas.
 const PELE = '#ffd6b5';
-const CORPO_PERNAS = `<rect x="141" y="318" width="28" height="186" rx="14" fill="${PELE}"/>
-  <rect x="191" y="318" width="28" height="186" rx="14" fill="${PELE}"/>`;
-const CORPO_TORSO = `<rect x="168" y="200" width="24" height="30" fill="${PELE}"/>
-  <path d="M 134 224 Q 180 212 226 224 L 230 262 Q 220 288 222 306 L 232 338 L 128 338 L 138 306 Q 140 288 130 262 Z" fill="${PELE}"/>
+const CORPO_PERNAS = `<rect x="141" y="318" width="28" height="186" rx="14" class="pele" fill="${PELE}"/>
+  <rect x="191" y="318" width="28" height="186" rx="14" class="pele" fill="${PELE}"/>`;
+const CORPO_TORSO = `<rect x="168" y="200" width="24" height="30" class="pele" fill="${PELE}"/>
+  <path d="M 134 224 Q 180 212 226 224 L 230 262 Q 220 288 222 306 L 232 338 L 128 338 L 138 306 Q 140 288 130 262 Z" class="pele" fill="${PELE}"/>
   <path d="M 142 252 Q 180 262 218 252 Q 216 285 220 306 L 230 338 Q 180 346 130 338 L 140 306 Q 144 285 142 252 Z" fill="#fff0f8" stroke="#ffc6e2" stroke-width="2"/>`;
-const CORPO_BRACOS = `<ellipse cx="120" cy="290" rx="14" ry="60" fill="${PELE}" transform="rotate(12 120 290)"/>
-  <ellipse cx="240" cy="290" rx="14" ry="60" fill="${PELE}" transform="rotate(-12 240 290)"/>
-  <circle cx="106" cy="352" r="13" fill="${PELE}"/>
-  <circle cx="254" cy="352" r="13" fill="${PELE}"/>`;
+const CORPO_BRACOS = `<ellipse cx="120" cy="290" rx="14" ry="60" class="pele" fill="${PELE}" transform="rotate(12 120 290)"/>
+  <ellipse cx="240" cy="290" rx="14" ry="60" class="pele" fill="${PELE}" transform="rotate(-12 240 290)"/>
+  <circle cx="106" cy="352" r="13" class="pele" fill="${PELE}"/>
+  <circle cx="254" cy="352" r="13" class="pele" fill="${PELE}"/>`;
 
+// Rosto: olhos com íris e brilho, pálpebra, cílios curvinhos (menina), sobrancelha,
+// narizinho e boca. ".olho" pisca sozinho (CSS); ".olho-feliz" e ".boca-rindo" aparecem
+// quando a criança ri (classe "rindo" no wrap).
+function olhoSVG(cx, lado, menina) {
+  // lado: -1 = olho esquerdo (canto de fora pra esquerda), 1 = direito
+  const L = lado;
+  const cilios = menina ? `<path d="M ${cx + L * 9} 157.5 l ${L * 6} -4 M ${cx + L * 6} 155.5 l ${L * 5} -6 M ${cx + L * 2} 153.7 l ${L * 3} -6.5"
+      stroke="#2a1810" stroke-width="2.2" fill="none" stroke-linecap="round"/>` : '';
+  return `<g class="olho">
+      <ellipse cx="${cx}" cy="162" rx="7.5" ry="9.5" fill="#2a1810" stroke="none"/>
+      <ellipse cx="${cx}" cy="164" rx="5.6" ry="6.8" fill="#8b5a3c" stroke="none"/>
+      <ellipse cx="${cx}" cy="165" rx="3" ry="3.8" fill="#1a0e08" stroke="none"/>
+      <circle cx="${cx + 2.8}" cy="158.5" r="3.1" fill="#fff" stroke="none"/>
+      <circle cx="${cx - 2.6}" cy="167.5" r="1.4" fill="#fff" stroke="none"/>
+      <path d="M ${cx - 9} 158 Q ${cx} 149 ${cx + 9} 158" stroke="#2a1810" stroke-width="${menina ? 2.8 : 2}" fill="none" stroke-linecap="round"/>
+      ${cilios}
+    </g>
+    <path class="olho-feliz" d="M ${cx - 8} 164 Q ${cx} 153 ${cx + 8} 164" stroke="#2a1810" stroke-width="3" fill="none" stroke-linecap="round"/>`;
+}
 function cabecaSVG(quem) {
-  const cilios = quem === 'menina' ? `
-    <path d="M 152 152 L 148 148" stroke="#222" stroke-width="2" stroke-linecap="round"/>
-    <path d="M 168 152 L 172 148" stroke="#222" stroke-width="2" stroke-linecap="round"/>
-    <path d="M 192 152 L 188 148" stroke="#222" stroke-width="2" stroke-linecap="round"/>
-    <path d="M 208 152 L 212 148" stroke="#222" stroke-width="2" stroke-linecap="round"/>` : '';
-  return `<ellipse cx="125" cy="168" rx="9" ry="12" fill="${PELE}"/>
-    <ellipse cx="235" cy="168" rx="9" ry="12" fill="${PELE}"/>
-    <ellipse cx="126" cy="168" rx="4" ry="6" fill="#f5b894" stroke="none"/>
-    <ellipse cx="234" cy="168" rx="4" ry="6" fill="#f5b894" stroke="none"/>
-    <circle cx="180" cy="160" r="56" fill="${PELE}"/>
-    <path d="M 151 145 Q 160 140 169 145" stroke="#8b5a3c" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-    <path d="M 191 145 Q 200 140 209 145" stroke="#8b5a3c" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-    <ellipse cx="160" cy="160" rx="6.5" ry="8.5" fill="#3a2418" stroke="none"/>
-    <ellipse cx="200" cy="160" rx="6.5" ry="8.5" fill="#3a2418" stroke="none"/>
-    <circle cx="162.5" cy="157" r="2.6" fill="#fff" stroke="none"/>
-    <circle cx="202.5" cy="157" r="2.6" fill="#fff" stroke="none"/>
-    <circle cx="158" cy="163" r="1.2" fill="#fff" stroke="none"/>
-    <circle cx="198" cy="163" r="1.2" fill="#fff" stroke="none"/>
-    ${cilios}
-    <path d="M 176 174 Q 180 178 184 174" stroke="#e09a78" stroke-width="2" fill="none" stroke-linecap="round"/>
-    <ellipse cx="146" cy="180" rx="8" ry="5.5" fill="#ff9bb5" opacity="0.6" stroke="none"/>
-    <ellipse cx="214" cy="180" rx="8" ry="5.5" fill="#ff9bb5" opacity="0.6" stroke="none"/>
-    <path d="M 168 188 Q 180 200 192 188" stroke="#c44" stroke-width="3" fill="none" stroke-linecap="round"/>`;
+  const menina = quem === 'menina';
+  const sobrancelha = (cx) => menina
+    ? `<path d="M ${cx - 9} 145 Q ${cx} 138.5 ${cx + 9} 143.5" stroke="#7a4a2a" stroke-width="2.2" fill="none" stroke-linecap="round"/>`
+    : `<path d="M ${cx - 10} 145 Q ${cx} 140 ${cx + 10} 144" stroke="#5a3a20" stroke-width="3.4" fill="none" stroke-linecap="round"/>`;
+  const sardas = menina ? '' : [[140, 176], [146, 180], [151, 175], [209, 175], [214, 180], [220, 176]]
+    .map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.2" fill="#c98a5e" stroke="none"/>`).join('');
+  return `<ellipse cx="125" cy="168" rx="9" ry="12" class="pele" fill="${PELE}"/>
+    <ellipse cx="235" cy="168" rx="9" ry="12" class="pele" fill="${PELE}"/>
+    <ellipse cx="126" cy="168" rx="4" ry="6" class="pele-sombra" fill="#f5b894" stroke="none"/>
+    <ellipse cx="234" cy="168" rx="4" ry="6" class="pele-sombra" fill="#f5b894" stroke="none"/>
+    <circle cx="180" cy="160" r="56" class="pele" fill="${PELE}"/>
+    ${sobrancelha(160)}${sobrancelha(200)}
+    ${olhoSVG(160, -1, menina)}${olhoSVG(200, 1, menina)}
+    <ellipse cx="180" cy="171" rx="2.2" ry="1.6" fill="#fff" opacity="0.55" stroke="none"/>
+    <path d="M 176.5 175 Q 180 178.5 183.5 175" stroke="#d98a66" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <ellipse cx="146" cy="181" rx="8.5" ry="5.5" fill="#ff8fb0" opacity="0.5" stroke="none"/>
+    <ellipse cx="214" cy="181" rx="8.5" ry="5.5" fill="#ff8fb0" opacity="0.5" stroke="none"/>
+    <circle cx="143" cy="179" r="1.4" fill="#fff" opacity="0.8" stroke="none"/>
+    <circle cx="211" cy="179" r="1.4" fill="#fff" opacity="0.8" stroke="none"/>
+    ${sardas}
+    <g class="boca">
+      <path d="M 169 187 Q 180 199 191 187 Q 180 191.5 169 187 Z" fill="${menina ? '#e0507a' : '#d24a5a'}" stroke="#a8324a" stroke-width="1.5" stroke-linejoin="round"/>
+      <path d="M 175.5 192.5 Q 180 195.5 184.5 192.5" stroke="#ffb3c6" stroke-width="2" fill="none" stroke-linecap="round"/>
+    </g>
+    <g class="boca-rindo">
+      <path d="M 165 185 Q 180 208 195 185 Z" fill="#b8284a" stroke="#8a1c36" stroke-width="1.5" stroke-linejoin="round"/>
+      <path d="M 168 186 L 192 186 L 190 189 L 170 189 Z" fill="#fff" stroke="none"/>
+      <ellipse cx="180" cy="199" rx="7" ry="4" fill="#ff8fa8" stroke="none"/>
+    </g>`;
 }
 
 // ============== DESENHINHOS QUE SE REPETEM ==============
@@ -411,7 +560,7 @@ function estrela(cx, cy, r, cor) {
 function coracao(cx, cy, s, cor) {
   return `<path transform="translate(${cx} ${cy}) scale(${s})" d="M 0 -4 C 0 -10 -10 -10 -10 -2 C -10 6 0 10 0 12 C 0 10 10 6 10 -2 C 10 -10 0 -10 0 -4 Z" fill="${cor}"/>`;
 }
-const DECOTE = `<path d="M 165 219 Q 180 236 195 219 Z" fill="${PELE}"/>`;
+const DECOTE = `<path d="M 165 219 Q 180 236 195 219 Z" class="pele" fill="${PELE}"/>`;
 const mangas = (cor1, cor2 = cor1) =>
   `<ellipse cx="128" cy="248" rx="18" ry="24" fill="${cor1}" transform="rotate(12 128 248)"/>
    <ellipse cx="232" cy="248" rx="18" ry="24" fill="${cor2}" transform="rotate(-12 232 248)"/>
@@ -453,7 +602,9 @@ const CABELO_CURTINHO = 'M 121 150 Q 116 84 180 82 Q 244 84 239 150 Q 234 120 22
 // "para": 'menina' ou 'menino' mostra só pra um deles; sem "para" aparece pros dois.
 
 const CATEGORIAS = [
+  { id: 'pele',    emoji: '🎨', nome: 'Cor da pele' },
   { id: 'cabelo',  emoji: '💇', nome: 'Cabelos' },
+  { id: 'barba',   emoji: '🧔', nome: 'Barbas e Bigodes' },
   { id: 'blusa',   emoji: '👕', nome: 'Blusas' },
   { id: 'vestido', emoji: '👗', nome: 'Vestidos' },
   { id: 'calca',   emoji: '👖', nome: 'Calças, Bermudas e Saias' },
@@ -463,6 +614,7 @@ const CATEGORIAS = [
   { id: 'colar',   emoji: '🎀', nome: 'Colares e Gravatas' },
   { id: 'cinto',   emoji: '➖', nome: 'Cintos' },
   { id: 'bolsa',   emoji: '🎈', nome: 'Na mão' },
+  { id: 'costas',  emoji: '🦋', nome: 'Asas e Capas' },
 ];
 
 const CORES = {
@@ -562,6 +714,66 @@ const CABELOS = [
           <path d="M 174 104 L 173 72 M 186 104 L 187 72" stroke="#a8d2ff" stroke-width="2"/>` },
 ];
 
+// ---------- Barbas (só menino) ----------
+// a boca fica em y 185..199; a barba contorna o queixo deixando a boca aparecer
+const BIGODE = (cor) => `<path d="M 180 182.5 Q 170 175 159 182 Q 166 189.5 180 185.5 Q 194 189.5 201 182 Q 190 175 180 182.5 Z" fill="${cor}"/>`;
+const BARBA_CURTA = 'M 125 168 Q 127 216 180 220 Q 233 216 235 168 Q 231 196 214 201 Q 202 211 194 203 Q 180 209 166 203 Q 158 211 146 201 Q 129 196 125 168 Z';
+const BARBA_LONGA = 'M 125 166 Q 122 232 180 266 Q 238 232 235 166 Q 231 196 214 201 Q 202 211 194 203 Q 180 209 166 203 Q 158 211 146 201 Q 129 196 125 166 Z';
+const BARBAS = [
+  { id: 'bigode-castanho', nome: 'bigode', tags: ['bigode', 'castanho'], para: 'menino', svg: BIGODE('#6b3a1c') },
+  { id: 'bigode-preto', nome: 'bigode preto', tags: ['bigode', 'preto'], para: 'menino', svg: BIGODE('#222') },
+  { id: 'barba-castanha', nome: 'barba castanha', tags: ['barba', 'castanho'], para: 'menino',
+    svg: `<path d="${BARBA_CURTA}" fill="#6b3a1c"/>${BIGODE('#6b3a1c')}` },
+  { id: 'barba-preta', nome: 'barba preta', tags: ['barba', 'preto'], para: 'menino',
+    svg: `<path d="${BARBA_CURTA}" fill="#2a1a10"/>${BIGODE('#2a1a10')}` },
+  { id: 'barba-ruiva', nome: 'barba ruiva', tags: ['barba', 'ruivo', 'laranja'], para: 'menino',
+    svg: `<path d="${BARBA_CURTA}" fill="#cc5522"/>${BIGODE('#cc5522')}` },
+  { id: 'barba-loira', nome: 'barba loira', tags: ['barba', 'loiro', 'amarelo'], para: 'menino',
+    svg: `<path d="${BARBA_CURTA}" fill="#e8b830"/>${BIGODE('#e8b830')}` },
+  { id: 'cavanhaque', nome: 'cavanhaque', tags: ['cavanhaque', 'barba', 'castanho'], para: 'menino',
+    svg: `<path d="M 169 205 Q 180 201 191 205 Q 191 221 180 226 Q 169 221 169 205 Z" fill="#6b3a1c"/>${BIGODE('#6b3a1c')}` },
+  { id: 'barba-noel', nome: 'barba de papai noel', tags: ['barba', 'branco', 'papai noel', 'natal', 'mago'], para: 'menino',
+    svg: `<path d="${BARBA_LONGA}" fill="#ffffff"/>
+          <path d="M 160 230 Q 166 246 162 256 M 180 238 Q 184 252 180 262 M 200 230 Q 194 246 198 256" stroke="#d8dde6" stroke-width="2" fill="none"/>
+          ${BIGODE('#ffffff')}` },
+  { id: 'barba-viking', nome: 'barba de viking', tags: ['barba', 'viking', 'ruivo', 'trança'], para: 'menino',
+    svg: `<path d="${BARBA_LONGA}" fill="#cc5522"/>
+          <circle cx="172" cy="248" r="4" fill="#ffd700" stroke="none"/><circle cx="188" cy="248" r="4" fill="#ffd700" stroke="none"/>
+          ${BIGODE('#cc5522')}` },
+];
+
+// ---------- Costas (asas e capas) — desenhadas atrás do corpo ----------
+const capa = (cor, forro) => `<path d="M 140 222 Q 180 214 220 222 L 262 492 Q 180 508 98 492 Z" fill="${cor}"/>
+  <path d="M 150 240 L 116 486 M 210 240 L 244 486" stroke="${forro}" stroke-opacity="0.5" stroke-width="3" fill="none"/>`;
+const FECHO_CAPA = (cor) => `<circle cx="146" cy="226" r="6" fill="${cor}"/><circle cx="214" cy="226" r="6" fill="${cor}"/>`;
+const COSTAS = [
+  { id: 'asas-anjo', nome: 'asas de anjo', tags: ['asas', 'anjo', 'branco'],
+    atras: `<path d="M 150 238 Q 76 168 52 252 Q 62 296 96 288 Q 74 322 118 324 Q 148 306 160 270 Z" fill="#ffffff"/>
+            <path d="M 210 238 Q 284 168 308 252 Q 298 296 264 288 Q 286 322 242 324 Q 212 306 200 270 Z" fill="#ffffff"/>
+            <path d="M 132 240 Q 98 230 78 258 M 140 262 Q 110 268 100 290 M 228 240 Q 262 230 282 258 M 220 262 Q 250 268 260 290" stroke="#d8dde6" stroke-width="2.5" fill="none"/>`,
+    svg: '', vb: '40 150 280 200' },
+  { id: 'asas-fada', nome: 'asas de fada', tags: ['asas', 'fada', 'rosa', 'brilho'], para: 'menina',
+    atras: `<ellipse cx="116" cy="236" rx="52" ry="34" fill="url(#grad-fada)" transform="rotate(-30 116 236)"/>
+            <ellipse cx="244" cy="236" rx="52" ry="34" fill="url(#grad-fada)" transform="rotate(30 244 236)"/>
+            <ellipse cx="124" cy="296" rx="34" ry="22" fill="url(#grad-fada)" transform="rotate(25 124 296)"/>
+            <ellipse cx="236" cy="296" rx="34" ry="22" fill="url(#grad-fada)" transform="rotate(-25 236 296)"/>
+            <circle cx="104" cy="226" r="3" fill="#fff" stroke="none"/><circle cx="252" cy="222" r="3" fill="#fff" stroke="none"/>`,
+    svg: '', vb: '40 170 280 170' },
+  { id: 'asas-borboleta', nome: 'asas de borboleta', tags: ['asas', 'borboleta', 'roxo', 'colorido'],
+    atras: `<path d="M 160 250 Q 90 160 62 220 Q 54 270 150 276 Q 80 300 104 340 Q 136 352 162 284 Z" fill="#b56fff"/>
+            <path d="M 200 250 Q 270 160 298 220 Q 306 270 210 276 Q 280 300 256 340 Q 224 352 198 284 Z" fill="#b56fff"/>
+            <circle cx="100" cy="226" r="12" fill="#ffd16f"/><circle cx="260" cy="226" r="12" fill="#ffd16f"/>
+            <circle cx="116" cy="318" r="8" fill="#ff6fb5"/><circle cx="244" cy="318" r="8" fill="#ff6fb5"/>`,
+    svg: '', vb: '40 160 280 200' },
+  { id: 'capa-cavaleiro', nome: 'capa de cavaleiro', tags: ['capa', 'cavaleiro', 'vermelho'],
+    atras: capa('#c92a2a', '#7a1010'), svg: FECHO_CAPA('#ffd700'), vb: '80 200 200 310' },
+  { id: 'capa-heroi', nome: 'capa de super-herói', tags: ['capa', 'heroi', 'herói', 'azul'],
+    atras: capa('#3b5bdb', '#1c3d99'), svg: FECHO_CAPA('#ffd16f'), vb: '80 200 200 310' },
+  { id: 'capa-princesa', nome: 'capa de princesa', tags: ['capa', 'princesa', 'roxo', 'rei', 'rainha'],
+    atras: capa('#8e44ad', '#ffd700') + `<path d="M 98 492 Q 180 508 262 492" stroke="#fff" stroke-width="8" stroke-dasharray="2 10" stroke-linecap="round" fill="none"/>`,
+    svg: FECHO_CAPA('#ffd700'), vb: '80 200 200 310' },
+];
+
 // ---------- Blusas ----------
 const BLUSAS = [];
 for (const corKey of ['rosa', 'pink', 'roxo', 'lilas', 'azul', 'azulBebe', 'azulEsc', 'amarelo', 'verde', 'verdeEsc', 'vermelho', 'laranja', 'branco', 'cinza', 'preto']) {
@@ -593,6 +805,17 @@ BLUSAS.push(
           <path d="M 156 292 Q 158 268 180 266 Q 192 252 204 262 Q 212 262 210 272 Q 200 274 198 282 L 202 296 L 194 296 L 190 288 L 172 288 L 170 296 L 162 296 L 162 290 Q 150 296 144 290 Q 152 290 156 292 Z" fill="#2f9e44"/>
           <circle cx="202" cy="264" r="2" fill="#fff"/>`,
     mangas: mangas('#88dd99') },
+  { id: 'armadura', nome: 'armadura de cavaleiro', tags: ['armadura', 'cavaleiro', 'metal', 'prata', 'rei'], para: 'menino',
+    svg: `<path d="${BLUSA_FORMA}" fill="url(#grad-metal)"/>
+          <path d="M 180 224 L 180 316 M 140 262 Q 180 276 220 262 M 137 290 Q 180 302 223 290" stroke="#6c7782" stroke-width="2" fill="none"/>
+          <path d="M 168 236 L 192 236 L 192 256 Q 192 268 180 274 Q 168 268 168 256 Z" fill="#c92a2a" stroke="#7a1010" stroke-width="1.5"/>
+          <path d="M 180 240 L 180 268 M 172 250 L 188 250" stroke="#ffd700" stroke-width="3"/>
+          <rect x="132" y="304" width="96" height="12" rx="3" fill="#8b5a3c"/>
+          <rect x="173" y="302" width="14" height="16" rx="2" fill="#ffd700"/>`,
+    mangas: `<ellipse cx="126" cy="244" rx="24" ry="22" fill="url(#grad-metal)" transform="rotate(12 126 244)"/>
+             <ellipse cx="234" cy="244" rx="24" ry="22" fill="url(#grad-metal)" transform="rotate(-12 234 244)"/>
+             <path d="M 104 250 Q 124 262 146 252 M 256 250 Q 236 262 214 252" stroke="#6c7782" stroke-width="2" fill="none"/>
+             <circle cx="126" cy="236" r="2.5" fill="#6c7782" stroke="none"/><circle cx="234" cy="236" r="2.5" fill="#6c7782" stroke="none"/>` },
   { id: 'blusa-coracao', nome: 'blusa coração', tags: ['coração', 'coracao', 'branco', 'rosa'], para: 'menina',
     svg: `<path d="${BLUSA_FORMA}" fill="#ffffff"/>${DECOTE}${coracao(180, 272, 2, '#ff1493')}`,
     mangas: mangas('#ffb5d6') },
@@ -626,6 +849,23 @@ VESTIDOS.push(
   { id: 'vestido-arcoiris', nome: 'vestido arco-íris', tags: ['arco-iris', 'arcoiris', 'colorido'], para: 'menina',
     svg: `<path d="${VESTIDO_FORMA}" fill="url(#grad-ai)"/>${DECOTE}`,
     mangas: mangas('#ff6f6f', '#b56fff') },
+  { id: 'vestido-baile', nome: 'vestido de baile', tags: ['baile', 'festa', 'azul', 'longo', 'princesa'], para: 'menina',
+    svg: `<path d="M 132 222 Q 180 210 228 222 L 234 262 Q 224 284 222 300 Q 272 420 278 496 Q 180 510 82 496 Q 88 420 138 300 Q 136 284 126 262 Z" fill="#6fa8ff"/>
+          <path d="M 152 310 Q 132 400 118 494 M 180 312 L 180 504 M 208 310 Q 228 400 242 494" ${SOMBRA} stroke-width="2"/>
+          <path d="M 138 300 Q 180 312 222 300" stroke="#e6f0ff" stroke-width="6" fill="none"/>
+          ${[[140, 360], [210, 380], [160, 440], [230, 460], [120, 470], [190, 410]].map(([x, y]) => estrela(x, y, 5, '#ffffff')).join('')}
+          ${DECOTE}`,
+    mangas: mangas('#6fa8ff') },
+  { id: 'vestido-fada', nome: 'vestido de fada', tags: ['fada', 'verde', 'floresta'], para: 'menina',
+    svg: `<path d="M 132 222 Q 180 210 228 222 L 234 262 Q 224 284 222 300 L 264 422 L 244 406 L 230 434 L 212 412 L 196 442 L 180 414 L 164 442 L 148 412 L 130 434 L 116 406 L 96 422 L 138 300 Q 136 284 126 262 Z" fill="#88dd99"/>
+          <path d="M 138 300 Q 180 310 222 300" stroke="#2f9e44" stroke-width="5" fill="none"/>
+          ${coracao(180, 262, 0.9, '#ff9bd3')}${DECOTE}`,
+    mangas: mangas('#88dd99') },
+  { id: 'vestido-junino', nome: 'vestido de festa junina', tags: ['junina', 'xadrez', 'caipira', 'vermelho'], para: 'menina',
+    svg: `<path d="${VESTIDO_FORMA}" fill="url(#pat-xadrez)"/>
+          <path d="M 100 436 Q 110 448 120 438 Q 130 450 140 440 Q 150 452 160 442 Q 170 454 180 444 Q 190 454 200 442 Q 210 452 220 440 Q 230 450 240 438 Q 250 448 260 436" stroke="#fff" stroke-width="6" fill="none" stroke-linejoin="round"/>
+          ${LACO_CINTURA}${DECOTE}`,
+    mangas: mangas('#ff6f6f') },
   { id: 'vestido-bolinhas', nome: 'vestido de bolinhas', tags: ['bolinhas', 'rosa'], para: 'menina',
     svg: `<path d="${VESTIDO_FORMA}" fill="url(#pat-bolinhas)"/>${DECOTE}`,
     mangas: mangas('#ff6fb5') },
@@ -645,6 +885,14 @@ for (const corKey of ['rosa', 'roxo', 'azul', 'amarelo', 'verde', 'vermelho', 'c
     svg: `<path d="${CALCA_FORMA}" fill="${c.hex}"/>${DETALHES_CALCA}`
   });
 }
+CALCAS.push({
+  id: 'calca-armadura', nome: 'calça de armadura', tags: ['armadura', 'cavaleiro', 'metal', 'prata'], para: 'menino',
+  svg: `<path d="${CALCA_FORMA}" fill="url(#grad-metal)"/>
+        <path d="M 180 304 L 180 348 M 134 330 L 226 330" stroke="#6c7782" stroke-width="2" fill="none"/>
+        <ellipse cx="155" cy="410" rx="15" ry="12" fill="url(#grad-metal)"/>
+        <ellipse cx="205" cy="410" rx="15" ry="12" fill="url(#grad-metal)"/>
+        <path d="M 136 450 L 174 450 M 186 450 L 225 450" stroke="#6c7782" stroke-width="2"/>`
+});
 CALCAS.push({
   id: 'calca-jeans', nome: 'calça jeans', tags: ['jeans', 'azul', 'calça', 'calca'],
   svg: `<path d="${CALCA_FORMA}" fill="#4a78c2"/>${DETALHES_CALCA}
@@ -708,6 +956,8 @@ SAPATOS.push(
   { id: 'bota-rosa', nome: 'bota rosa', tags: ['rosa', 'bota'], para: 'menina', svg: bota('#ff6fb5') },
   { id: 'bota-marrom', nome: 'bota marrom', tags: ['marrom', 'bota'], svg: bota('#8b5a3c') },
   { id: 'bota-amarela', nome: 'galocha amarela', tags: ['amarelo', 'bota', 'galocha', 'chuva'], svg: bota('#ffd16f') },
+  { id: 'bota-armadura', nome: 'bota de armadura', tags: ['armadura', 'cavaleiro', 'metal', 'bota'], para: 'menino',
+    svg: bota('url(#grad-metal)') + `<path d="M 137 472 L 171 472 M 189 472 L 223 472" stroke="#6c7782" stroke-width="2"/>` },
 );
 
 // ---------- Na cabeça ----------
@@ -755,6 +1005,28 @@ const CHAPEUS = [
     svg: `<path d="M 156 94 L 180 28 L 204 94 Z" fill="#b56fff"/>
           <path d="M 164 72 L 196 72 M 170 52 L 190 52" stroke="#ffd16f" stroke-width="5"/>
           <circle cx="180" cy="28" r="8" fill="#ff6fb5"/>` },
+  { id: 'aureola', nome: 'auréola de anjo', tags: ['auréola', 'aureola', 'anjo', 'dourado', 'brilho'],
+    svg: `<ellipse cx="180" cy="60" rx="54" ry="16" fill="#fff3a0" opacity="0.4" stroke="none"/>
+          <ellipse cx="180" cy="60" rx="40" ry="10" fill="none" stroke="#ffd700" stroke-width="7"/>
+          <ellipse cx="180" cy="60" rx="40" ry="10" fill="none" stroke="#fff8c8" stroke-width="2"/>` },
+  { id: 'capacete', nome: 'capacete de cavaleiro', tags: ['capacete', 'cavaleiro', 'armadura', 'metal'], para: 'menino',
+    svg: `<path d="M 180 70 Q 196 40 222 46 Q 204 56 196 72 Z" fill="#e03131"/>
+          <path d="M 116 158 Q 112 70 180 68 Q 248 70 244 158 L 230 160 Q 230 112 180 110 Q 130 112 130 160 Z" fill="url(#grad-metal)"/>
+          <path d="M 180 68 L 180 110" stroke="#6c7782" stroke-width="3"/>
+          <circle cx="124" cy="150" r="3" fill="#6c7782" stroke="none"/><circle cx="236" cy="150" r="3" fill="#6c7782" stroke="none"/>` },
+  { id: 'cartola', nome: 'cartola', tags: ['cartola', 'chapéu', 'chapeu', 'mágico', 'preto'],
+    svg: `<rect x="146" y="36" width="68" height="58" rx="4" fill="#222"/>
+          <rect x="146" y="78" width="68" height="10" fill="#e03131"/>
+          <ellipse cx="180" cy="96" rx="56" ry="10" fill="#222"/>` },
+  { id: 'chapeu-sol', nome: 'chapéu de sol', tags: ['chapéu', 'chapeu', 'sol', 'praia', 'amarelo'], para: 'menina',
+    svg: `<ellipse cx="180" cy="100" rx="86" ry="18" fill="#ffe3a3"/>
+          <path d="M 136 100 Q 138 58 180 56 Q 222 58 224 100 Z" fill="#ffe3a3"/>
+          <path d="M 137 90 Q 180 98 223 90 L 222 80 Q 180 88 138 80 Z" fill="#ff6fb5"/>
+          <circle cx="214" cy="84" r="8" fill="#fff"/><circle cx="214" cy="84" r="3" fill="#ffd16f"/>` },
+  { id: 'veu-noiva', nome: 'véu de noiva', tags: ['véu', 'veu', 'noiva', 'branco', 'casamento'], para: 'menina',
+    atras: `<path d="M 130 96 Q 180 70 230 96 L 262 300 Q 180 316 98 300 Z" fill="#ffffff" opacity="0.75"/>`,
+    svg: `<path d="M 134 98 Q 180 74 226 98" stroke="#fff" stroke-width="7" fill="none"/>
+          ${[[146, 90], [164, 82], [180, 80], [196, 82], [214, 90]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="3.5" fill="#fffaf0" stroke="#ddd" stroke-width="1"/>`).join('')}` },
   { id: 'chapeu-pirata', nome: 'chapéu de pirata', tags: ['chapéu', 'chapeu', 'pirata', 'preto'],
     svg: `<path d="M 116 104 Q 130 56 180 54 Q 230 56 244 104 Q 180 88 116 104 Z" fill="#222"/>
           <circle cx="180" cy="78" r="9" fill="#fff"/>
@@ -873,6 +1145,15 @@ BOLSAS.push(
   { id: 'balao-vermelho', nome: 'balão vermelho', tags: ['balão', 'balao', 'vermelho', 'festa'], vb: '55 195 60 165', svg: balao('#ff6f6f') },
   { id: 'balao-azul', nome: 'balão azul', tags: ['balão', 'balao', 'azul', 'festa'], vb: '55 195 60 165', svg: balao('#6fb5ff') },
   { id: 'balao-rosa', nome: 'balão rosa', tags: ['balão', 'balao', 'rosa', 'festa'], vb: '55 195 60 165', svg: balao('#ff9bd3') },
+  { id: 'espada', nome: 'espada', tags: ['espada', 'cavaleiro', 'metal'], para: 'menino', vb: '70 250 70 120',
+    svg: `<path d="M 102 344 L 102 270 L 106 258 L 110 270 L 110 344 Z" fill="url(#grad-metal)"/>
+          <rect x="90" y="342" width="32" height="7" rx="3" fill="#ffd700"/>
+          <rect x="103" y="349" width="6" height="16" rx="2" fill="#8b5a3c"/>
+          <circle cx="106" cy="368" r="4" fill="#ffd700"/>` },
+  { id: 'escudo', nome: 'escudo', tags: ['escudo', 'cavaleiro', 'azul'], vb: '70 330 72 90',
+    svg: `<path d="M 80 338 L 132 338 L 132 372 Q 132 400 106 414 Q 80 400 80 372 Z" fill="#3b5bdb"/>
+          <path d="M 106 344 L 106 406 M 86 366 L 126 366" stroke="#ffd700" stroke-width="6"/>
+          <path d="M 80 338 L 132 338 L 132 372 Q 132 400 106 414 Q 80 400 80 372 Z" fill="none" stroke="#c3cbd4" stroke-width="4"/>` },
   { id: 'sorvete', nome: 'sorvete', tags: ['sorvete', 'doce', 'rosa'], vb: '76 290 60 80',
     svg: `<path d="M 94 330 L 118 330 L 106 362 Z" fill="#e0a96d"/>
           <path d="M 98 336 L 114 336 M 100 344 L 112 344" stroke="#b07a40" stroke-width="2"/>
@@ -888,9 +1169,27 @@ BOLSAS.push(
           <ellipse cx="104" cy="392" rx="10" ry="11" fill="#e8c7a0"/>` },
 );
 
+// ---------- Cor da pele ----------
+const PELES = [
+  ['pele-1', '#ffe4cf', '#f7c4a4', 'bem clarinha'],
+  ['pele-2', '#ffd6b5', '#f5b894', 'clara'],
+  ['pele-3', '#eebd92', '#d99d70', 'morena clara'],
+  ['pele-4', '#c98d5f', '#a86d42', 'morena'],
+  ['pele-5', '#9a6440', '#7a4a2c', 'marrom'],
+  ['pele-6', '#6e4429', '#53321d', 'escura'],
+].map(([id, cor, sombra, nome]) => ({
+  id, cor, sombra, nome: `pele ${nome}`, tags: ['pele', 'cor', nome],
+  // só a miniatura usa este desenho; na criança a cor muda via CSS (--pele)
+  svg: `<circle cx="180" cy="160" r="56" fill="${cor}"/>
+        <ellipse cx="160" cy="162" rx="6" ry="8" fill="#2a1810"/><ellipse cx="200" cy="162" rx="6" ry="8" fill="#2a1810"/>
+        <path d="M 168 188 Q 180 198 192 188" stroke="#c44" stroke-width="3" fill="none" stroke-linecap="round"/>`
+}));
+
 // Catálogo unificado por categoria
 const CATALOGO = {
+  pele: PELES,
   cabelo: CABELOS,
+  barba: BARBAS,
   blusa: BLUSAS,
   vestido: VESTIDOS,
   calca: CALCAS,
@@ -900,26 +1199,33 @@ const CATALOGO = {
   colar: COLARES,
   cinto: CINTOS,
   bolsa: BOLSAS,
+  costas: COSTAS,
 };
+// categorias que não dá pra "tirar" (sempre tem uma)
+const SEM_TIRAR = ['pele'];
 
-// Ordem das camadas no desenho (de trás pra frente)
-const CAMADAS = ['sombra', 'cabeloAtras', 'pernas', 'corpo', 'sapato', 'calca', 'blusa', 'vestido', 'cinto', 'bracos', 'mangas',
-                 'cabeca', 'colar', 'cabelo', 'oculos', 'chapeu', 'bolsa'];
+// Ordem das camadas no desenho (de trás pra frente).
+// "atras" junta a parte de trás do cabelo, asas, capas e véu.
+const CAMADAS = ['sombra', 'atras', 'pernas', 'corpo', 'sapato', 'calca', 'blusa', 'vestido', 'cinto', 'bracos', 'mangas',
+                 'cabeca', 'barba', 'colar', 'cabelo', 'oculos', 'chapeu', 'costas', 'bolsa'];
 
 // ============== MINIATURAS ==============
-const SILHUETA_CABECA = `<circle cx="180" cy="160" r="56" fill="${PELE}"/><ellipse cx="160" cy="160" rx="5" ry="7" fill="#222"/><ellipse cx="200" cy="160" rx="5" ry="7" fill="#222"/><ellipse cx="148" cy="180" rx="7" ry="5" fill="#ff9bb5" opacity="0.6"/><ellipse cx="212" cy="180" rx="7" ry="5" fill="#ff9bb5" opacity="0.6"/><path d="M 168 188 Q 180 198 192 188" stroke="#c44" stroke-width="3" fill="none" stroke-linecap="round"/>`;
+const SILHUETA_CABECA = `<circle cx="180" cy="160" r="56" fill="${PELE}"/><ellipse cx="160" cy="162" rx="6" ry="8" fill="#2a1810"/><ellipse cx="200" cy="162" rx="6" ry="8" fill="#2a1810"/><ellipse cx="146" cy="181" rx="7" ry="5" fill="#ff9bb5" opacity="0.6"/><ellipse cx="214" cy="181" rx="7" ry="5" fill="#ff9bb5" opacity="0.6"/><path d="M 168 188 Q 180 198 192 188" stroke="#c44" stroke-width="3" fill="none" stroke-linecap="round"/>`;
 
 const PREVIEWS = {
+  pele:    { viewBox: '115 95 130 130', fundo: '' },
   cabelo:  { viewBox: '100 45 160 250', fundo: SILHUETA_CABECA },
+  barba:   { viewBox: '110 120 140 150', fundo: SILHUETA_CABECA },
   blusa:   { viewBox: '85 200 190 150', fundo: CORPO_TORSO + CORPO_BRACOS },
-  vestido: { viewBox: '55 200 250 305', fundo: CORPO_PERNAS + CORPO_TORSO + CORPO_BRACOS },
+  vestido: { viewBox: '55 200 250 310', fundo: CORPO_PERNAS + CORPO_TORSO + CORPO_BRACOS },
   calca:   { viewBox: '60 295 240 205', fundo: CORPO_PERNAS },
   sapato:  { viewBox: '120 450 120 70', fundo: '' },
-  chapeu:  { viewBox: '100 20 160 150', fundo: SILHUETA_CABECA },
+  chapeu:  { viewBox: '95 20 170 150', fundo: SILHUETA_CABECA },
   oculos:  { viewBox: '110 110 140 100', fundo: SILHUETA_CABECA },
   colar:   { viewBox: '120 190 120 120', fundo: CORPO_TORSO },
   cinto:   { viewBox: '115 280 130 45', fundo: CORPO_TORSO },
   bolsa:   { viewBox: '70 330 70 80', fundo: '' },
+  costas:  { viewBox: '40 150 280 220', fundo: CORPO_TORSO },
 };
 
 function previewSVG(item, cat) {
@@ -927,13 +1233,97 @@ function previewSVG(item, cat) {
   return `<svg viewBox="${item.vb || p.viewBox}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">${item.atras || ''}${p.fundo}${item.svg}${item.mangas || ''}</svg>`;
 }
 
+// ============== CENÁRIOS ==============
+const nuvem = (x, y, s = 1) => `<g transform="translate(${x} ${y}) scale(${s})" fill="#fff">
+  <ellipse cx="0" cy="0" rx="34" ry="18"/><ellipse cx="-26" cy="8" rx="22" ry="14"/><ellipse cx="28" cy="8" rx="24" ry="14"/></g>`;
+const flor = (x, y, cor) => `<g transform="translate(${x} ${y})">${[0, 72, 144, 216, 288].map(a =>
+  `<circle cx="${(7 * Math.cos(a * Math.PI / 180)).toFixed(1)}" cy="${(7 * Math.sin(a * Math.PI / 180)).toFixed(1)}" r="6" fill="${cor}"/>`).join('')}
+  <circle r="4" fill="#ffd16f"/></g>`;
+
+const CENARIOS = [
+  { id: 'quarto', emoji: '🏠', svg: `
+    <defs><pattern id="cen-coracoes" width="70" height="70" patternUnits="userSpaceOnUse">
+      <rect width="70" height="70" fill="#ffe8f4"/>${coracao(18, 18, 0.7, '#ffcde6')}${coracao(53, 53, 0.7, '#e9d6ff')}</pattern></defs>
+    <rect width="800" height="600" fill="url(#cen-coracoes)"/>
+    <rect x="70" y="80" width="190" height="160" rx="14" fill="#bfe6ff" stroke="#fff" stroke-width="12"/>
+    ${nuvem(130, 140, 0.8)}${nuvem(210, 190, 0.6)}
+    <circle cx="225" cy="115" r="18" fill="#ffd16f"/>
+    <path d="M 165 80 L 165 240 M 70 160 L 260 160" stroke="#fff" stroke-width="8"/>
+    <path d="M 54 66 Q 90 160 70 256 L 48 256 L 48 66 Z" fill="#ff9bd3"/>
+    <path d="M 276 66 Q 240 160 260 256 L 282 256 L 282 66 Z" fill="#ff9bd3"/>
+    <rect x="40" y="58" width="250" height="12" rx="6" fill="#b56fff"/>
+    <path d="M 0 30 Q 200 90 400 40 Q 600 90 800 30" stroke="#b56fff" stroke-width="2" fill="none"/>
+    ${[[60, 44, '#ff6fb5'], [140, 60, '#ffd16f'], [220, 66, '#6fb5ff'], [300, 58, '#88dd99'], [380, 44, '#ff6fb5'], [460, 50, '#ffd16f'], [540, 64, '#6fb5ff'], [620, 64, '#88dd99'], [700, 52, '#ff6fb5'], [770, 38, '#ffd16f']]
+      .map(([x, y, c], i) => `<circle class="lampada" style="animation-delay:${(i % 3) * 0.5}s" cx="${x}" cy="${y}" r="9" fill="${c}"/>`).join('')}
+    <rect x="590" y="150" width="160" height="12" rx="4" fill="#e0a96d"/>
+    <rect x="600" y="104" width="14" height="46" fill="#ff6fb5"/><rect x="616" y="112" width="12" height="38" fill="#6fb5ff"/><rect x="630" y="100" width="16" height="50" fill="#ffd16f"/>
+    <circle cx="700" cy="128" r="18" fill="#a0673a"/><circle cx="688" cy="112" r="7" fill="#a0673a"/><circle cx="712" cy="112" r="7" fill="#a0673a"/><ellipse cx="700" cy="134" rx="7" ry="5" fill="#e8c7a0"/>
+    <rect y="430" width="800" height="170" fill="#f6d7b8"/>
+    <path d="M 0 470 L 800 470 M 0 515 L 800 515 M 0 560 L 800 560" stroke="#e8c09a" stroke-width="3"/>
+    <ellipse cx="400" cy="525" rx="310" ry="52" fill="#d6b5ff" opacity="0.85"/>
+    <ellipse cx="400" cy="525" rx="280" ry="40" fill="none" stroke="#fff" stroke-width="4" stroke-dasharray="10 10"/>
+    <path d="M 700 430 L 690 380 L 750 380 L 740 430 Z" fill="#ff9bd3"/>
+    <path d="M 720 380 Q 690 330 700 300 Q 715 340 720 380 Q 730 320 760 310 Q 740 350 720 380" fill="#2f9e44"/>
+  ` },
+  { id: 'praia', emoji: '🏖️', svg: `
+    <defs><linearGradient id="cen-ceu-praia" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7cc8ff"/><stop offset="1" stop-color="#d9f2ff"/></linearGradient></defs>
+    <rect width="800" height="600" fill="url(#cen-ceu-praia)"/>
+    <circle cx="660" cy="100" r="70" fill="#fff3a0" opacity="0.5"/><circle cx="660" cy="100" r="46" fill="#ffd16f"/>
+    ${nuvem(160, 90)}${nuvem(420, 140, 0.7)}
+    <path d="M 300 120 q 10 -10 20 0 q 10 -10 20 0 M 360 90 q 8 -8 16 0 q 8 -8 16 0" stroke="#555" stroke-width="3" fill="none"/>
+    <rect y="320" width="800" height="110" fill="#3fa8e0"/>
+    <path d="M 0 340 Q 50 330 100 340 T 200 340 T 300 340 T 400 340 T 500 340 T 600 340 T 700 340 T 800 340" stroke="#fff" stroke-width="4" fill="none" opacity="0.7"/>
+    <path d="M 0 380 Q 50 370 100 380 T 200 380 T 300 380 T 400 380 T 500 380 T 600 380 T 700 380 T 800 380" stroke="#fff" stroke-width="3" fill="none" opacity="0.5"/>
+    <path d="M 0 420 Q 100 400 200 418 T 400 416 T 600 418 T 800 412 L 800 600 L 0 600 Z" fill="#ffe3a3"/>
+    ${[[80, 480], [200, 530], [330, 470], [520, 540], [650, 490], [740, 560], [430, 580]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="3" fill="#e8c27a"/>`).join('')}
+    <path d="M 90 560 Q 70 440 120 330" stroke="#a0673a" stroke-width="22" fill="none" stroke-linecap="round"/>
+    <path d="M 120 330 Q 60 290 20 330 M 120 330 Q 90 270 40 270 M 120 330 Q 150 270 210 280 M 120 330 Q 190 310 220 360 M 120 330 Q 120 280 140 250" stroke="#2f9e44" stroke-width="16" fill="none" stroke-linecap="round"/>
+    <circle cx="700" cy="500" r="30" fill="#fff"/><path d="M 700 470 A 30 30 0 0 1 730 500 L 700 500 Z" fill="#ff6f6f"/><path d="M 700 530 A 30 30 0 0 1 670 500 L 700 500 Z" fill="#6fb5ff"/><path d="M 670 500 A 30 30 0 0 1 700 470 L 700 500 Z" fill="#ffd16f"/>
+    <path d="M 560 470 L 600 470 L 590 440 L 570 440 Z" fill="#ff6fb5"/><rect x="566" y="436" width="28" height="6" fill="#b56fff"/>
+  ` },
+  { id: 'parque', emoji: '🌳', svg: `
+    <rect width="800" height="600" fill="#c6ecff"/>
+    ${['#ff6f6f', '#ffa066', '#ffd16f', '#88dd99', '#6fb5ff', '#b56fff'].map((c, i) =>
+      `<path d="M ${110 + i * 14} 430 A ${290 - i * 14} ${250 - i * 14} 0 0 1 ${690 - i * 14} 430" stroke="${c}" stroke-width="14" fill="none" opacity="0.75"/>`).join('')}
+    ${nuvem(130, 110)}${nuvem(620, 80, 0.9)}
+    <ellipse cx="160" cy="470" rx="320" ry="110" fill="#9be3a8"/>
+    <ellipse cx="660" cy="480" rx="320" ry="120" fill="#7fd48f"/>
+    <rect y="470" width="800" height="130" fill="#88dd99"/>
+    <rect x="660" y="300" width="26" height="150" rx="8" fill="#a0673a"/>
+    <circle cx="673" cy="270" r="62" fill="#2f9e44"/><circle cx="630" cy="300" r="40" fill="#3db057"/><circle cx="716" cy="300" r="40" fill="#3db057"/>
+    <circle cx="650" cy="260" r="7" fill="#ff6f6f"/><circle cx="700" cy="290" r="7" fill="#ff6f6f"/><circle cx="680" cy="240" r="7" fill="#ff6f6f"/>
+    ${[[60, 520, '#ff6fb5'], [150, 560, '#ffffff'], [250, 510, '#b56fff'], [520, 560, '#ff6fb5'], [600, 520, '#ffffff'], [740, 550, '#b56fff'], [380, 580, '#ffd16f']].map(([x, y, c]) => flor(x, y, c)).join('')}
+    <g transform="translate(120 300)"><ellipse cx="-9" cy="0" rx="10" ry="7" fill="#ff9bd3"/><ellipse cx="9" cy="0" rx="10" ry="7" fill="#ff9bd3"/><rect x="-2" y="-8" width="4" height="16" rx="2" fill="#333"/></g>
+  ` },
+  { id: 'festa', emoji: '🎤', svg: `
+    <defs><radialGradient id="cen-luz" cx="0.5" cy="0" r="1"><stop offset="0" stop-color="#fff6c0" stop-opacity="0.55"/><stop offset="1" stop-color="#fff6c0" stop-opacity="0"/></radialGradient></defs>
+    <rect width="800" height="600" fill="#3b1f5c"/>
+    <rect y="0" width="800" height="430" fill="#4b2a75"/>
+    ${[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(i => `<path d="M ${i * 70} 20 L ${i * 70 + 35} 70 L ${i * 70 + 70} 20 Z" fill="${['#ff6fb5', '#ffd16f', '#6fb5ff', '#88dd99'][i % 4]}"/>`).join('')}
+    <path d="M 0 20 L 800 20" stroke="#fff" stroke-width="3"/>
+    <polygon class="holofote" points="240,0 300,0 420,430 120,430" fill="url(#cen-luz)"/>
+    <polygon class="holofote h2" points="500,0 560,0 680,430 380,430" fill="url(#cen-luz)"/>
+    <circle cx="400" cy="110" r="34" fill="#c3cbd4"/>
+    ${[[-16, -16], [0, -20], [16, -16], [-20, 0], [0, 0], [20, 0], [-16, 16], [0, 20], [16, 16]].map(([x, y]) => `<rect x="${400 + x - 5}" y="${110 + y - 5}" width="10" height="10" fill="#fff" opacity="0.7"/>`).join('')}
+    <line x1="400" y1="20" x2="400" y2="76" stroke="#ccc" stroke-width="2"/>
+    <path d="M 0 0 L 110 0 Q 80 220 120 430 L 0 430 Z" fill="#c92a2a"/>
+    <path d="M 800 0 L 690 0 Q 720 220 680 430 L 800 430 Z" fill="#c92a2a"/>
+    <path d="M 30 0 Q 20 220 40 430 M 70 0 Q 60 220 85 430 M 770 0 Q 780 220 760 430 M 730 0 Q 740 220 715 430" stroke="#8a1c1c" stroke-width="4" fill="none"/>
+    <rect y="430" width="800" height="170" fill="#7a4aa8"/>
+    <rect y="430" width="800" height="14" fill="#ffd16f"/>
+    ${[[100, 200, '#ff6fb5'], [200, 300, '#ffd16f'], [600, 260, '#6fb5ff'], [700, 180, '#88dd99'], [330, 160, '#ffd16f'], [480, 330, '#ff6fb5']].map(([x, y, c]) => `<rect x="${x}" y="${y}" width="8" height="14" rx="2" fill="${c}" transform="rotate(30 ${x} ${y})"/>`).join('')}
+  ` },
+];
+
 // ============== ESTADO ==============
-const vestindo = {
-  menina: { cabelo: 'cabelo-loiro-longo', blusa: 'blusa-rosa', vestido: null, calca: 'calca-roxo', sapato: 'sapato-rosa',
-            chapeu: null, oculos: null, colar: null, cinto: null, bolsa: null },
-  menino: { cabelo: 'cabelo-curtinho-castanho', blusa: 'blusa-azul', vestido: null, calca: 'calca-jeans', sapato: 'tenis-vermelho',
-            chapeu: null, oculos: null, colar: null, cinto: null, bolsa: null },
+const PADRAO = {
+  menina: { pele: 'pele-2', cabelo: 'cabelo-loiro-longo', barba: null, blusa: 'blusa-rosa', vestido: null, calca: 'calca-roxo', sapato: 'sapato-rosa',
+            chapeu: null, oculos: null, colar: null, cinto: null, bolsa: null, costas: null },
+  menino: { pele: 'pele-2', cabelo: 'cabelo-curtinho-castanho', barba: null, blusa: 'blusa-azul', vestido: null, calca: 'calca-jeans', sapato: 'tenis-vermelho',
+            chapeu: null, oculos: null, colar: null, cinto: null, bolsa: null, costas: null },
 };
+const vestindo = JSON.parse(JSON.stringify(PADRAO));
+let cenario = 'quarto';
 let quem = 'menina';        // quem estamos vestindo agora
 let categoriaAtiva = 'blusa';
 let busca = '';
@@ -941,23 +1331,47 @@ let busca = '';
 const serve = (item) => !item.para || item.para === quem;
 const achar = (cat, id) => CATALOGO[cat].find(x => x.id === id);
 
+// guarda as roupas no navegador pra não perder quando fecha o jogo
+const CHAVE = 'jp-vestir-v1';
+function salvar() {
+  try { localStorage.setItem(CHAVE, JSON.stringify({ vestindo, cenario })); } catch (e) {}
+}
+function carregar() {
+  try {
+    const s = JSON.parse(localStorage.getItem(CHAVE) || 'null');
+    if (!s) return;
+    for (const q of ['menina', 'menino']) {
+      for (const cat of Object.keys(PADRAO[q])) {
+        const id = s.vestindo && s.vestindo[q] && s.vestindo[q][cat];
+        // só aceita peças que ainda existem e servem pra essa criança
+        if (id === null) vestindo[q][cat] = SEM_TIRAR.includes(cat) ? PADRAO[q][cat] : null;
+        else if (id) {
+          const item = achar(cat, id);
+          if (item && (!item.para || item.para === q)) vestindo[q][cat] = id;
+        }
+      }
+    }
+    if (CENARIOS.some(c => c.id === s.cenario)) cenario = s.cenario;
+  } catch (e) {}
+}
+
 // ============== RENDERIZAÇÃO ==============
 
 function montarPalco() {
-  const palco = document.getElementById('palco');
+  const palco = document.getElementById('criancas');
   palco.innerHTML = '';
   for (const q of ['menina', 'menino']) {
     const wrap = document.createElement('div');
     wrap.className = 'boneca-wrap';
     wrap.id = 'wrap-' + q;
     // viewBox recortado (x 40..320, y 20..540) pra sobrar menos espaço vazio
-    wrap.innerHTML = `<svg viewBox="40 20 280 500" preserveAspectRatio="xMidYMid meet">
+    wrap.innerHTML = `<div class="corpo-anim"><svg viewBox="40 20 280 500" preserveAspectRatio="xMidYMid meet">
         ${CAMADAS.map(c => `<g id="${q}-${c}"></g>`).join('')}
-      </svg>
+      </svg></div>
       <div class="etiqueta">${q === 'menina' ? '👧' : '👦'}</div>`;
     wrap.addEventListener('click', () => escolherQuem(q));
     palco.appendChild(wrap);
-    document.getElementById(`${q}-sombra`).innerHTML = '<ellipse cx="180" cy="514" rx="78" ry="9" fill="#b56fff" opacity="0.15" stroke="none"/>';
+    document.getElementById(`${q}-sombra`).innerHTML = '<ellipse cx="180" cy="514" rx="78" ry="9" fill="#3b1f5c" opacity="0.18" stroke="none"/>';
     document.getElementById(`${q}-pernas`).innerHTML = CORPO_PERNAS;
     document.getElementById(`${q}-corpo`).innerHTML = CORPO_TORSO;
     document.getElementById(`${q}-bracos`).innerHTML = CORPO_BRACOS;
@@ -965,39 +1379,78 @@ function montarPalco() {
     renderizarBoneca(q);
   }
   // brilhinhos no fundo
+  const fundo = document.getElementById('brilhos');
   for (let i = 0; i < 10; i++) {
     const b = document.createElement('div');
     b.className = 'brilho';
     b.textContent = ['✨', '⭐', '💫'][i % 3];
     b.style.left = (4 + Math.random() * 90) + '%';
-    b.style.top = (8 + Math.random() * 70) + '%';
+    b.style.top = (8 + Math.random() * 60) + '%';
     b.style.fontSize = (14 + Math.random() * 14) + 'px';
     b.style.animationDelay = (Math.random() * 2.4) + 's';
-    palco.prepend(b);
+    fundo.appendChild(b);
   }
 }
 
 function renderizarBoneca(q) {
   const v = vestindo[q];
   for (const cat of Object.keys(CATALOGO)) {
+    const el = document.getElementById(`${q}-${cat}`);
+    if (!el) continue; // "pele" não tem camada própria
     const item = v[cat] && achar(cat, v[cat]);
-    document.getElementById(`${q}-${cat}`).innerHTML = item ? item.svg : '';
+    el.innerHTML = item ? item.svg : '';
   }
   // se tem vestido, esconde a blusa e calça
   if (v.vestido) {
     document.getElementById(`${q}-blusa`).innerHTML = '';
     document.getElementById(`${q}-calca`).innerHTML = '';
   }
-  // parte de trás do cabelo (atrás do corpo)
-  const cabelo = v.cabelo && achar('cabelo', v.cabelo);
-  document.getElementById(`${q}-cabeloAtras`).innerHTML = (cabelo && cabelo.atras) || '';
+  // tudo que fica atrás do corpo: capa/asas, véu, parte de trás do cabelo
+  let atras = '';
+  for (const cat of ['costas', 'chapeu', 'cabelo']) {
+    const item = v[cat] && achar(cat, v[cat]);
+    if (item && item.atras) atras += item.atras;
+  }
+  document.getElementById(`${q}-atras`).innerHTML = atras;
   // mangas: vêm do vestido (se tiver) ou da blusa
   const deCima = v.vestido ? achar('vestido', v.vestido) : (v.blusa && achar('blusa', v.blusa));
   document.getElementById(`${q}-mangas`).innerHTML = (deCima && deCima.mangas) || '';
+  // cor da pele
+  const pele = achar('pele', v.pele) || PELES[1];
+  const wrap = document.getElementById('wrap-' + q);
+  wrap.style.setProperty('--pele', pele.cor);
+  wrap.style.setProperty('--pele-sombra', pele.sombra);
+}
+
+function renderizarCenario() {
+  const c = CENARIOS.find(x => x.id === cenario);
+  document.getElementById('cenario').innerHTML =
+    `<svg viewBox="0 0 800 600" preserveAspectRatio="xMidYMax slice" width="100%" height="100%">${c.svg}</svg>`;
+  document.querySelectorAll('.cen-btn').forEach(b => b.classList.toggle('ativa', b.dataset.c === cenario));
+  document.body.dataset.cenario = cenario;
+}
+
+function montarBotoesCenario() {
+  const wrap = document.getElementById('cenarios');
+  for (const c of CENARIOS) {
+    const b = document.createElement('button');
+    b.className = 'cen-btn';
+    b.dataset.c = c.id;
+    b.textContent = c.emoji;
+    b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (cenario === c.id) return;
+      cenario = c.id;
+      renderizarCenario();
+      tocarMelodia([660, 880, 990], 0.07);
+      salvar();
+    });
+    wrap.appendChild(b);
+  }
 }
 
 function escolherQuem(q) {
-  if (q === quem) return;
+  if (q === quem) { rir(q); return; }
   quem = q;
   tocarPlim(q === 'menina' ? 1 : 0.8);
   atualizarQuem();
@@ -1035,9 +1488,20 @@ function renderizarCategorias() {
   }
 }
 
+function vestir(cat, id) {
+  const v = vestindo[quem];
+  v[cat] = id;
+  // vestido tira blusa+calça (o desenho esconde); blusa ou calça tiram o vestido
+  if (cat === 'blusa' || cat === 'calca') v.vestido = null;
+  renderizarBoneca(quem);
+  renderizarItens();
+  salvar();
+}
+
 function renderizarItens() {
   const wrap = document.getElementById('itens');
   const titulo = document.getElementById('itens-titulo');
+  const rolagem = wrap.scrollTop;
   wrap.innerHTML = '';
 
   let itens;
@@ -1060,15 +1524,13 @@ function renderizarItens() {
   }
 
   // botão "tirar" no início (fora da busca)
-  if (!busca.trim()) {
+  if (!busca.trim() && !SEM_TIRAR.includes(categoriaAtiva)) {
     const tirarBtn = document.createElement('button');
     tirarBtn.className = 'item-btn item-tirar';
     tirarBtn.textContent = '✕';
     tirarBtn.title = 'Tirar';
     tirarBtn.addEventListener('click', () => {
-      vestindo[quem][categoriaAtiva] = null;
-      renderizarBoneca(quem);
-      renderizarItens();
+      vestir(categoriaAtiva, null);
       tocarPlim(0.7);
       mostrarCoracao();
     });
@@ -1089,19 +1551,14 @@ function renderizarItens() {
     btn.className = 'item-btn' + (vestindo[quem][cat] === item.id ? ' selecionado' : '');
     btn.title = item.nome;
     btn.innerHTML = previewSVG(item, cat);
-
     btn.addEventListener('click', () => {
-      const v = vestindo[quem];
-      v[cat] = item.id;
-      // vestido tira blusa+calça (o desenho esconde); blusa ou calça tiram o vestido
-      if (cat === 'blusa' || cat === 'calca') v.vestido = null;
-      renderizarBoneca(quem);
-      renderizarItens();
+      vestir(cat, item.id);
       tocarPlim();
       mostrarCoracao();
     });
     wrap.appendChild(btn);
   }
+  wrap.scrollTop = rolagem;
 }
 
 function normalizar(s) {
@@ -1110,13 +1567,80 @@ function normalizar(s) {
     .replace(/[^a-z0-9 ]/g, '');
 }
 
-// ============== EFEITOS ==============
+// ============== BRINCADEIRAS ==============
+
+// tocar na criança que já está escolhida: ela dá risada
+function rir(q) {
+  const wrap = document.getElementById('wrap-' + q);
+  if (wrap.classList.contains('rindo')) return;
+  wrap.classList.add('rindo');
+  tocarMelodia(q === 'menina' ? [1047, 1175, 1319, 1175, 1319] : [784, 880, 988, 880, 988], 0.08, 'triangle');
+  for (let i = 0; i < 3; i++) setTimeout(() => mostrarCoracao(q, ['😄', '💖', '✨'][i]), i * 150);
+  setTimeout(() => wrap.classList.remove('rindo'), 1300);
+}
+
+// 🎲 roupa surpresa pra criança escolhida
+function surpresa() {
+  const v = vestindo[quem];
+  const sortear = (cat, chanceDeNada = 0) => {
+    if (Math.random() < chanceDeNada) return null;
+    const op = CATALOGO[cat].filter(serve);
+    return op.length ? op[Math.floor(Math.random() * op.length)].id : null;
+  };
+  v.cabelo = sortear('cabelo');
+  v.blusa = sortear('blusa');
+  v.calca = sortear('calca');
+  v.vestido = quem === 'menina' && Math.random() < 0.4 ? sortear('vestido') : null;
+  v.sapato = sortear('sapato');
+  v.chapeu = sortear('chapeu', 0.5);
+  v.oculos = sortear('oculos', 0.65);
+  v.colar = sortear('colar', 0.55);
+  v.cinto = sortear('cinto', 0.7);
+  v.bolsa = sortear('bolsa', 0.45);
+  v.costas = sortear('costas', 0.75);
+  if (quem === 'menino') v.barba = sortear('barba', 0.75);
+  renderizarBoneca(quem);
+  renderizarItens();
+  salvar();
+  const wrap = document.getElementById('wrap-' + quem);
+  wrap.classList.remove('pop'); void wrap.offsetWidth; wrap.classList.add('pop');
+  tocarMelodia([523, 659, 784, 1047, 1319], 0.06);
+  for (let i = 0; i < 6; i++) setTimeout(() => mostrarCoracao(quem, ['✨', '🌟', '💫'][i % 3]), i * 90);
+}
+
+// 💃 desfile: os dois dançam, cai confete e toca musiquinha
+let desfilando = false;
+function desfile() {
+  if (desfilando) return;
+  desfilando = true;
+  document.getElementById('palco').classList.add('desfilando');
+  const musica = [523, 659, 784, 659, 698, 880, 784, 659, 587, 698, 659, 523, 784, 1047];
+  tocarMelodia(musica, 0.2, 'triangle', 0.18);
+  const palco = document.getElementById('palco');
+  for (let i = 0; i < 40; i++) {
+    const c = document.createElement('div');
+    c.className = 'confete';
+    c.textContent = ['🎉', '✨', '💖', '⭐', '🎊', '💜', '🌸'][i % 7];
+    c.style.left = (Math.random() * 96) + '%';
+    c.style.animationDelay = (Math.random() * 2) + 's';
+    c.style.fontSize = (16 + Math.random() * 16) + 'px';
+    palco.appendChild(c);
+    setTimeout(() => c.remove(), 4500);
+  }
+  setTimeout(() => {
+    document.getElementById('palco').classList.remove('desfilando');
+    tocarMelodia([784, 1047, 1319, 1568], 0.09, 'sine', 0.3);
+    desfilando = false;
+  }, 3200);
+}
+
+// ============== SONS ==============
 
 let audioCtx = null;
-function nota(freq, quando, dur = 0.15, vol = 0.14) {
+function nota(freq, quando, dur = 0.15, vol = 0.14, tipo = 'sine') {
   const osc = audioCtx.createOscillator();
   const gain = audioCtx.createGain();
-  osc.type = 'sine';
+  osc.type = tipo;
   osc.frequency.value = freq;
   gain.gain.setValueAtTime(vol, audioCtx.currentTime + quando);
   gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + quando + dur);
@@ -1124,21 +1648,31 @@ function nota(freq, quando, dur = 0.15, vol = 0.14) {
   osc.start(audioCtx.currentTime + quando);
   osc.stop(audioCtx.currentTime + quando + dur);
 }
+function garantirAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
 function tocarPlim(tom = 1) {
   try {
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    garantirAudio();
     nota(880 * tom, 0);
     nota(1320 * tom, 0.08, 0.15, 0.12);
   } catch (e) {}
 }
+function tocarMelodia(notas, passo = 0.1, tipo = 'sine', dur = 0.14) {
+  try {
+    garantirAudio();
+    notas.forEach((f, i) => nota(f, i * passo, dur, 0.11, tipo));
+  } catch (e) {}
+}
 
-function mostrarCoracao() {
-  const wrap = document.getElementById('wrap-' + quem);
+function mostrarCoracao(q = quem, emoji) {
+  const wrap = document.getElementById('wrap-' + q);
   const c = document.createElement('div');
   c.className = 'coracao-flutua';
-  c.textContent = ['💖', '✨', '🌸', '💜', '⭐', '💙'][Math.floor(Math.random() * 6)];
+  c.textContent = emoji || ['💖', '✨', '🌸', '💜', '⭐', '💙'][Math.floor(Math.random() * 6)];
   c.style.left = (5 + Math.random() * 75) + '%';
-  c.style.top = (30 + Math.random() * 25) + '%';
+  c.style.top = (25 + Math.random() * 25) + '%';
   wrap.appendChild(c);
   setTimeout(() => c.remove(), 1300);
 }
@@ -1166,9 +1700,14 @@ function atualizarLimparBusca() {
 }
 
 document.querySelectorAll('.quem-btn').forEach(b => b.addEventListener('click', () => escolherQuem(b.dataset.q)));
+document.getElementById('btn-surpresa').addEventListener('click', surpresa);
+document.getElementById('btn-desfile').addEventListener('click', desfile);
 
 // ============== INIT ==============
 
+carregar();
+montarBotoesCenario();
+renderizarCenario();
 montarPalco();
 atualizarQuem();
 renderizarCategorias();
