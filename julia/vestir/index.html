@@ -166,6 +166,9 @@
     overflow-y: auto;
     display: grid;
     grid-template-columns: repeat(3, 1fr);
+    grid-auto-rows: max-content; /* sem isso, no celular os botões se amassam uns por cima dos outros */
+    align-content: start;
+    min-height: 0;
     gap: 10px;
     padding: 4px;
   }
@@ -224,8 +227,9 @@
       padding: 10px;
     }
     #boneca-wrap { width: 220px; height: 340px; }
-    #categorias { grid-template-columns: repeat(7, 1fr); }
-    .cat-btn { font-size: 22px; padding: 8px 2px; }
+    #categorias { grid-template-columns: repeat(8, 1fr); gap: 4px; }
+    .cat-btn { font-size: 20px; padding: 6px 0; border-radius: 12px; }
+    #itens { grid-template-columns: repeat(4, 1fr); gap: 6px; }
   }
 </style>
 </head>
@@ -236,37 +240,24 @@
   <div id="palco">
     <div id="boneca-wrap">
       <svg id="boneca" viewBox="0 0 360 540" xmlns="http://www.w3.org/2000/svg">
-        <!-- Pernas -->
-        <g id="layer-pernas">
-          <ellipse cx="148" cy="430" rx="22" ry="80" fill="#ffd6b5"/>
-          <ellipse cx="212" cy="430" rx="22" ry="80" fill="#ffd6b5"/>
-        </g>
+        <!-- Ordem das camadas (de trás pra frente). O corpo é desenhado pelo JS
+             (constantes CORPO_*), assim a boneca e as miniaturas usam o mesmo desenho. -->
+        <g id="layer-pernas"></g>
+        <g id="layer-corpo"></g>
         <!-- Sapatos (camada) -->
         <g id="layer-sapato"></g>
         <!-- Calça/Saia (camada) -->
         <g id="layer-calca"></g>
-        <!-- Corpo -->
-        <g id="layer-corpo">
-          <ellipse cx="180" cy="290" rx="60" ry="80" fill="#ffd6b5"/>
-        </g>
-        <!-- Braços -->
-        <g id="layer-bracos">
-          <ellipse cx="105" cy="300" rx="18" ry="60" fill="#ffd6b5" transform="rotate(8 105 300)"/>
-          <ellipse cx="255" cy="300" rx="18" ry="60" fill="#ffd6b5" transform="rotate(-8 255 300)"/>
-          <!-- Mãos -->
-          <circle cx="98" cy="358" r="14" fill="#ffd6b5"/>
-          <circle cx="262" cy="358" r="14" fill="#ffd6b5"/>
-        </g>
         <!-- Blusa (camada) -->
         <g id="layer-blusa"></g>
         <!-- Vestido (camada) -->
         <g id="layer-vestido"></g>
         <!-- Cinto (camada) -->
         <g id="layer-cinto"></g>
-        <!-- Pescoço -->
-        <g id="layer-pescoco">
-          <rect x="166" y="190" width="28" height="30" fill="#ffd6b5"/>
-        </g>
+        <!-- Braços: ficam na frente da roupa, assim a saia rodada não esconde as mãos -->
+        <g id="layer-bracos"></g>
+        <!-- Mangas da blusa/vestido: por cima do ombro do braço -->
+        <g id="layer-mangas"></g>
         <!-- Cabeça -->
         <g id="layer-cabeca">
           <circle cx="180" cy="160" r="56" fill="#ffd6b5"/>
@@ -342,31 +333,52 @@ const CORES = {
   marrom:   { hex: '#8b5a3c', nome: 'marrom' },
 };
 
+// ============== CORPO DA BONECA ==============
+// Medidas (viewBox 360x540): ombros y=222, cintura y=302, quadril y=338,
+// pernas até y=504. Todas as roupas abaixo seguem essas medidas pra encaixar.
+const PELE = '#ffd6b5';
+const CORPO_PERNAS = `<rect x="141" y="318" width="28" height="186" rx="14" fill="${PELE}"/>
+  <rect x="191" y="318" width="28" height="186" rx="14" fill="${PELE}"/>`;
+const CORPO_TORSO = `<rect x="168" y="200" width="24" height="30" fill="${PELE}"/>
+  <path d="M 134 224 Q 180 212 226 224 L 230 262 Q 220 288 222 306 L 232 338 L 128 338 L 138 306 Q 140 288 130 262 Z" fill="${PELE}"/>
+  <path d="M 142 252 Q 180 262 218 252 Q 216 285 220 306 L 230 338 Q 180 346 130 338 L 140 306 Q 144 285 142 252 Z" fill="#fff0f8" stroke="#ffc6e2" stroke-width="2"/>`;
+const CORPO_BRACOS = `<ellipse cx="120" cy="290" rx="14" ry="60" fill="${PELE}" transform="rotate(12 120 290)"/>
+  <ellipse cx="240" cy="290" rx="14" ry="60" fill="${PELE}" transform="rotate(-12 240 290)"/>
+  <circle cx="106" cy="352" r="13" fill="${PELE}"/>
+  <circle cx="254" cy="352" r="13" fill="${PELE}"/>`;
+
+// Peças reaproveitadas pelas blusas e vestidos
+const DECOTE = `<path d="M 165 219 Q 180 236 195 219 Z" fill="${PELE}"/>`;
+const mangas = (cor1, cor2 = cor1) =>
+  `<ellipse cx="128" cy="248" rx="18" ry="24" fill="${cor1}" transform="rotate(12 128 248)"/>
+   <ellipse cx="232" cy="248" rx="18" ry="24" fill="${cor2}" transform="rotate(-12 232 248)"/>`;
+const VESTIDO_FORMA = 'M 132 222 Q 180 210 228 222 L 234 262 Q 224 284 222 300 Q 258 380 262 440 Q 180 456 98 440 Q 102 380 138 300 Q 136 284 126 262 Z';
+
 // Cabelos (substituem o cabelo padrão)
 const CABELOS = [
   { id: 'cabelo-loiro-longo', nome: 'longo loiro', tags: ['loiro', 'longo', 'amarelo'],
-    svg: `<path d="M 124 130 Q 124 80 180 78 Q 236 80 236 130 L 240 220 Q 240 260 220 260 L 220 130 Q 220 110 200 105 L 200 95 Q 180 92 160 95 L 160 105 Q 140 110 140 130 L 140 260 Q 120 260 120 220 Z" fill="#ffd54a"/>
+    svg: `<path d="M 124 130 Q 124 80 180 78 Q 236 80 236 130 L 240 220 Q 240 260 220 260 L 222 135 Q 214 104 180 106 Q 146 104 138 135 L 140 260 Q 120 260 120 220 Z" fill="#ffd54a"/>
            <path d="M 145 90 Q 180 70 215 90" stroke="#ffd54a" stroke-width="6" fill="none"/>` },
   { id: 'cabelo-castanho-longo', nome: 'longo castanho', tags: ['castanho', 'longo', 'marrom'],
-    svg: `<path d="M 124 130 Q 124 80 180 78 Q 236 80 236 130 L 240 220 Q 240 260 220 260 L 220 130 Q 220 110 200 105 L 200 95 Q 180 92 160 95 L 160 105 Q 140 110 140 130 L 140 260 Q 120 260 120 220 Z" fill="#6b3a1c"/>` },
+    svg: `<path d="M 124 130 Q 124 80 180 78 Q 236 80 236 130 L 240 220 Q 240 260 220 260 L 222 135 Q 214 104 180 106 Q 146 104 138 135 L 140 260 Q 120 260 120 220 Z" fill="#6b3a1c"/>` },
   { id: 'cabelo-preto-curto', nome: 'curto preto', tags: ['preto', 'curto'],
-    svg: `<path d="M 124 130 Q 124 80 180 78 Q 236 80 236 130 L 235 175 Q 220 170 220 160 L 220 130 Q 220 110 200 105 L 200 95 Q 180 92 160 95 L 160 105 Q 140 110 140 130 L 140 160 Q 140 170 125 175 Z" fill="#222"/>` },
+    svg: `<path d="M 124 130 Q 124 80 180 78 Q 236 80 236 130 L 235 175 Q 220 170 220 160 L 222 135 Q 214 104 180 106 Q 146 104 138 135 L 140 160 Q 140 170 125 175 Z" fill="#222"/>` },
   { id: 'cabelo-rosa-cha', nome: 'rosa chiclete', tags: ['rosa', 'pink', 'colorido'],
-    svg: `<path d="M 124 130 Q 124 80 180 78 Q 236 80 236 130 L 240 230 Q 240 280 215 280 L 215 130 Q 215 110 195 105 L 195 95 Q 180 92 165 95 L 165 105 Q 145 110 145 130 L 145 280 Q 120 280 120 230 Z" fill="#ff6fb5"/>` },
+    svg: `<path d="M 124 130 Q 124 80 180 78 Q 236 80 236 130 L 240 230 Q 240 280 215 280 L 217 135 Q 210 106 180 108 Q 150 106 143 135 L 145 280 Q 120 280 120 230 Z" fill="#ff6fb5"/>` },
   { id: 'cabelo-roxo-ondulado', nome: 'roxo ondulado', tags: ['roxo', 'ondulado'],
-    svg: `<path d="M 122 130 Q 122 78 180 76 Q 238 78 238 130 L 245 240 Q 235 235 230 245 Q 225 235 220 245 L 220 130 Q 220 110 200 105 L 200 95 Q 180 92 160 95 L 160 105 Q 140 110 140 130 L 140 245 Q 135 235 130 245 Q 125 235 115 240 Z" fill="#b56fff"/>` },
+    svg: `<path d="M 122 130 Q 122 78 180 76 Q 238 78 238 130 L 245 240 Q 235 235 230 245 Q 225 235 220 245 L 222 135 Q 214 104 180 106 Q 146 104 138 135 L 140 245 Q 135 235 130 245 Q 125 235 115 240 Z" fill="#b56fff"/>` },
   { id: 'cabelo-ruivo-trancas', nome: 'ruivo com tranças', tags: ['ruivo', 'tranças', 'laranja'],
-    svg: `<path d="M 124 130 Q 124 80 180 78 Q 236 80 236 130 L 235 175 Q 220 170 220 160 L 220 130 Q 220 110 200 105 L 200 95 Q 180 92 160 95 L 160 105 Q 140 110 140 130 L 140 160 Q 140 170 125 175 Z" fill="#cc5522"/>
+    svg: `<path d="M 124 130 Q 124 80 180 78 Q 236 80 236 130 L 235 175 Q 220 170 220 160 L 222 135 Q 214 104 180 106 Q 146 104 138 135 L 140 160 Q 140 170 125 175 Z" fill="#cc5522"/>
            <ellipse cx="115" cy="220" rx="14" ry="40" fill="#cc5522"/>
            <ellipse cx="245" cy="220" rx="14" ry="40" fill="#cc5522"/>
            <circle cx="115" cy="265" r="8" fill="#ff6fb5"/>
            <circle cx="245" cy="265" r="8" fill="#ff6fb5"/>` },
   { id: 'cabelo-azul-curto', nome: 'curto azul', tags: ['azul', 'curto', 'colorido'],
-    svg: `<path d="M 122 130 Q 122 78 180 76 Q 238 78 238 130 L 235 175 Q 220 170 220 160 L 220 130 Q 220 110 200 105 L 200 95 Q 180 92 160 95 L 160 105 Q 140 110 140 130 L 140 160 Q 140 170 125 175 Z" fill="#6fb5ff"/>
+    svg: `<path d="M 122 130 Q 122 78 180 76 Q 238 78 238 130 L 235 175 Q 220 170 220 160 L 222 135 Q 214 104 180 106 Q 146 104 138 135 L 140 160 Q 140 170 125 175 Z" fill="#6fb5ff"/>
            <path d="M 145 100 Q 180 90 215 100" stroke="#a8d2ff" stroke-width="3" fill="none"/>` },
   { id: 'cabelo-coque', nome: 'coque alto', tags: ['coque', 'preso', 'castanho'],
     svg: `<circle cx="180" cy="80" r="32" fill="#6b3a1c"/>
-           <path d="M 130 130 Q 130 100 180 100 Q 230 100 230 130 L 232 175 Q 220 170 220 160 L 220 130 Q 220 115 200 110 L 200 100 Q 180 98 160 100 L 160 110 Q 140 115 140 130 L 140 160 Q 140 170 128 175 Z" fill="#6b3a1c"/>
+           <path d="M 130 130 Q 130 100 180 100 Q 230 100 230 130 L 232 175 Q 220 170 220 160 L 222 135 Q 214 110 180 112 Q 146 110 138 135 L 140 160 Q 140 170 128 175 Z" fill="#6b3a1c"/>
            <ellipse cx="180" cy="80" rx="34" ry="10" fill="#552a10" opacity="0.4"/>` },
 ];
 
@@ -379,9 +391,10 @@ for (const corKey of ['rosa', 'pink', 'roxo', 'lilas', 'azul', 'azulBebe', 'amar
     nome: `blusa ${c.nome}`,
     tags: [c.nome, 'blusa', 'camiseta'],
     swatch: c.hex,
-    svg: `<path d="M 130 220 Q 130 215 138 215 L 222 215 Q 230 215 230 220 L 240 290 Q 240 305 225 305 L 135 305 Q 120 305 120 290 Z" fill="${c.hex}"/>
-          <ellipse cx="105" cy="265" rx="22" ry="30" fill="${c.hex}" transform="rotate(8 105 265)"/>
-          <ellipse cx="255" cy="265" rx="22" ry="30" fill="${c.hex}" transform="rotate(-8 255 265)"/>`
+    // vai do ombro até y=320, cobrindo o cós da calça (que começa em y=302)
+    svg: `<path d="M 132 222 Q 180 210 228 222 L 234 262 Q 224 288 226 316 Q 180 324 134 316 Q 136 288 126 262 Z" fill="${c.hex}"/>
+          ${DECOTE}`,
+    mangas: mangas(c.hex)
   });
 }
 
@@ -394,10 +407,10 @@ for (const corKey of ['rosa', 'pink', 'roxo', 'lilas', 'azul', 'azulBebe', 'amar
     nome: `vestido ${c.nome}`,
     tags: [c.nome, 'vestido'],
     swatch: c.hex,
-    svg: `<path d="M 130 220 Q 130 215 138 215 L 222 215 Q 230 215 230 220 L 245 285 Q 270 410 250 470 L 110 470 Q 90 410 115 285 Z" fill="${c.hex}"/>
-          <ellipse cx="105" cy="265" rx="22" ry="30" fill="${c.hex}" transform="rotate(8 105 265)"/>
-          <ellipse cx="255" cy="265" rx="22" ry="30" fill="${c.hex}" transform="rotate(-8 255 265)"/>
-          <path d="M 110 470 Q 180 480 250 470" stroke="${c.hex}" stroke-width="4" fill="none"/>`
+    svg: `<path d="${VESTIDO_FORMA}" fill="${c.hex}"/>
+          <path d="M 104 436 Q 180 452 256 436" stroke="#ffffff" stroke-opacity="0.5" stroke-width="4" fill="none"/>
+          ${DECOTE}`,
+    mangas: mangas(c.hex)
   });
 }
 // Vestido princesa especial
@@ -406,16 +419,17 @@ VESTIDOS.push({
   nome: 'vestido princesa',
   tags: ['princesa', 'rosa', 'glitter', 'brilhante'],
   swatch: '#ff9bd3',
-  svg: `<path d="M 130 220 L 230 220 L 245 290 L 220 305 L 140 305 L 115 290 Z" fill="#ff9bd3"/>
-        <path d="M 115 290 Q 50 420 80 480 L 280 480 Q 310 420 245 290 Z" fill="#ffd6f0"/>
-        <path d="M 115 290 L 245 290" stroke="#ffd700" stroke-width="3" fill="none"/>
-        <circle cx="120" cy="350" r="3" fill="#ffd700"/>
-        <circle cx="180" cy="380" r="3" fill="#ffd700"/>
-        <circle cx="240" cy="350" r="3" fill="#ffd700"/>
-        <circle cx="150" cy="420" r="3" fill="#ffd700"/>
-        <circle cx="210" cy="420" r="3" fill="#ffd700"/>
-        <ellipse cx="105" cy="265" rx="22" ry="30" fill="#ff9bd3" transform="rotate(8 105 265)"/>
-        <ellipse cx="255" cy="265" rx="22" ry="30" fill="#ff9bd3" transform="rotate(-8 255 265)"/>`
+  svg: `<path d="M 136 296 L 224 296 Q 300 420 290 488 Q 180 502 70 488 Q 60 420 136 296 Z" fill="#ffd6f0"/>
+        <path d="M 132 222 Q 180 210 228 222 L 234 262 Q 224 284 224 302 L 136 302 Q 136 284 126 262 Z" fill="#ff9bd3"/>
+        <path d="M 134 302 L 226 302" stroke="#ffd700" stroke-width="4" fill="none"/>
+        <circle cx="140" cy="360" r="4" fill="#ffd700"/>
+        <circle cx="180" cy="390" r="4" fill="#ffd700"/>
+        <circle cx="220" cy="360" r="4" fill="#ffd700"/>
+        <circle cx="120" cy="440" r="4" fill="#ffd700"/>
+        <circle cx="180" cy="460" r="4" fill="#ffd700"/>
+        <circle cx="240" cy="440" r="4" fill="#ffd700"/>
+        ${DECOTE}`,
+  mangas: mangas('#ff9bd3')
 });
 // Vestido arco-íris
 VESTIDOS.push({
@@ -430,9 +444,9 @@ VESTIDOS.push({
           <stop offset="75%" stop-color="#6fb5ff"/>
           <stop offset="100%" stop-color="#b56fff"/>
         </linearGradient></defs>
-        <path d="M 130 220 Q 130 215 138 215 L 222 215 Q 230 215 230 220 L 245 285 Q 270 410 250 470 L 110 470 Q 90 410 115 285 Z" fill="url(#grad-ai)"/>
-        <ellipse cx="105" cy="265" rx="22" ry="30" fill="#ff6f6f" transform="rotate(8 105 265)"/>
-        <ellipse cx="255" cy="265" rx="22" ry="30" fill="#b56fff" transform="rotate(-8 255 265)"/>`
+        <path d="${VESTIDO_FORMA}" fill="url(#grad-ai)"/>
+        ${DECOTE}`,
+  mangas: mangas('#ff6f6f', '#b56fff')
 });
 
 // Calças e saias
@@ -444,7 +458,8 @@ for (const corKey of ['rosa', 'roxo', 'azul', 'amarelo', 'verde', 'vermelho', 'p
     nome: `calça ${c.nome}`,
     tags: [c.nome, 'calça', 'calca'],
     swatch: c.hex,
-    svg: `<path d="M 122 305 L 238 305 L 242 470 L 200 475 L 188 360 L 172 360 L 160 475 L 118 470 Z" fill="${c.hex}"/>`
+    // cós na cintura (y=302), cobre o quadril e as duas pernas até o tornozelo
+    svg: `<path d="M 134 302 L 226 302 L 233 338 L 226 492 L 185 492 L 181 350 L 179 350 L 175 492 L 134 492 L 127 338 Z" fill="${c.hex}"/>`
   });
 }
 for (const corKey of ['rosa', 'roxo', 'azul', 'amarelo', 'branco', 'pink']) {
@@ -454,7 +469,7 @@ for (const corKey of ['rosa', 'roxo', 'azul', 'amarelo', 'branco', 'pink']) {
     nome: `saia ${c.nome}`,
     tags: [c.nome, 'saia'],
     swatch: c.hex,
-    svg: `<path d="M 122 305 L 238 305 L 270 410 L 90 410 Z" fill="${c.hex}"/>`
+    svg: `<path d="M 134 302 L 226 302 L 262 404 Q 180 416 98 404 Z" fill="${c.hex}"/>`
   });
 }
 // Saia de tule especial
@@ -463,9 +478,9 @@ CALCAS.push({
   nome: 'saia tule rosa',
   tags: ['tule', 'rosa', 'bailarina', 'fofo'],
   swatch: '#ffb5d6',
-  svg: `<path d="M 122 305 L 238 305 L 290 380 L 70 380 Z" fill="#ffb5d6" opacity="0.9"/>
-        <path d="M 80 350 Q 180 340 280 350" stroke="#ffd6f0" stroke-width="3" fill="none"/>
-        <path d="M 90 370 Q 180 360 270 370" stroke="#ffd6f0" stroke-width="3" fill="none"/>`
+  svg: `<path d="M 134 302 L 226 302 L 290 384 Q 180 398 70 384 Z" fill="#ffb5d6"/>
+        <path d="M 104 344 Q 180 354 256 344" stroke="#ffe6f2" stroke-width="3" fill="none"/>
+        <path d="M 84 368 Q 180 380 276 368" stroke="#ffe6f2" stroke-width="3" fill="none"/>`
 });
 
 // Sapatos
@@ -477,8 +492,8 @@ for (const corKey of ['rosa', 'roxo', 'azul', 'vermelho', 'preto', 'branco', 'do
     nome: `sapato ${c.nome}`,
     tags: [c.nome, 'sapato', 'sapatilha'],
     swatch: c.hex,
-    svg: `<ellipse cx="148" cy="510" rx="28" ry="14" fill="${c.hex}"/>
-          <ellipse cx="212" cy="510" rx="28" ry="14" fill="${c.hex}"/>`
+    svg: `<ellipse cx="152" cy="504" rx="22" ry="11" fill="${c.hex}"/>
+          <ellipse cx="208" cy="504" rx="22" ry="11" fill="${c.hex}"/>`
   });
 }
 SAPATOS.push({
@@ -486,10 +501,10 @@ SAPATOS.push({
   nome: 'bota rosa',
   tags: ['rosa', 'bota'],
   swatch: '#ff6fb5',
-  svg: `<rect x="128" y="470" width="40" height="50" rx="8" fill="#ff6fb5"/>
-        <rect x="192" y="470" width="40" height="50" rx="8" fill="#ff6fb5"/>
-        <ellipse cx="148" cy="520" rx="22" ry="8" fill="#ff6fb5"/>
-        <ellipse cx="212" cy="520" rx="22" ry="8" fill="#ff6fb5"/>`
+  svg: `<rect x="137" y="458" width="34" height="48" rx="8" fill="#ff6fb5"/>
+        <rect x="189" y="458" width="34" height="48" rx="8" fill="#ff6fb5"/>
+        <ellipse cx="152" cy="506" rx="22" ry="9" fill="#ff6fb5"/>
+        <ellipse cx="208" cy="506" rx="22" ry="9" fill="#ff6fb5"/>`
 });
 
 // Bolsas
@@ -501,9 +516,10 @@ for (const corKey of ['rosa', 'pink', 'roxo', 'azul', 'amarelo', 'vermelho', 'do
     nome: `bolsa ${c.nome}`,
     tags: [c.nome, 'bolsa'],
     swatch: c.hex,
-    svg: `<rect x="60" y="350" width="40" height="35" rx="6" fill="${c.hex}"/>
-          <path d="M 65 350 Q 80 320 95 350" stroke="${c.hex}" stroke-width="4" fill="none"/>
-          <circle cx="80" cy="368" r="4" fill="#ffd700"/>`
+    // alça passa pela mão esquerda (106,352)
+    svg: `<path d="M 90 366 Q 106 332 120 366" stroke="${c.hex}" stroke-width="4" fill="none"/>
+          <rect x="84" y="362" width="42" height="34" rx="6" fill="${c.hex}"/>
+          <circle cx="105" cy="379" r="4" fill="#ffd700"/>`
   });
 }
 // Bolsa coração
@@ -512,8 +528,8 @@ BOLSAS.push({
   nome: 'bolsa coração rosa',
   tags: ['coracao', 'coração', 'rosa', 'fofo'],
   swatch: '#ff1493',
-  svg: `<path d="M 80 360 C 80 350 65 350 65 365 C 65 380 80 390 80 390 C 80 390 95 380 95 365 C 95 350 80 350 80 360 Z" fill="#ff1493"/>
-        <path d="M 70 348 Q 80 330 90 348" stroke="#ff1493" stroke-width="3" fill="none"/>`
+  svg: `<path d="M 94 368 Q 106 338 116 368" stroke="#ff1493" stroke-width="3" fill="none"/>
+        <path d="M 105 374 C 105 362 88 362 88 378 C 88 393 105 404 105 404 C 105 404 122 393 122 378 C 122 362 105 362 105 374 Z" fill="#ff1493"/>`
 });
 
 // Cintos
@@ -525,8 +541,9 @@ for (const corKey of ['rosa', 'pink', 'roxo', 'preto', 'dourado', 'vermelho', 'a
     nome: `cinto ${c.nome}`,
     tags: [c.nome, 'cinto'],
     swatch: c.hex,
-    svg: `<rect x="118" y="298" width="124" height="14" fill="${c.hex}"/>
-          <rect x="172" y="296" width="16" height="18" fill="#ffd700"/>`
+    // na cintura, da largura do corpo
+    svg: `<rect x="131" y="300" width="98" height="13" rx="3" fill="${c.hex}"/>
+          <rect x="172" y="298" width="16" height="17" rx="2" fill="#ffd700"/>`
   });
 }
 // Laço rosa de cinto
@@ -535,7 +552,7 @@ CINTOS.push({
   nome: 'cinto com laço rosa',
   tags: ['laço', 'laco', 'rosa', 'fofo'],
   swatch: '#ff6fb5',
-  svg: `<rect x="118" y="298" width="124" height="10" fill="#ff6fb5"/>
+  svg: `<rect x="131" y="298" width="98" height="10" rx="3" fill="#ff6fb5"/>
         <path d="M 165 295 L 155 285 L 155 318 L 165 308 Z" fill="#ff1493"/>
         <path d="M 195 295 L 205 285 L 205 318 L 195 308 Z" fill="#ff1493"/>
         <circle cx="180" cy="303" r="6" fill="#ff1493"/>`
@@ -572,7 +589,7 @@ const ACESSORIOS = [
           <line x1="174" y1="160" x2="186" y2="160" stroke="#222" stroke-width="3"/>` },
   { id: 'colar-coracao', nome: 'colar coração', tags: ['colar', 'coração', 'rosa'],
     swatch: '#ff1493',
-    svg: `<path d="M 150 215 Q 180 235 210 215" stroke="#ffd700" stroke-width="2" fill="none"/>
+    svg: `<path d="M 162 216 Q 180 236 198 216" stroke="#ffd700" stroke-width="2" fill="none"/>
           <path d="M 180 230 C 180 225 173 225 173 232 C 173 240 180 246 180 246 C 180 246 187 240 187 232 C 187 225 180 225 180 230 Z" fill="#ff1493"/>` },
 ];
 
@@ -591,24 +608,24 @@ const CATALOGO = {
 // ============== PREVIEWS POR CATEGORIA ==============
 // viewBox para enquadrar a peça no botão e silhueta de fundo (corpo da boneca)
 
-const SILHUETA_PERNAS = '<ellipse cx="148" cy="430" rx="22" ry="80" fill="#ffd6b5"/><ellipse cx="212" cy="430" rx="22" ry="80" fill="#ffd6b5"/>';
-const SILHUETA_TORSO = '<ellipse cx="180" cy="290" rx="60" ry="80" fill="#ffd6b5"/><ellipse cx="105" cy="300" rx="18" ry="60" fill="#ffd6b5" transform="rotate(8 105 300)"/><ellipse cx="255" cy="300" rx="18" ry="60" fill="#ffd6b5" transform="rotate(-8 255 300)"/><circle cx="98" cy="358" r="14" fill="#ffd6b5"/><circle cx="262" cy="358" r="14" fill="#ffd6b5"/>';
+const SILHUETA_PERNAS = CORPO_PERNAS;
+const SILHUETA_TORSO = CORPO_TORSO + CORPO_BRACOS;
 const SILHUETA_CABECA = '<circle cx="180" cy="160" r="56" fill="#ffd6b5"/><ellipse cx="160" cy="160" rx="5" ry="7" fill="#222"/><ellipse cx="200" cy="160" rx="5" ry="7" fill="#222"/><ellipse cx="148" cy="180" rx="7" ry="5" fill="#ff9bb5" opacity="0.6"/><ellipse cx="212" cy="180" rx="7" ry="5" fill="#ff9bb5" opacity="0.6"/><path d="M 168 188 Q 180 198 192 188" stroke="#c44" stroke-width="3" fill="none" stroke-linecap="round"/>';
 
 const PREVIEWS = {
   cabelo:    { viewBox: '105 65 150 230', fundo: SILHUETA_CABECA },
-  blusa:     { viewBox: '70 200 220 130', fundo: SILHUETA_TORSO },
-  vestido:   { viewBox: '60 200 240 290', fundo: SILHUETA_TORSO + SILHUETA_PERNAS },
-  calca:     { viewBox: '85 295 190 200', fundo: SILHUETA_PERNAS },
-  sapato:    { viewBox: '110 460 140 70', fundo: '' },
-  bolsa:     { viewBox: '40 315 80 85',  fundo: '' },
-  cinto:     { viewBox: '105 280 150 45', fundo: SILHUETA_TORSO },
+  blusa:     { viewBox: '85 200 190 150', fundo: SILHUETA_TORSO },
+  vestido:   { viewBox: '55 200 250 305', fundo: SILHUETA_PERNAS + SILHUETA_TORSO },
+  calca:     { viewBox: '60 295 240 205', fundo: SILHUETA_PERNAS },
+  sapato:    { viewBox: '120 450 120 70', fundo: '' },
+  bolsa:     { viewBox: '70 330 70 80',  fundo: '' },
+  cinto:     { viewBox: '115 280 130 45', fundo: SILHUETA_TORSO },
   acessorio: { viewBox: '125 60 110 160', fundo: SILHUETA_CABECA },
 };
 
 function previewSVG(item, cat) {
   const p = PREVIEWS[cat] || { viewBox: '0 0 360 540', fundo: '' };
-  return `<svg viewBox="${p.viewBox}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">${p.fundo}${item.svg}</svg>`;
+  return `<svg viewBox="${p.viewBox}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">${p.fundo}${item.svg}${item.mangas || ''}</svg>`;
 }
 
 // ============== ESTADO ==============
@@ -647,6 +664,18 @@ function renderizarBoneca() {
     document.getElementById('layer-blusa').innerHTML = '';
     document.getElementById('layer-calca').innerHTML = '';
   }
+
+  // mangas: vêm do vestido (se tiver) ou da blusa
+  const deCima = temVestido
+    ? VESTIDOS.find(x => x.id === vestindo.vestido)
+    : BLUSAS.find(x => x.id === vestindo.blusa);
+  document.getElementById('layer-mangas').innerHTML = (deCima && deCima.mangas) || '';
+}
+
+function desenharCorpo() {
+  document.getElementById('layer-pernas').innerHTML = CORPO_PERNAS;
+  document.getElementById('layer-corpo').innerHTML = CORPO_TORSO;
+  document.getElementById('layer-bracos').innerHTML = CORPO_BRACOS;
 }
 
 function renderizarCategorias() {
@@ -826,6 +855,7 @@ function atualizarLimparBusca() {
 
 // ============== INIT ==============
 
+desenharCorpo();
 renderizarCategorias();
 renderizarBoneca();
 renderizarItens();
