@@ -57,9 +57,9 @@ window.GAMES = [
   },
   {
     slug: "vestir",
-    title: "Vestir a Menina",
+    title: "Vestir a Menina e o Menino",
     emoji: "👗",
     color: "#ff6fb5",
-    description: "Escolhe roupas, cabelos e bolsas"
+    description: "Escolhe roupas, cabelos e acessórios pros dois"
   },
 ];
