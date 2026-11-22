@@ -69,6 +69,35 @@
     flex: 1;
     min-height: 0;
   }
+  /* contorno suave em tudo que é preenchido e não tem traço próprio — deixa o desenho mais caprichado */
+  .boneca-wrap svg g > :not([stroke]):not([fill="none"]),
+  .item-btn svg > :not([stroke]):not([fill="none"]),
+  .item-btn svg > g > :not([stroke]):not([fill="none"]) {
+    stroke: rgba(110, 50, 80, 0.22);
+    stroke-width: 2;
+    stroke-linejoin: round;
+  }
+
+  /* brilhinhos piscando no fundo */
+  .brilho {
+    position: absolute;
+    pointer-events: none;
+    animation: piscar 2.4s ease-in-out infinite;
+    opacity: 0;
+  }
+  @keyframes piscar {
+    0%, 100% { opacity: 0; transform: scale(0.6) rotate(0deg); }
+    50% { opacity: 0.9; transform: scale(1.1) rotate(20deg); }
+  }
+  /* chão */
+  #palco::before {
+    content: '';
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 24%;
+    background: linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(255,240,250,0.75) 100%);
+    pointer-events: none;
+  }
   .boneca-wrap.ativa {
     opacity: 1;
     transform: scale(1.04);
@@ -349,14 +378,23 @@ function cabecaSVG(quem) {
     <path d="M 168 152 L 172 148" stroke="#222" stroke-width="2" stroke-linecap="round"/>
     <path d="M 192 152 L 188 148" stroke="#222" stroke-width="2" stroke-linecap="round"/>
     <path d="M 208 152 L 212 148" stroke="#222" stroke-width="2" stroke-linecap="round"/>` : '';
-  return `<circle cx="180" cy="160" r="56" fill="${PELE}"/>
-    <ellipse cx="160" cy="160" rx="6" ry="8" fill="#222"/>
-    <ellipse cx="200" cy="160" rx="6" ry="8" fill="#222"/>
-    <circle cx="162" cy="158" r="2" fill="#fff"/>
-    <circle cx="202" cy="158" r="2" fill="#fff"/>
+  return `<ellipse cx="125" cy="168" rx="9" ry="12" fill="${PELE}"/>
+    <ellipse cx="235" cy="168" rx="9" ry="12" fill="${PELE}"/>
+    <ellipse cx="126" cy="168" rx="4" ry="6" fill="#f5b894" stroke="none"/>
+    <ellipse cx="234" cy="168" rx="4" ry="6" fill="#f5b894" stroke="none"/>
+    <circle cx="180" cy="160" r="56" fill="${PELE}"/>
+    <path d="M 151 145 Q 160 140 169 145" stroke="#8b5a3c" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    <path d="M 191 145 Q 200 140 209 145" stroke="#8b5a3c" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    <ellipse cx="160" cy="160" rx="6.5" ry="8.5" fill="#3a2418" stroke="none"/>
+    <ellipse cx="200" cy="160" rx="6.5" ry="8.5" fill="#3a2418" stroke="none"/>
+    <circle cx="162.5" cy="157" r="2.6" fill="#fff" stroke="none"/>
+    <circle cx="202.5" cy="157" r="2.6" fill="#fff" stroke="none"/>
+    <circle cx="158" cy="163" r="1.2" fill="#fff" stroke="none"/>
+    <circle cx="198" cy="163" r="1.2" fill="#fff" stroke="none"/>
     ${cilios}
-    <ellipse cx="148" cy="180" rx="8" ry="6" fill="#ff9bb5" opacity="0.6"/>
-    <ellipse cx="212" cy="180" rx="8" ry="6" fill="#ff9bb5" opacity="0.6"/>
+    <path d="M 176 174 Q 180 178 184 174" stroke="#e09a78" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <ellipse cx="146" cy="180" rx="8" ry="5.5" fill="#ff9bb5" opacity="0.6" stroke="none"/>
+    <ellipse cx="214" cy="180" rx="8" ry="5.5" fill="#ff9bb5" opacity="0.6" stroke="none"/>
     <path d="M 168 188 Q 180 200 192 188" stroke="#c44" stroke-width="3" fill="none" stroke-linecap="round"/>`;
 }
 
@@ -376,7 +414,26 @@ function coracao(cx, cy, s, cor) {
 const DECOTE = `<path d="M 165 219 Q 180 236 195 219 Z" fill="${PELE}"/>`;
 const mangas = (cor1, cor2 = cor1) =>
   `<ellipse cx="128" cy="248" rx="18" ry="24" fill="${cor1}" transform="rotate(12 128 248)"/>
-   <ellipse cx="232" cy="248" rx="18" ry="24" fill="${cor2}" transform="rotate(-12 232 248)"/>`;
+   <ellipse cx="232" cy="248" rx="18" ry="24" fill="${cor2}" transform="rotate(-12 232 248)"/>
+   <path d="M 113 262 Q 124 270 137 266" stroke="#000" stroke-opacity="0.13" stroke-width="3" fill="none" stroke-linecap="round"/>
+   <path d="M 247 262 Q 236 270 223 266" stroke="#000" stroke-opacity="0.13" stroke-width="3" fill="none" stroke-linecap="round"/>`;
+// detalhes de tecido (dobrinhas, barra, costura) — traços translúcidos que servem em qualquer cor
+const SOMBRA = 'stroke="#000" stroke-opacity="0.12" fill="none" stroke-linecap="round"';
+const DOBRAS_BLUSA = `<path d="M 136 310 Q 180 318 224 310" ${SOMBRA} stroke-width="3"/>
+  <path d="M 150 270 Q 156 285 152 300" ${SOMBRA} stroke-width="2"/>
+  <path d="M 210 270 Q 204 285 208 300" ${SOMBRA} stroke-width="2"/>`;
+const DETALHES_CALCA = `<path d="M 180 304 L 180 348" ${SOMBRA} stroke-width="2"/>
+  <path d="M 140 312 Q 150 324 162 312" ${SOMBRA} stroke-width="2"/>
+  <path d="M 198 312 Q 210 324 220 312" ${SOMBRA} stroke-width="2"/>
+  <path d="M 136 482 L 174 482 M 186 482 L 225 482" ${SOMBRA} stroke-width="3"/>
+  <path d="M 156 380 L 155 470 M 205 380 L 206 470" ${SOMBRA} stroke-width="2"/>`;
+const DETALHES_BERMUDA = `<path d="M 180 304 L 180 348" ${SOMBRA} stroke-width="2"/>
+  <path d="M 140 312 Q 150 324 162 312" ${SOMBRA} stroke-width="2"/>
+  <path d="M 198 312 Q 210 324 220 312" ${SOMBRA} stroke-width="2"/>
+  <path d="M 132 400 L 174 400 M 186 400 L 229 400" ${SOMBRA} stroke-width="3"/>`;
+const PREGAS_SAIA = `<path d="M 158 306 L 136 404 M 180 306 L 180 410 M 202 306 L 224 404" ${SOMBRA} stroke-width="2"/>`;
+const LACO_CINTURA = `<path d="M 138 300 Q 180 310 222 300" stroke="#fff" stroke-opacity="0.6" stroke-width="5" fill="none"/>
+  ${''}<path d="M 180 304 L 170 297 L 170 312 Z M 180 304 L 190 297 L 190 312 Z" fill="#fff" fill-opacity="0.7" stroke="none"/>`;
 const BLUSA_FORMA = 'M 132 222 Q 180 210 228 222 L 234 262 Q 224 288 226 316 Q 180 324 134 316 Q 136 288 126 262 Z';
 const VESTIDO_FORMA = 'M 132 222 Q 180 210 228 222 L 234 262 Q 224 284 222 300 Q 258 380 262 440 Q 180 456 98 440 Q 102 380 138 300 Q 136 284 126 262 Z';
 const CALCA_FORMA = 'M 134 302 L 226 302 L 233 338 L 226 492 L 185 492 L 181 350 L 179 350 L 175 492 L 134 492 L 127 338 Z';
@@ -387,7 +444,10 @@ const BERMUDA_FORMA = 'M 134 302 L 226 302 L 233 338 L 230 410 L 186 410 L 181 3
 const CABELO_FRENTE = 'M 122 160 Q 116 80 180 78 Q 244 80 238 160 Q 232 130 222 116 Q 196 108 180 112 Q 164 108 138 116 Q 128 130 122 160 Z';
 const ATRAS_LONGO = 'M 118 130 Q 118 72 180 70 Q 242 72 242 130 L 248 276 Q 180 292 112 276 Z';
 const ATRAS_CHANEL = 'M 116 140 Q 114 72 180 70 Q 246 72 244 140 L 244 198 Q 180 210 116 198 Z';
-const CABELO_CURTINHO ='M 124 142 Q 118 84 180 82 Q 242 84 236 142 Q 232 118 220 112 Q 200 122 182 108 Q 160 120 140 112 Q 128 120 124 142 Z';
+// parte de trás do cabelo curto: um "capacete" atrás da cabeça que preenche as laterais
+const ATRAS_CURTO = 'M 119 162 Q 112 76 180 74 Q 248 76 241 162 Z';
+const ATRAS_RASPADO = 'M 120 160 Q 116 98 180 96 Q 244 98 240 160 Z'; // mais baixo, pra não tampar espetos/moicano
+const CABELO_CURTINHO = 'M 121 150 Q 116 84 180 82 Q 244 84 239 150 Q 234 120 220 112 Q 200 122 182 108 Q 160 120 140 112 Q 126 122 121 150 Z';
 
 // ============== CATÁLOGO ==============
 // "para": 'menina' ou 'menino' mostra só pra um deles; sem "para" aparece pros dois.
@@ -477,19 +537,29 @@ const CABELOS = [
           <path d="M 150 92 Q 180 82 210 92" stroke="#a8d2ff" stroke-width="3" fill="none"/>` },
   // menino
   { id: 'cabelo-curtinho-castanho', nome: 'curtinho castanho', tags: ['curto', 'castanho', 'marrom'], para: 'menino',
-    svg: `<path d="${CABELO_CURTINHO}" fill="#6b3a1c"/>` },
+    atras: `<path d="${ATRAS_CURTO}" fill="#6b3a1c"/>`,
+    svg: `<path d="${CABELO_CURTINHO}" fill="#6b3a1c"/>
+          <path d="M 150 94 Q 170 86 190 90" stroke="#8b5a3c" stroke-width="3" fill="none" stroke-linecap="round"/>` },
   { id: 'cabelo-curtinho-loiro', nome: 'curtinho loiro', tags: ['curto', 'loiro', 'amarelo'], para: 'menino',
-    svg: `<path d="${CABELO_CURTINHO}" fill="#e8b830"/>` },
+    atras: `<path d="${ATRAS_CURTO}" fill="#e8b830"/>`,
+    svg: `<path d="${CABELO_CURTINHO}" fill="#e8b830"/>
+          <path d="M 150 94 Q 170 86 190 90" stroke="#fff0a0" stroke-width="3" fill="none" stroke-linecap="round"/>` },
   { id: 'cabelo-espetado', nome: 'espetado preto', tags: ['espetado', 'preto'], para: 'menino',
-    svg: `<path d="M 124 142 L 120 104 L 140 108 L 144 76 L 162 96 L 178 66 L 192 94 L 210 74 L 216 104 L 240 100 L 236 142 Q 226 114 180 112 Q 134 114 124 142 Z" fill="#222"/>` },
+    atras: `<path d="${ATRAS_RASPADO}" fill="#222"/>`,
+    svg: `<path d="M 122 150 L 118 104 L 140 108 L 144 76 L 162 96 L 178 66 L 192 94 L 210 74 L 216 104 L 242 100 L 238 150 Q 228 116 180 114 Q 132 116 122 150 Z" fill="#222"/>` },
   { id: 'cabelo-baguncado', nome: 'ruivo bagunçado', tags: ['ruivo', 'laranja', 'bagunçado'], para: 'menino',
-    svg: `<path d="M 122 142 Q 116 82 180 80 Q 244 82 238 142 Q 234 122 226 116 L 218 126 L 208 108 L 194 120 L 180 104 L 166 120 L 152 108 L 142 126 L 134 116 Q 126 122 122 142 Z" fill="#cc5522"/>` },
+    atras: `<path d="${ATRAS_CURTO}" fill="#cc5522"/>`,
+    svg: `<path d="M 120 150 Q 114 82 180 80 Q 246 82 240 150 Q 236 124 226 116 L 218 126 L 208 108 L 194 120 L 180 104 L 166 120 L 152 108 L 142 126 L 134 116 Q 124 124 120 150 Z" fill="#cc5522"/>` },
   { id: 'cabelo-cacheado', nome: 'cacheado', tags: ['cacheado', 'preto', 'crespo'], para: 'menino',
-    svg: `<path d="M 132 132 Q 132 92 180 90 Q 228 92 228 132 Q 206 110 180 112 Q 154 110 132 132 Z" fill="#2a1a10"/>
-          ${[[132,126],[136,102],[152,86],[170,78],[190,78],[208,86],[224,102],[228,126]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="16" fill="#2a1a10"/>`).join('')}` },
+    atras: `<path d="${ATRAS_CURTO}" fill="#2a1a10"/>
+            ${[[124, 150], [236, 150]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="15" fill="#2a1a10"/>`).join('')}`,
+    svg: `<path d="M 130 136 Q 130 94 180 92 Q 230 94 230 136 Q 206 112 180 114 Q 154 112 130 136 Z" fill="#2a1a10"/>
+          ${[[130, 126], [136, 102], [152, 86], [170, 78], [190, 78], [208, 86], [224, 102], [230, 126]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="16" fill="#2a1a10"/>`).join('')}
+          ${[[152, 86], [190, 78], [224, 102]].map(([x, y]) => `<path d="M ${x - 6} ${y - 4} Q ${x} ${y - 9} ${x + 6} ${y - 4}" stroke="#5a3a28" stroke-width="2" fill="none"/>`).join('')}` },
   { id: 'cabelo-moicano', nome: 'moicano azul', tags: ['moicano', 'azul', 'colorido'], para: 'menino',
-    svg: `<path d="M 128 130 Q 128 96 180 94 Q 232 96 232 130 Q 210 116 180 116 Q 150 116 128 130 Z" fill="#4a3020" opacity="0.5"/>
-          <path d="M 166 112 L 164 70 Q 172 54 180 50 Q 188 54 196 70 L 194 112 Z" fill="#6fb5ff"/>` },
+    atras: `<path d="${ATRAS_RASPADO}" fill="#b89a80"/>`,
+    svg: `<path d="M 166 114 L 164 70 Q 172 54 180 50 Q 188 54 196 70 L 194 114 Z" fill="#6fb5ff"/>
+          <path d="M 174 104 L 173 72 M 186 104 L 187 72" stroke="#a8d2ff" stroke-width="2"/>` },
 ];
 
 // ---------- Blusas ----------
@@ -499,7 +569,7 @@ for (const corKey of ['rosa', 'pink', 'roxo', 'lilas', 'azul', 'azulBebe', 'azul
   BLUSAS.push({
     id: `blusa-${corKey}`, nome: `blusa ${c.nome}`, tags: [c.nome, 'blusa', 'camiseta'],
     // vai do ombro até y=320, cobrindo o cós da calça (que começa em y=302)
-    svg: `<path d="${BLUSA_FORMA}" fill="${c.hex}"/>${DECOTE}`,
+    svg: `<path d="${BLUSA_FORMA}" fill="${c.hex}"/>${DECOTE}${DOBRAS_BLUSA}`,
     mangas: mangas(c.hex)
   });
 }
@@ -538,7 +608,8 @@ for (const corKey of ['rosa', 'pink', 'roxo', 'lilas', 'azul', 'azulBebe', 'amar
     id: `vestido-${corKey}`, nome: `vestido ${c.nome}`, tags: [c.nome, 'vestido'], para: 'menina',
     svg: `<path d="${VESTIDO_FORMA}" fill="${c.hex}"/>
           <path d="M 104 436 Q 180 452 256 436" stroke="#ffffff" stroke-opacity="0.5" stroke-width="4" fill="none"/>
-          ${DECOTE}`,
+          <path d="M 150 320 Q 136 380 128 436 M 210 320 Q 224 380 232 436" ${SOMBRA} stroke-width="2"/>
+          ${LACO_CINTURA}${DECOTE}`,
     mangas: mangas(c.hex)
   });
 }
@@ -571,28 +642,29 @@ for (const corKey of ['rosa', 'roxo', 'azul', 'amarelo', 'verde', 'vermelho', 'c
   CALCAS.push({
     id: `calca-${corKey}`, nome: `calça ${c.nome}`, tags: [c.nome, 'calça', 'calca'],
     // cós na cintura (y=302), cobre o quadril e as duas pernas até o tornozelo
-    svg: `<path d="${CALCA_FORMA}" fill="${c.hex}"/>`
+    svg: `<path d="${CALCA_FORMA}" fill="${c.hex}"/>${DETALHES_CALCA}`
   });
 }
 CALCAS.push({
   id: 'calca-jeans', nome: 'calça jeans', tags: ['jeans', 'azul', 'calça', 'calca'],
-  svg: `<path d="${CALCA_FORMA}" fill="#4a78c2"/>
-        <path d="M 180 304 L 180 350" stroke="#2f5590" stroke-width="2"/>
-        <path d="M 140 312 Q 150 326 162 312" stroke="#2f5590" stroke-width="2" fill="none"/>
-        <path d="M 198 312 Q 210 326 220 312" stroke="#2f5590" stroke-width="2" fill="none"/>`
+  svg: `<path d="${CALCA_FORMA}" fill="#4a78c2"/>${DETALHES_CALCA}
+        <path d="M 180 304 L 180 350" stroke="#ffd16f" stroke-width="1.5" stroke-dasharray="3 3"/>
+        <path d="M 140 312 Q 150 326 162 312" stroke="#ffd16f" stroke-width="1.5" stroke-dasharray="3 3" fill="none"/>
+        <path d="M 198 312 Q 210 326 220 312" stroke="#ffd16f" stroke-width="1.5" stroke-dasharray="3 3" fill="none"/>`
 });
 for (const corKey of ['azul', 'verde', 'vermelho', 'preto', 'bege', 'laranja']) {
   const c = CORES[corKey];
   CALCAS.push({
     id: `bermuda-${corKey}`, nome: `bermuda ${c.nome}`, tags: [c.nome, 'bermuda', 'short'],
-    svg: `<path d="${BERMUDA_FORMA}" fill="${c.hex}"/>`
+    svg: `<path d="${BERMUDA_FORMA}" fill="${c.hex}"/>${DETALHES_BERMUDA}`
   });
 }
 for (const corKey of ['rosa', 'roxo', 'azul', 'amarelo', 'branco', 'pink']) {
   const c = CORES[corKey];
   CALCAS.push({
     id: `saia-${corKey}`, nome: `saia ${c.nome}`, tags: [c.nome, 'saia'], para: 'menina',
-    svg: `<path d="M 134 302 L 226 302 L 262 404 Q 180 416 98 404 Z" fill="${c.hex}"/>`
+    svg: `<path d="M 134 302 L 226 302 L 262 404 Q 180 416 98 404 Z" fill="${c.hex}"/>${PREGAS_SAIA}
+          <path d="M 102 398 Q 180 410 258 398" stroke="#fff" stroke-opacity="0.45" stroke-width="3" fill="none"/>`
   });
 }
 CALCAS.push({
@@ -610,7 +682,10 @@ for (const corKey of ['rosa', 'roxo', 'azul', 'vermelho', 'preto', 'branco', 'do
     id: `sapato-${corKey}`, nome: `sapatilha ${c.nome}`, tags: [c.nome, 'sapato', 'sapatilha'],
     para: corKey === 'preto' ? undefined : 'menina',
     svg: `<ellipse cx="152" cy="504" rx="22" ry="11" fill="${c.hex}"/>
-          <ellipse cx="208" cy="504" rx="22" ry="11" fill="${c.hex}"/>`
+          <ellipse cx="208" cy="504" rx="22" ry="11" fill="${c.hex}"/>
+          <path d="M 140 498 Q 152 494 164 498 M 196 498 Q 208 494 220 498" ${SOMBRA} stroke-width="2"/>
+          <circle cx="152" cy="497" r="3" fill="#fff" fill-opacity="0.8" stroke="none"/>
+          <circle cx="208" cy="497" r="3" fill="#fff" fill-opacity="0.8" stroke="none"/>`
   });
 }
 for (const corKey of ['vermelho', 'azul', 'verde', 'preto', 'branco', 'rosa']) {
@@ -828,7 +903,7 @@ const CATALOGO = {
 };
 
 // Ordem das camadas no desenho (de trás pra frente)
-const CAMADAS = ['cabeloAtras', 'pernas','corpo', 'sapato', 'calca', 'blusa', 'vestido', 'cinto', 'bracos', 'mangas',
+const CAMADAS = ['sombra', 'cabeloAtras', 'pernas', 'corpo', 'sapato', 'calca', 'blusa', 'vestido', 'cinto', 'bracos', 'mangas',
                  'cabeca', 'colar', 'cabelo', 'oculos', 'chapeu', 'bolsa'];
 
 // ============== MINIATURAS ==============
@@ -882,11 +957,23 @@ function montarPalco() {
       <div class="etiqueta">${q === 'menina' ? '👧' : '👦'}</div>`;
     wrap.addEventListener('click', () => escolherQuem(q));
     palco.appendChild(wrap);
+    document.getElementById(`${q}-sombra`).innerHTML = '<ellipse cx="180" cy="514" rx="78" ry="9" fill="#b56fff" opacity="0.15" stroke="none"/>';
     document.getElementById(`${q}-pernas`).innerHTML = CORPO_PERNAS;
     document.getElementById(`${q}-corpo`).innerHTML = CORPO_TORSO;
     document.getElementById(`${q}-bracos`).innerHTML = CORPO_BRACOS;
     document.getElementById(`${q}-cabeca`).innerHTML = cabecaSVG(q);
     renderizarBoneca(q);
+  }
+  // brilhinhos no fundo
+  for (let i = 0; i < 10; i++) {
+    const b = document.createElement('div');
+    b.className = 'brilho';
+    b.textContent = ['✨', '⭐', '💫'][i % 3];
+    b.style.left = (4 + Math.random() * 90) + '%';
+    b.style.top = (8 + Math.random() * 70) + '%';
+    b.style.fontSize = (14 + Math.random() * 14) + 'px';
+    b.style.animationDelay = (Math.random() * 2.4) + 's';
+    palco.prepend(b);
   }
 }
 
