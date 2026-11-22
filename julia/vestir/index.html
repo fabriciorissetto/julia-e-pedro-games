@@ -382,9 +382,12 @@ const VESTIDO_FORMA = 'M 132 222 Q 180 210 228 222 L 234 262 Q 224 284 222 300 Q
 const CALCA_FORMA = 'M 134 302 L 226 302 L 233 338 L 226 492 L 185 492 L 181 350 L 179 350 L 175 492 L 134 492 L 127 338 Z';
 const BERMUDA_FORMA = 'M 134 302 L 226 302 L 233 338 L 230 410 L 186 410 L 181 350 L 179 350 L 174 410 L 130 410 L 127 338 Z';
 // formatos de cabelo (franjinha em volta do rosto)
-const CABELO_LONGO = 'M 124 130 Q 124 80 180 78 Q 236 80 236 130 L 240 220 Q 240 260 220 260 L 222 135 Q 214 104 180 106 Q 146 104 138 135 L 140 260 Q 120 260 120 220 Z';
-const CABELO_CHANEL = 'M 124 130 Q 124 80 180 78 Q 236 80 236 130 L 235 175 Q 220 170 220 160 L 222 135 Q 214 104 180 106 Q 146 104 138 135 L 140 160 Q 140 170 125 175 Z';
-const CABELO_CURTINHO = 'M 124 142 Q 118 84 180 82 Q 242 84 236 142 Q 232 118 220 112 Q 200 122 182 108 Q 160 120 140 112 Q 128 120 124 142 Z';
+// cabelo comprido é desenhado em 2 partes: "atras" (fica atrás do corpo e da cabeça)
+// e a franja na frente, assim o cabelo não tampa o rosto nem os ombros
+const CABELO_FRENTE = 'M 122 160 Q 116 80 180 78 Q 244 80 238 160 Q 232 130 222 116 Q 196 108 180 112 Q 164 108 138 116 Q 128 130 122 160 Z';
+const ATRAS_LONGO = 'M 118 130 Q 118 72 180 70 Q 242 72 242 130 L 248 276 Q 180 292 112 276 Z';
+const ATRAS_CHANEL = 'M 116 140 Q 114 72 180 70 Q 246 72 244 140 L 244 198 Q 180 210 116 198 Z';
+const CABELO_CURTINHO ='M 124 142 Q 118 84 180 82 Q 242 84 236 142 Q 232 118 220 112 Q 200 122 182 108 Q 160 120 140 112 Q 128 120 124 142 Z';
 
 // ============== CATÁLOGO ==============
 // "para": 'menina' ou 'menino' mostra só pra um deles; sem "para" aparece pros dois.
@@ -427,43 +430,51 @@ const CORES = {
 const CABELOS = [
   // menina
   { id: 'cabelo-loiro-longo', nome: 'longo loiro', tags: ['loiro', 'longo', 'amarelo'], para: 'menina',
-    svg: `<path d="${CABELO_LONGO}" fill="#ffd54a"/><path d="M 145 90 Q 180 70 215 90" stroke="#ffd54a" stroke-width="6" fill="none"/>` },
+    atras: `<path d="${ATRAS_LONGO}" fill="#ffd54a"/>`,
+    svg: `<path d="${CABELO_FRENTE}" fill="#ffd54a"/><path d="M 150 92 Q 180 80 210 92" stroke="#fff3b0" stroke-width="4" fill="none" stroke-linecap="round"/>` },
   { id: 'cabelo-castanho-longo', nome: 'longo castanho', tags: ['castanho', 'longo', 'marrom'], para: 'menina',
-    svg: `<path d="${CABELO_LONGO}" fill="#6b3a1c"/>` },
+    atras: `<path d="${ATRAS_LONGO}" fill="#6b3a1c"/>`,
+    svg: `<path d="${CABELO_FRENTE}" fill="#6b3a1c"/>` },
   { id: 'cabelo-preto-longo', nome: 'longo preto', tags: ['preto', 'longo'], para: 'menina',
-    svg: `<path d="${CABELO_LONGO}" fill="#222"/>` },
+    atras: `<path d="${ATRAS_LONGO}" fill="#222"/>`,
+    svg: `<path d="${CABELO_FRENTE}" fill="#222"/>` },
   { id: 'cabelo-rosa-cha', nome: 'rosa chiclete', tags: ['rosa', 'pink', 'colorido'], para: 'menina',
-    svg: `<path d="M 124 130 Q 124 80 180 78 Q 236 80 236 130 L 240 230 Q 240 280 215 280 L 217 135 Q 210 106 180 108 Q 150 106 143 135 L 145 280 Q 120 280 120 230 Z" fill="#ff6fb5"/>` },
+    atras: `<path d="M 118 130 Q 118 72 180 70 Q 242 72 242 130 L 250 296 Q 180 312 110 296 Z" fill="#ff6fb5"/>`,
+    svg: `<path d="${CABELO_FRENTE}" fill="#ff6fb5"/>` },
   { id: 'cabelo-arcoiris', nome: 'arco-íris', tags: ['arco-iris', 'arcoiris', 'colorido'], para: 'menina',
-    svg: `<path d="${CABELO_LONGO}" fill="url(#grad-ai)"/>` },
+    atras: `<path d="${ATRAS_LONGO}" fill="url(#grad-ai)"/>`,
+    svg: `<path d="${CABELO_FRENTE}" fill="#ff6f6f"/>` },
   { id: 'cabelo-roxo-ondulado', nome: 'roxo ondulado', tags: ['roxo', 'ondulado'], para: 'menina',
-    svg: `<path d="M 122 130 Q 122 78 180 76 Q 238 78 238 130 L 245 240 Q 235 235 230 245 Q 225 235 220 245 L 222 135 Q 214 104 180 106 Q 146 104 138 135 L 140 245 Q 135 235 130 245 Q 125 235 115 240 Z" fill="#b56fff"/>` },
+    atras: `<path d="M 118 130 Q 118 72 180 70 Q 242 72 242 130 L 250 276 Q 240 268 232 280 Q 222 268 212 282 Q 200 270 190 284 Q 180 272 170 284 Q 160 270 148 282 Q 138 268 128 280 Q 120 268 110 276 Z" fill="#b56fff"/>`,
+    svg: `<path d="${CABELO_FRENTE}" fill="#b56fff"/>` },
   { id: 'cabelo-ruivo-trancas', nome: 'ruivo com tranças', tags: ['ruivo', 'tranças', 'laranja'], para: 'menina',
-    svg: `<path d="${CABELO_CHANEL}" fill="#cc5522"/>
-          <ellipse cx="115" cy="220" rx="14" ry="40" fill="#cc5522"/>
-          <ellipse cx="245" cy="220" rx="14" ry="40" fill="#cc5522"/>
-          <circle cx="115" cy="265" r="8" fill="#ff6fb5"/>
-          <circle cx="245" cy="265" r="8" fill="#ff6fb5"/>` },
+    atras: `<ellipse cx="116" cy="210" rx="14" ry="44" fill="#cc5522"/>
+            <ellipse cx="244" cy="210" rx="14" ry="44" fill="#cc5522"/>`,
+    svg: `<path d="${CABELO_FRENTE}" fill="#cc5522"/>
+          <circle cx="116" cy="256" r="8" fill="#ff6fb5"/>
+          <circle cx="244" cy="256" r="8" fill="#ff6fb5"/>` },
   { id: 'cabelo-rabo', nome: 'rabo de cavalo loiro', tags: ['rabo', 'cavalo', 'loiro', 'preso'], para: 'menina',
-    svg: `<path d="M 230 108 Q 284 128 262 226 Q 250 180 234 140 Z" fill="#ffd54a"/>
-          <path d="${CABELO_CHANEL}" fill="#ffd54a"/>
-          <circle cx="234" cy="112" r="7" fill="#ff6fb5"/>` },
+    atras: `<path d="M 226 104 Q 286 124 264 230 Q 250 184 230 144 Z" fill="#ffd54a"/>`,
+    svg: `<path d="${CABELO_FRENTE}" fill="#ffd54a"/>
+          <circle cx="232" cy="110" r="7" fill="#ff6fb5"/>` },
   { id: 'cabelo-chiquinha', nome: 'maria-chiquinha', tags: ['chiquinha', 'castanho', 'preso'], para: 'menina',
-    svg: `<ellipse cx="108" cy="140" rx="15" ry="36" fill="#6b3a1c" transform="rotate(20 108 140)"/>
-          <ellipse cx="252" cy="140" rx="15" ry="36" fill="#6b3a1c" transform="rotate(-20 252 140)"/>
-          <path d="${CABELO_CHANEL}" fill="#6b3a1c"/>
+    atras: `<ellipse cx="106" cy="140" rx="15" ry="36" fill="#6b3a1c" transform="rotate(20 106 140)"/>
+            <ellipse cx="254" cy="140" rx="15" ry="36" fill="#6b3a1c" transform="rotate(-20 254 140)"/>`,
+    svg: `<path d="${CABELO_FRENTE}" fill="#6b3a1c"/>
           <circle cx="124" cy="110" r="8" fill="#b56fff"/>
           <circle cx="236" cy="110" r="8" fill="#b56fff"/>` },
   { id: 'cabelo-coque', nome: 'coque alto', tags: ['coque', 'preso', 'castanho'], para: 'menina',
-    svg: `<circle cx="180" cy="80" r="32" fill="#6b3a1c"/>
-          <path d="M 130 130 Q 130 100 180 100 Q 230 100 230 130 L 232 175 Q 220 170 220 160 L 222 135 Q 214 110 180 112 Q 146 110 138 135 L 140 160 Q 140 170 128 175 Z" fill="#6b3a1c"/>
-          <ellipse cx="180" cy="80" rx="34" ry="10" fill="#552a10" opacity="0.4"/>` },
+    atras: `<circle cx="180" cy="78" r="32" fill="#6b3a1c"/>`,
+    svg: `<path d="${CABELO_FRENTE}" fill="#6b3a1c"/>
+          <ellipse cx="180" cy="84" rx="30" ry="8" fill="#552a10" opacity="0.4"/>` },
   // pros dois
   { id: 'cabelo-preto-curto', nome: 'chanel preto', tags: ['preto', 'curto', 'chanel'],
-    svg: `<path d="${CABELO_CHANEL}" fill="#222"/>` },
+    atras: `<path d="${ATRAS_CHANEL}" fill="#222"/>`,
+    svg: `<path d="${CABELO_FRENTE}" fill="#222"/>` },
   { id: 'cabelo-azul-curto', nome: 'chanel azul', tags: ['azul', 'curto', 'colorido'],
-    svg: `<path d="${CABELO_CHANEL}" fill="#6fb5ff"/>
-          <path d="M 145 100 Q 180 90 215 100" stroke="#a8d2ff" stroke-width="3" fill="none"/>` },
+    atras: `<path d="${ATRAS_CHANEL}" fill="#6fb5ff"/>`,
+    svg: `<path d="${CABELO_FRENTE}" fill="#6fb5ff"/>
+          <path d="M 150 92 Q 180 82 210 92" stroke="#a8d2ff" stroke-width="3" fill="none"/>` },
   // menino
   { id: 'cabelo-curtinho-castanho', nome: 'curtinho castanho', tags: ['curto', 'castanho', 'marrom'], para: 'menino',
     svg: `<path d="${CABELO_CURTINHO}" fill="#6b3a1c"/>` },
@@ -817,7 +828,7 @@ const CATALOGO = {
 };
 
 // Ordem das camadas no desenho (de trás pra frente)
-const CAMADAS = ['pernas', 'corpo', 'sapato', 'calca', 'blusa', 'vestido', 'cinto', 'bracos', 'mangas',
+const CAMADAS = ['cabeloAtras', 'pernas','corpo', 'sapato', 'calca', 'blusa', 'vestido', 'cinto', 'bracos', 'mangas',
                  'cabeca', 'colar', 'cabelo', 'oculos', 'chapeu', 'bolsa'];
 
 // ============== MINIATURAS ==============
@@ -838,7 +849,7 @@ const PREVIEWS = {
 
 function previewSVG(item, cat) {
   const p = PREVIEWS[cat];
-  return `<svg viewBox="${item.vb || p.viewBox}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">${p.fundo}${item.svg}${item.mangas || ''}</svg>`;
+  return `<svg viewBox="${item.vb || p.viewBox}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">${item.atras || ''}${p.fundo}${item.svg}${item.mangas || ''}</svg>`;
 }
 
 // ============== ESTADO ==============
@@ -890,6 +901,9 @@ function renderizarBoneca(q) {
     document.getElementById(`${q}-blusa`).innerHTML = '';
     document.getElementById(`${q}-calca`).innerHTML = '';
   }
+  // parte de trás do cabelo (atrás do corpo)
+  const cabelo = v.cabelo && achar('cabelo', v.cabelo);
+  document.getElementById(`${q}-cabeloAtras`).innerHTML = (cabelo && cabelo.atras) || '';
   // mangas: vêm do vestido (se tiver) ou da blusa
   const deCima = v.vestido ? achar('vestido', v.vestido) : (v.blusa && achar('blusa', v.blusa));
   document.getElementById(`${q}-mangas`).innerHTML = (deCima && deCima.mangas) || '';
