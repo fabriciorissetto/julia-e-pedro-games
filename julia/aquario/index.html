@@ -19,7 +19,7 @@
     position: fixed;
     top: 12px;
     left: 12px;
-    z-index: 10;
+    z-index: 30;
     background: rgba(255,255,255,0.85);
     color: #b56fff;
     border: none;
@@ -30,16 +30,105 @@
     cursor: pointer;
     box-shadow: 0 2px 6px rgba(0,0,0,0.2);
   }
+
+  /* tela de escolher o nome */
+  #tela-nome {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    padding: 16px;
+    background: linear-gradient(180deg, #6fc8ff, #3c8cdc);
+    font-family: "Trebuchet MS", "Arial Rounded MT Bold", Arial, sans-serif;
+  }
+  #tela-nome .peixes { font-size: 64px; animation: nadar 1.6s ease-in-out infinite alternate; }
+  @keyframes nadar { from { transform: translateX(-14px); } to { transform: translateX(14px); } }
+  #tela-nome .pergunta {
+    font-size: 34px;
+    font-weight: bold;
+    color: white;
+    text-shadow: 0 3px 0 #b56fff, 0 0 12px rgba(0,0,0,0.2);
+    text-align: center;
+  }
+  #nome {
+    font-size: 34px;
+    font-family: inherit;
+    font-weight: bold;
+    text-align: center;
+    color: #b56fff;
+    width: min(320px, 86vw);
+    padding: 12px;
+    border: 5px solid #ff9bd3;
+    border-radius: 24px;
+    outline: none;
+    text-transform: uppercase;
+  }
+  #nome.balanca { animation: balanca 0.4s; }
+  @keyframes balanca { 25% { transform: translateX(-10px); } 75% { transform: translateX(10px); } }
+  #btn-jogar {
+    font-size: 32px;
+    font-family: inherit;
+    font-weight: bold;
+    color: white;
+    padding: 14px 40px;
+    border: 5px solid white;
+    border-radius: 30px;
+    background: linear-gradient(135deg, #5fd27a, #2fae5a);
+    box-shadow: 0 5px 14px rgba(0,0,0,0.25);
+    cursor: pointer;
+  }
+  #btn-jogar:active { transform: scale(0.95); }
+
+  /* botão grande com a primeira letra do nome (pra lutar no celular) */
+  #btn-atacar {
+    display: none;
+    position: fixed;
+    right: 20px;
+    bottom: 24px;
+    z-index: 10;
+    width: 92px;
+    height: 92px;
+    border-radius: 50%;
+    border: 5px solid white;
+    background: radial-gradient(circle at 35% 30%, #ff9bd3, #e0337a);
+    color: white;
+    font-size: 48px;
+    font-weight: bold;
+    font-family: "Trebuchet MS", Arial, sans-serif;
+    box-shadow: 0 0 0 6px rgba(255,111,181,0.35), 0 6px 16px rgba(0,0,0,0.35);
+    cursor: pointer;
+    touch-action: none;
+    animation: brilhar 1s ease-in-out infinite alternate;
+  }
+  #btn-atacar:active { transform: scale(0.9); }
+  @keyframes brilhar { to { box-shadow: 0 0 0 14px rgba(255,111,181,0.15), 0 6px 16px rgba(0,0,0,0.35); } }
 </style>
 </head>
 <body>
 <button id="voltar" onclick="window.location.href='/julia/'">← Voltar</button>
 <div id="game"></div>
+<div id="tela-nome">
+  <div class="peixes">🐠 🦈 🐟</div>
+  <div class="pergunta">Qual é o seu nome?</div>
+  <input id="nome" type="text" maxlength="12" autocomplete="off" placeholder="Seu nome">
+  <button id="btn-jogar">▶ Jogar</button>
+</div>
+<button id="btn-atacar"></button>
 <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
 <script>
 const W = window.innerWidth;
 const H = window.innerHeight;
 const PEQUENO = W < 520;
+
+// nome escolhido na tela inicial; a primeira letra dele é a tecla de lutar
+let NOME = '', LETRA = '', IMUNE = false;
+// nomes mágicos (regra da Julia): quem escolhe esses nunca é pego pelo tubarão
+const NOMES_MAGICOS = ['67', '42', 'AURA'];
+const semAcento = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().trim();
 
 // ===== regras do jogo (combinadas com a Julia) =====
 const TOTAL_DIAS = 20;          // tem que sobreviver 20 dias
@@ -125,7 +214,8 @@ class Aquario extends Phaser.Scene {
 
     // ===== controles: setas/mouse/toque pra nadar, espaço ou tocar no tubarão pra atacar =====
     this.cursors = this.input.keyboard.createCursorKeys();
-    this.input.keyboard.on('keydown-SPACE', () => this.atacar());
+    // lutar = apertar a primeira letra do nome
+    this.input.keyboard.on('keydown', (e) => { if (e.key && semAcento(e.key) === LETRA) this.atacar(); });
     this.alvo = null;
     this.input.on('pointerdown', (p) => {
       if (this.fimDeJogo) return;
@@ -421,6 +511,7 @@ class Aquario extends Phaser.Scene {
     this.olhoTubarao.setVisible(true);
     this.donaFala(['Cuidado! 🦈']);
     this.tocarMelodia([220, 196, 175], 0.25, 'sawtooth', 0.08);
+    this.mostrarFaixa(`🦈 Aperta ${LETRA} pra lutar!`);
   }
 
   atualizarTubarao(delta) {
@@ -528,6 +619,13 @@ class Aquario extends Phaser.Scene {
   }
 
   morderPeixe(nx, ny) {
+    if (IMUNE) {
+      // nome mágico: o tubarão nunca pega!
+      this.invulneravel = 1200;
+      this.textoFlutuante(this.peixe.x, this.peixe.y - 30, '🛡️ Não me pega!', '#8fe0ff');
+      this.tocarSom(1200, 0.1, 'triangle');
+      return;
+    }
     this.coracoes--;
     this.invulneravel = 2000;
     this.peixe.x = Phaser.Math.Clamp(this.peixe.x + nx * 70, 30, W - 30);
@@ -549,6 +647,10 @@ class Aquario extends Phaser.Scene {
     let vx, vy;
     if (alvoX !== undefined) {
       const dx = alvoX - this.peixe.x, dy = alvoY - this.peixe.y, d = Math.hypot(dx, dy) || 1;
+      vx = dx / d; vy = dy / d;
+    } else if (this.tubarao.ativo && this.tubarao.estado !== 'fugindo') {
+      // apertou a letra: vai direto no tubarão
+      const dx = this.tubarao.x - this.peixe.x, dy = this.tubarao.y - this.peixe.y, d = Math.hypot(dx, dy) || 1;
       vx = dx / d; vy = dy / d;
     } else {
       vx = this.peixe.scaleX >= 0 ? 1 : -1; vy = 0;
@@ -840,7 +942,7 @@ class Aquario extends Phaser.Scene {
   atualizarHUD() {
     const falta = COMIDAS_POR_OVO - (this.comeu % COMIDAS_POR_OVO);
     const bolinhas = '●'.repeat(COMIDAS_POR_OVO - falta) + '○'.repeat(falta);
-    this.hud1.setText(`📅 Dia ${this.dia}/${TOTAL_DIAS}   ❤️ ${this.coracoes}`);
+    this.hud1.setText(`🐠 ${NOME}   📅 Dia ${this.dia}/${TOTAL_DIAS}   ${IMUNE ? '🛡️' : '❤️'} ${this.coracoes}`);
     this.hud2.setText(`🍤 ${this.comeu} ${bolinhas}   💪 ${this.forca}   🥚 ${this.ovos}`);
   }
 
@@ -906,6 +1008,13 @@ class Aquario extends Phaser.Scene {
       a.y += Math.sin(time / 500 + a.x) * 0.4;
     }
 
+    // botão da letra pra lutar: só aparece quando o tubarão está lá
+    const mostrarBotao = !this.fimDeJogo && this.tubarao.ativo && this.tubarao.estado !== 'fugindo';
+    if (mostrarBotao !== this.botaoVisivel) {
+      this.botaoVisivel = mostrarBotao;
+      document.getElementById('btn-atacar').style.display = mostrarBotao ? 'block' : 'none';
+    }
+
     if (this.fimDeJogo) return;
     if (this.fase !== 'fim') this.atualizarTempo(delta);
 
@@ -956,15 +1065,38 @@ class Aquario extends Phaser.Scene {
   }
 }
 
-window.jogo = new Phaser.Game({
-  type: Phaser.AUTO,
-  parent: 'game',
-  width: W,
-  height: H,
-  backgroundColor: '#6fc8ff',
-  scene: [Aquario],
-  scale: { mode: Phaser.Scale.RESIZE, autoCenter: Phaser.Scale.CENTER_BOTH }
-});
+// ===== tela de escolher o nome (aparece toda vez que entra no jogo) =====
+const CHAVE_NOME = 'jp-aquario-nome';
+const caixaNome = document.getElementById('nome');
+try { caixaNome.value = localStorage.getItem(CHAVE_NOME) || ''; } catch (e) {}
+function comecarJogo() {
+  const nome = caixaNome.value.trim().slice(0, 12);
+  if (!nome) {
+    caixaNome.classList.remove('balanca'); void caixaNome.offsetWidth; caixaNome.classList.add('balanca');
+    caixaNome.focus();
+    return;
+  }
+  NOME = nome;
+  LETRA = semAcento(nome)[0];
+  IMUNE = NOMES_MAGICOS.includes(semAcento(nome));
+  try { localStorage.setItem(CHAVE_NOME, nome); } catch (e) {}
+  caixaNome.blur();
+  document.getElementById('tela-nome').style.display = 'none';
+  const btn = document.getElementById('btn-atacar');
+  btn.textContent = LETRA;
+  btn.addEventListener('pointerdown', (e) => { e.preventDefault(); const s = window.jogo && window.jogo.scene.scenes[0]; if (s && s.atacar) s.atacar(); });
+  window.jogo = new Phaser.Game({
+    type: Phaser.AUTO,
+    parent: 'game',
+    width: W,
+    height: H,
+    backgroundColor: '#6fc8ff',
+    scene: [Aquario],
+    scale: { mode: Phaser.Scale.RESIZE, autoCenter: Phaser.Scale.CENTER_BOTH }
+  });
+}
+document.getElementById('btn-jogar').addEventListener('click', comecarJogo);
+caixaNome.addEventListener('keydown', (e) => { if (e.key === 'Enter') comecarJogo(); });
 </script>
 </body>
 </html>
