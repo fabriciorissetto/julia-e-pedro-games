@@ -53,7 +53,7 @@ window.GAMES = [
     title: "Peixinho no Aquário",
     emoji: "🐠",
     color: "#6fb5ff",
-    description: "A dona joga comida e você pega"
+    description: "Come, bota ovinhos e vence o tubarão por 20 dias"
   },
   {
     slug: "vestir",
