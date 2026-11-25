@@ -43,7 +43,7 @@
   /* Área das duas crianças */
   #palco {
     flex: 1;
-    padding: 70px 92px 12px;
+    padding: 76px 16px 10px;
     position: relative;
     overflow: hidden;
   }
@@ -91,6 +91,11 @@
     align-items: flex-end;
     justify-content: center;
     gap: 3vw;
+    container-type: size;
+  }
+  /* as duas crianças + os cachorrinhos dos lados precisam caber na largura */
+  @supports (width: 1cqw) {
+    #criancas .boneca-wrap { height: min(100%, 640px, calc((100cqw - 3vw) / 1.4)); }
   }
   .lampada { animation: lampada 1.5s ease-in-out infinite alternate; }
   @keyframes lampada { from { opacity: 0.45; } to { opacity: 1; } }
@@ -126,20 +131,21 @@
   /* botões grandes de brincadeira */
   .acao-btn {
     position: absolute;
-    bottom: 16px;
+    top: 10px;
     z-index: 5;
-    width: 64px;
-    height: 64px;
+    width: 54px;
+    height: 54px;
     border-radius: 50%;
     border: 4px solid white;
-    font-size: 32px;
+    font-size: 27px;
+    padding: 0;
     cursor: pointer;
     box-shadow: 0 4px 12px rgba(0,0,0,0.2);
     transition: transform 0.1s;
   }
   .acao-btn:active { transform: scale(0.9); }
-  #btn-surpresa { left: 16px; background: linear-gradient(135deg, #ffd16f, #ffa066); }
-  #btn-desfile { right: 16px; background: linear-gradient(135deg, #ff9bd3, #b56fff); }
+  #btn-surpresa { left: 128px; background: linear-gradient(135deg, #ffd16f, #ffa066); }
+  #btn-desfile { left: 190px; background: linear-gradient(135deg, #ff9bd3, #b56fff); }
 
   /* ===== cor da pele (muda via --pele no wrap) ===== */
   .boneca-wrap .pele { fill: var(--pele, #ffd6b5); }
@@ -157,7 +163,7 @@
     96% { transform: scaleY(0.1); }
   }
   .olho-feliz, .boca-rindo { display: none; }
-  .rindo .olho, .rindo .boca { display: none; }
+  .rindo .corpo-anim .olho, .rindo .boca { display: none; }
   .rindo .olho-feliz, .rindo .boca-rindo { display: inline; }
   .rindo .corpo-anim { animation: risada 0.25s ease-in-out 4; }
   @keyframes risada {
@@ -174,6 +180,39 @@
     transform-origin: 50% 100%;
   }
   .corpo-anim svg { width: 100%; height: 100%; }
+  .area {
+    position: relative;
+    width: 100%;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+  }
+
+  /* ===== cachorrinho do lado de cada criança ===== */
+  .cachorro {
+    position: absolute;
+    bottom: 0;
+    width: 56%;
+    aspect-ratio: 1;
+    z-index: 3;
+    cursor: pointer;
+  }
+  #cao-menina { left: -40%; }
+  #cao-menina svg { transform: scaleX(-1); } /* rabo pro lado de fora */
+  #cao-menino { right: -40%; }
+  .cachorro.vazio { display: none; }
+  .cao-pulo { width: 100%; height: 100%; transform-origin: 50% 100%; }
+  .cao-pulo svg { width: 100%; height: 100%; overflow: visible; }
+  .cachorro .rabo { transform-box: fill-box; transform-origin: 0% 100%; animation: abanar 0.5s ease-in-out infinite alternate; }
+  @keyframes abanar { from { transform: rotate(-12deg); } to { transform: rotate(14deg); } }
+  .cachorro.pulando .cao-pulo { animation: caoPulo 0.55s ease-out; }
+  @keyframes caoPulo {
+    0%, 100% { transform: translateY(0) scale(1); }
+    25% { transform: translateY(0) scale(1.08, 0.9); }
+    55% { transform: translateY(-22%) scale(0.95, 1.06); }
+  }
+  .desfilando .cao-pulo { animation: caoDanca 0.3s ease-in-out infinite alternate; }
+  @keyframes caoDanca { from { transform: translateY(0) rotate(-6deg); } to { transform: translateY(-14%) rotate(6deg); } }
   .pop .corpo-anim { animation: pop 0.5s ease-out; }
   @keyframes pop {
     0% { transform: scale(1); }
@@ -392,9 +431,9 @@
     .boneca-wrap { height: 100%; }
     #cenarios { top: 10px; right: 8px; gap: 3px; padding: 3px; }
     .cen-btn { width: 34px; height: 34px; font-size: 18px; border-width: 2px; }
-    .acao-btn { width: 48px; height: 48px; font-size: 24px; bottom: 8px; border-width: 3px; }
-    #btn-surpresa { left: 8px; }
-    #btn-desfile { right: 8px; }
+    .acao-btn { width: 42px; height: 42px; font-size: 21px; top: 10px; border-width: 3px; }
+    #btn-surpresa { left: 112px; }
+    #btn-desfile { left: 160px; }
     .etiqueta { font-size: 22px; padding: 0 12px; border-width: 3px; }
     #painel {
       width: 100%;
@@ -451,6 +490,13 @@
       <rect width="20" height="16" fill="#ff6f6f"/>
       <rect width="20" height="8" fill="#ffffff"/>
     </pattern>
+    <linearGradient id="grad-ai-h" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#ff6f6f"/>
+      <stop offset="25%" stop-color="#ffd16f"/>
+      <stop offset="50%" stop-color="#88dd99"/>
+      <stop offset="75%" stop-color="#6fb5ff"/>
+      <stop offset="100%" stop-color="#b56fff"/>
+    </linearGradient>
   </defs>
 </svg>
 
@@ -615,6 +661,8 @@ const CATEGORIAS = [
   { id: 'cinto',   emoji: '➖', nome: 'Cintos' },
   { id: 'bolsa',   emoji: '🎈', nome: 'Na mão' },
   { id: 'costas',  emoji: '🦋', nome: 'Asas e Capas' },
+  { id: 'cachorro', emoji: '🐶', nome: 'Cachorrinhos' },
+  { id: 'coleira', emoji: '📿', nome: 'Coleiras' },
 ];
 
 const CORES = {
@@ -1185,6 +1233,94 @@ const PELES = [
         <path d="M 168 188 Q 180 198 192 188" stroke="#c44" stroke-width="3" fill="none" stroke-linecap="round"/>`
 }));
 
+// ============== CACHORRINHOS ==============
+// Desenhados num quadrado 200x200, sentadinhos de frente. O rabo fica à direita.
+function cachorroSVG(c) {
+  const pelo = c.pelo, orelha = c.orelha || c.pelo, claro = c.claro || '#fff6ea';
+  const orelhas = c.pontuda
+    ? `<path d="M 62 58 L 66 18 L 92 44 Z" fill="${orelha}"/><path d="M 138 58 L 134 18 L 108 44 Z" fill="${orelha}"/>
+       <path d="M 68 50 L 70 30 L 84 44 Z" fill="#ffb5c8"/><path d="M 132 50 L 130 30 L 116 44 Z" fill="#ffb5c8"/>`
+    : c.fofo
+      ? `<g fill="${orelha}"><circle cx="54" cy="70" r="15"/><circle cx="50" cy="90" r="15"/><circle cx="54" cy="108" r="13"/>
+         <circle cx="146" cy="70" r="15"/><circle cx="150" cy="90" r="15"/><circle cx="146" cy="108" r="13"/></g>`
+      : `<ellipse cx="58" cy="${c.longa ? 92 : 82}" rx="15" ry="${c.longa ? 38 : 28}" transform="rotate(18 58 70)" fill="${orelha}"/>
+         <ellipse cx="142" cy="${c.longa ? 92 : 82}" rx="15" ry="${c.longa ? 38 : 28}" transform="rotate(-18 142 70)" fill="${orelha}"/>`;
+  const manchasCorpo = c.dalmata
+    ? `<g fill="#2a2222"><circle cx="72" cy="140" r="6"/><circle cx="128" cy="150" r="7"/><circle cx="66" cy="166" r="5"/><circle cx="136" cy="128" r="4"/>
+       <circle cx="146" cy="176" r="5"/><circle cx="56" cy="184" r="4"/></g>` : '';
+  const manchasCabeca = c.dalmata
+    ? `<g fill="#2a2222"><circle cx="76" cy="54" r="4"/><circle cx="126" cy="50" r="5"/><circle cx="132" cy="90" r="3.5"/><circle cx="68" cy="92" r="3"/></g>` : '';
+  return `
+    <g class="rabo">${c.fofo
+      ? `<path d="M 138 166 Q 162 150 166 124" stroke="${pelo}" stroke-width="9" fill="none" stroke-linecap="round"/><circle cx="168" cy="118" r="13" fill="${pelo}"/>`
+      : `<path d="M 136 170 Q 172 160 178 122 Q 182 112 174 114 Q 164 150 132 156 Z" fill="${c.rabo || pelo}"/>`}</g>
+    <ellipse cx="100" cy="150" rx="48" ry="44" fill="${pelo}"/>
+    ${c.fofo ? `<g fill="${pelo}"><circle cx="62" cy="128" r="14"/><circle cx="138" cy="128" r="14"/><circle cx="58" cy="160" r="14"/><circle cx="142" cy="160" r="14"/></g>` : ''}
+    ${manchasCorpo}
+    <ellipse cx="100" cy="140" rx="22" ry="22" fill="${claro}"/>
+    <ellipse cx="60" cy="184" rx="24" ry="13" fill="${pelo}"/><ellipse cx="140" cy="184" rx="24" ry="13" fill="${pelo}"/>
+    <rect x="73" y="146" width="26" height="44" rx="13" fill="${pelo}"/><rect x="101" y="146" width="26" height="44" rx="13" fill="${pelo}"/>
+    <ellipse cx="86" cy="190" rx="15" ry="8.5" fill="${c.pata || claro}"/><ellipse cx="114" cy="190" rx="15" ry="8.5" fill="${c.pata || claro}"/>
+    <path d="M 81 186 L 81 192 M 91 186 L 91 192 M 109 186 L 109 192 M 119 186 L 119 192" stroke="rgba(0,0,0,0.25)" stroke-width="1.6" stroke-linecap="round"/>
+    ${c.pontuda ? orelhas : ''}
+    <ellipse cx="100" cy="78" rx="45" ry="41" fill="${pelo}"/>
+    ${c.fofo ? `<g fill="${pelo}"><circle cx="78" cy="40" r="16"/><circle cx="100" cy="34" r="18"/><circle cx="122" cy="40" r="16"/></g>` : ''}
+    ${c.mascara ? `<path d="M 100 50 Q 76 56 70 84 Q 74 112 100 116 Q 126 112 130 84 Q 124 56 100 50 Z" fill="${c.mascara}"/>` : ''}
+    ${manchasCabeca}
+    ${c.mancha ? `<ellipse cx="118" cy="70" rx="16" ry="14" fill="${c.mancha}"/>` : ''}
+    ${c.pontuda ? '' : orelhas}
+    <ellipse cx="100" cy="98" rx="24" ry="17" fill="${claro}"/>
+    <g class="olho"><circle cx="82" cy="74" r="9" fill="#fff"/><circle cx="83" cy="75" r="7" fill="#2a1810"/><circle cx="85.5" cy="72" r="2.6" fill="#fff"/></g>
+    <g class="olho"><circle cx="118" cy="74" r="9" fill="#fff"/><circle cx="117" cy="75" r="7" fill="#2a1810"/><circle cx="119.5" cy="72" r="2.6" fill="#fff"/></g>
+    <ellipse cx="72" cy="94" rx="7" ry="4.5" fill="#ff9bb5" opacity="0.6"/><ellipse cx="128" cy="94" rx="7" ry="4.5" fill="#ff9bb5" opacity="0.6"/>
+    <ellipse cx="100" cy="90" rx="9" ry="6.5" fill="#2a1810"/><ellipse cx="97" cy="88" rx="3" ry="1.8" fill="#fff" opacity="0.7"/>
+    <path d="M 100 96 L 100 102 M 88 102 Q 94 108 100 102 Q 106 108 112 102" stroke="#2a1810" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+    <path d="M 95 105 Q 95 115 100 115 Q 105 115 105 105 Z" fill="#ff7a9a"/>`;
+}
+const CACHORROS = [
+  { id: 'cao-caramelo', nome: 'Cachorro Caramelo', tags: ['marrom', 'vira lata'], pelo: '#e0a060', orelha: '#b8743a', claro: '#f8e2c2' },
+  { id: 'cao-dourado', nome: 'Cachorro Dourado', tags: ['amarelo', 'golden'], pelo: '#f2c46d', orelha: '#dca24a', claro: '#fff1d0' },
+  { id: 'cao-mancha', nome: 'Cachorro com Mancha no Olho', tags: ['branco'], pelo: '#fafafa', orelha: '#8a5a3a', mancha: '#8a5a3a', claro: '#ffffff', rabo: '#8a5a3a' },
+  { id: 'cao-dalmata', nome: 'Dálmata', tags: ['bolinhas', 'branco', 'preto', 'pintado'], pelo: '#fcfcfc', orelha: '#2a2222', claro: '#ffffff', dalmata: true },
+  { id: 'cao-preto', nome: 'Cachorro Pretinho', tags: ['preto'], pelo: '#3a3030', orelha: '#2a2222', claro: '#d9b48a', pata: '#d9b48a' },
+  { id: 'cao-salsicha', nome: 'Salsicha', tags: ['marrom', 'orelhudo'], pelo: '#8a4b2a', orelha: '#6a3418', claro: '#c98a5a', longa: true },
+  { id: 'cao-husky', nome: 'Husky', tags: ['cinza', 'lobo'], pelo: '#8e99a6', orelha: '#6f7a87', claro: '#ffffff', mascara: '#ffffff', pontuda: true },
+  { id: 'cao-poodle-rosa', nome: 'Poodle Rosa', tags: ['rosa', 'fofinho'], pelo: '#ffc2dd', orelha: '#ffaed0', claro: '#ffe4f0', fofo: true },
+  { id: 'cao-poodle-branco', nome: 'Poodle Branquinho', tags: ['branco', 'fofinho'], pelo: '#f7f3ee', orelha: '#ece4da', claro: '#ffffff', fofo: true },
+  { id: 'cao-lilas', nome: 'Cachorro Lilás Mágico', tags: ['roxo', 'lilas', 'magico'], pelo: '#cfa8ff', orelha: '#ff9bd3', claro: '#f2e6ff', mancha: '#ff9bd3', rabo: '#ff9bd3' },
+].map(c => ({ ...c, svg: cachorroSVG(c) }));
+
+// Coleiras: a tira passa no pescoço (embaixo do queixo) e o pingente fica no meio, em y ~ 128.
+const TIRA = (cor, larg = 9) => `<path d="M 62 112 Q 100 138 138 112" stroke="${cor}" stroke-width="${larg}" fill="none" stroke-linecap="round"/>`;
+const ARGOLA = `<circle cx="100" cy="128" r="4" fill="none" stroke="#e0b030" stroke-width="2.2"/>`;
+const COLEIRAS = [
+  { id: 'coleira-vermelha', nome: 'Coleira Vermelha com Sininho', tags: ['vermelho', 'sino'], svg: TIRA('#e03131') + `
+      <circle cx="100" cy="136" r="9" fill="#ffd16f"/><path d="M 92 136 L 108 136" stroke="#c99a20" stroke-width="2"/><circle cx="100" cy="141" r="2" fill="#8a6a10"/><circle cx="97" cy="132" r="2" fill="#fff" opacity="0.8"/>` },
+  { id: 'coleira-rosa', nome: 'Coleira Rosa com Coração', tags: ['rosa', 'coracao'], svg: TIRA('#ff6fb5') + ARGOLA + coracao(100, 140, 0.85, '#ff3f8f') },
+  { id: 'coleira-azul', nome: 'Coleira Azul com Ossinho', tags: ['azul', 'osso'], svg: TIRA('#3f8fe0') + ARGOLA + `
+      <g fill="#ffd16f"><rect x="90" y="134" width="20" height="7" rx="3"/><circle cx="89" cy="134" r="4"/><circle cx="89" cy="141" r="4"/><circle cx="111" cy="134" r="4"/><circle cx="111" cy="141" r="4"/></g>` },
+  { id: 'coleira-roxa', nome: 'Coleira Roxa com Estrela', tags: ['roxo', 'estrela'], svg: TIRA('#9b5fe0') + ARGOLA + estrela(100, 142, 10, '#ffd16f') },
+  { id: 'coleira-arco-iris', nome: 'Coleira Arco-íris', tags: ['arco iris', 'colorida'], svg: TIRA('url(#grad-ai-h)', 10) + ARGOLA + `<circle cx="100" cy="138" r="7" fill="#fff"/><circle cx="100" cy="138" r="4" fill="#ff6fb5"/>` },
+  { id: 'coleira-brilho', nome: 'Coleira de Brilhantes', tags: ['brilho', 'joia', 'princesa'], svg: TIRA('#ff9bd3', 10) + `
+      <g fill="#fff">${[[70, 118], [80, 124], [90, 128], [110, 128], [120, 124], [130, 118]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="2.6"/>`).join('')}</g>
+      <path d="M 100 128 L 108 138 L 100 150 L 92 138 Z" fill="#8fe0ff"/><path d="M 100 128 L 104 138 L 100 150" fill="#d6f6ff"/>` },
+  { id: 'coleira-laco', nome: 'Laço Grande', tags: ['laco', 'rosa'], svg: TIRA('#ff9bd3', 6) + `
+      <path d="M 100 128 L 78 116 Q 72 130 78 142 Z" fill="#ff6fb5"/><path d="M 100 128 L 122 116 Q 128 130 122 142 Z" fill="#ff6fb5"/>
+      <path d="M 96 132 L 90 150 L 96 148 Z M 104 132 L 110 150 L 104 148 Z" fill="#ff6fb5"/><circle cx="100" cy="128" r="6" fill="#ff3f8f"/>` },
+  { id: 'coleira-gravata', nome: 'Gravata Borboleta', tags: ['gravata', 'azul', 'chique'], svg: `
+      <path d="M 100 128 L 80 116 L 80 140 Z" fill="#3f8fe0"/><path d="M 100 128 L 120 116 L 120 140 Z" fill="#3f8fe0"/>
+      <circle cx="86" cy="124" r="2" fill="#fff"/><circle cx="86" cy="134" r="2" fill="#fff"/><circle cx="114" cy="124" r="2" fill="#fff"/><circle cx="114" cy="134" r="2" fill="#fff"/>
+      <rect x="95" y="122" width="10" height="12" rx="3" fill="#1f5fa8"/>` },
+  { id: 'coleira-lenco', nome: 'Lencinho Vermelho', tags: ['lenco', 'bandana', 'vermelho'], svg: `
+      <path d="M 62 110 Q 100 134 138 110 L 100 160 Z" fill="#e03131"/>
+      <g fill="#fff"><circle cx="86" cy="128" r="2.4"/><circle cx="114" cy="128" r="2.4"/><circle cx="100" cy="138" r="2.4"/><circle cx="100" cy="150" r="2"/><circle cx="76" cy="118" r="2"/><circle cx="124" cy="118" r="2"/></g>` },
+  { id: 'coleira-bolinhas', nome: 'Coleira de Bolinhas', tags: ['bolinhas', 'rosa'], svg: TIRA('url(#pat-bolinhas)', 11) + ARGOLA + `<circle cx="100" cy="138" r="7" fill="#ffd16f"/>` },
+  { id: 'coleira-espinhos', nome: 'Coleira de Rocker', tags: ['preto', 'espinho', 'rock'], svg: TIRA('#2a2222', 10) + `
+      <g fill="url(#grad-metal)">${[[70, 118], [82, 125], [94, 128], [106, 128], [118, 125], [130, 118]].map(([x, y]) => `<path d="M ${x - 4} ${y} L ${x} ${y + 9} L ${x + 4} ${y} Z"/>`).join('')}</g>` },
+  { id: 'coleira-coroa', nome: 'Coroa de Princesa', tags: ['coroa', 'princesa', 'rainha'], svg: TIRA('#ffd16f', 6) + ARGOLA + coracao(100, 140, 0.65, '#ff6fb5') + `
+      <path d="M 82 44 L 86 26 L 94 36 L 100 22 L 106 36 L 114 26 L 118 44 Z" fill="#ffd16f"/><circle cx="100" cy="36" r="3" fill="#ff6fb5"/><circle cx="88" cy="38" r="2" fill="#6fb5ff"/><circle cx="112" cy="38" r="2" fill="#6fb5ff"/>` },
+];
+
 // Catálogo unificado por categoria
 const CATALOGO = {
   pele: PELES,
@@ -1200,6 +1336,8 @@ const CATALOGO = {
   cinto: CINTOS,
   bolsa: BOLSAS,
   costas: COSTAS,
+  cachorro: CACHORROS,
+  coleira: COLEIRAS,
 };
 // categorias que não dá pra "tirar" (sempre tem uma)
 const SEM_TIRAR = ['pele'];
@@ -1226,11 +1364,15 @@ const PREVIEWS = {
   cinto:   { viewBox: '115 280 130 45', fundo: CORPO_TORSO },
   bolsa:   { viewBox: '70 330 70 80', fundo: '' },
   costas:  { viewBox: '40 150 280 220', fundo: CORPO_TORSO },
+  cachorro: { viewBox: '0 6 200 194', fundo: '' },
+  coleira: { viewBox: '30 14 140 150', fundo: '' },
 };
 
 function previewSVG(item, cat) {
   const p = PREVIEWS[cat];
-  return `<svg viewBox="${item.vb || p.viewBox}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">${item.atras || ''}${p.fundo}${item.svg}${item.mangas || ''}</svg>`;
+  // coleira aparece no cachorrinho que a criança tem agora
+  const fundo = cat === 'coleira' ? (achar('cachorro', vestindo[quem].cachorro) || CACHORROS[0]).svg : p.fundo;
+  return `<svg viewBox="${item.vb || p.viewBox}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">${item.atras || ''}${fundo}${item.svg}${item.mangas || ''}</svg>`;
 }
 
 // ============== CENÁRIOS ==============
@@ -1318,9 +1460,9 @@ const CENARIOS = [
 // ============== ESTADO ==============
 const PADRAO = {
   menina: { pele: 'pele-2', cabelo: 'cabelo-loiro-longo', barba: null, blusa: 'blusa-rosa', vestido: null, calca: 'calca-roxo', sapato: 'sapato-rosa',
-            chapeu: null, oculos: null, colar: null, cinto: null, bolsa: null, costas: null },
+            chapeu: null, oculos: null, colar: null, cinto: null, bolsa: null, costas: null, cachorro: 'cao-caramelo', coleira: 'coleira-rosa' },
   menino: { pele: 'pele-2', cabelo: 'cabelo-curtinho-castanho', barba: null, blusa: 'blusa-azul', vestido: null, calca: 'calca-jeans', sapato: 'tenis-vermelho',
-            chapeu: null, oculos: null, colar: null, cinto: null, bolsa: null, costas: null },
+            chapeu: null, oculos: null, colar: null, cinto: null, bolsa: null, costas: null, cachorro: 'cao-dalmata', coleira: 'coleira-azul' },
 };
 const vestindo = JSON.parse(JSON.stringify(PADRAO));
 let cenario = 'quarto';
@@ -1365,11 +1507,14 @@ function montarPalco() {
     wrap.className = 'boneca-wrap';
     wrap.id = 'wrap-' + q;
     // viewBox recortado (x 40..320, y 20..540) pra sobrar menos espaço vazio
-    wrap.innerHTML = `<div class="corpo-anim"><svg viewBox="40 20 280 500" preserveAspectRatio="xMidYMid meet">
+    wrap.innerHTML = `<div class="area"><div class="corpo-anim"><svg viewBox="40 20 280 500" preserveAspectRatio="xMidYMid meet">
         ${CAMADAS.map(c => `<g id="${q}-${c}"></g>`).join('')}
       </svg></div>
+      <div class="cachorro" id="cao-${q}"><div class="cao-pulo"><svg viewBox="0 0 200 200">
+        <g id="${q}-cachorro"></g><g id="${q}-coleira"></g></svg></div></div></div>
       <div class="etiqueta">${q === 'menina' ? '👧' : '👦'}</div>`;
     wrap.addEventListener('click', () => escolherQuem(q));
+    wrap.querySelector('.cachorro').addEventListener('click', (e) => { e.stopPropagation(); latir(q); });
     palco.appendChild(wrap);
     document.getElementById(`${q}-sombra`).innerHTML = '<ellipse cx="180" cy="514" rx="78" ry="9" fill="#3b1f5c" opacity="0.18" stroke="none"/>';
     document.getElementById(`${q}-pernas`).innerHTML = CORPO_PERNAS;
@@ -1415,6 +1560,9 @@ function renderizarBoneca(q) {
   // mangas: vêm do vestido (se tiver) ou da blusa
   const deCima = v.vestido ? achar('vestido', v.vestido) : (v.blusa && achar('blusa', v.blusa));
   document.getElementById(`${q}-mangas`).innerHTML = (deCima && deCima.mangas) || '';
+  // sem cachorrinho, some também a coleira
+  document.getElementById('cao-' + q).classList.toggle('vazio', !v.cachorro);
+  if (!v.cachorro) document.getElementById(`${q}-coleira`).innerHTML = '';
   // cor da pele
   const pele = achar('pele', v.pele) || PELES[1];
   const wrap = document.getElementById('wrap-' + q);
@@ -1493,7 +1641,10 @@ function vestir(cat, id) {
   v[cat] = id;
   // vestido tira blusa+calça (o desenho esconde); blusa ou calça tiram o vestido
   if (cat === 'blusa' || cat === 'calca') v.vestido = null;
+  // escolheu coleira sem ter cachorro: o cachorrinho volta
+  if (cat === 'coleira' && id && !v.cachorro) v.cachorro = PADRAO[quem].cachorro;
   renderizarBoneca(quem);
+  if (cat === 'cachorro' || cat === 'coleira') pularCao(quem);
   renderizarItens();
   salvar();
 }
@@ -1599,6 +1750,7 @@ function surpresa() {
   v.bolsa = sortear('bolsa', 0.45);
   v.costas = sortear('costas', 0.75);
   if (quem === 'menino') v.barba = sortear('barba', 0.75);
+  if (v.cachorro) { v.coleira = sortear('coleira'); pularCao(quem); }
   renderizarBoneca(quem);
   renderizarItens();
   salvar();
@@ -1606,6 +1758,40 @@ function surpresa() {
   wrap.classList.remove('pop'); void wrap.offsetWidth; wrap.classList.add('pop');
   tocarMelodia([523, 659, 784, 1047, 1319], 0.06);
   for (let i = 0; i < 6; i++) setTimeout(() => mostrarCoracao(quem, ['✨', '🌟', '💫'][i % 3]), i * 90);
+}
+
+// 🐶 tocar no cachorrinho: ele late e dá pulinho
+function pularCao(q) {
+  const cao = document.getElementById('cao-' + q);
+  cao.classList.remove('pulando'); void cao.offsetWidth; cao.classList.add('pulando');
+}
+function latir(q) {
+  pularCao(q);
+  try {
+    garantirAudio();
+    // "au au": dois latidinhos que descem de tom
+    for (const t of [0, 0.22]) {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(q === 'menina' ? 720 : 560, audioCtx.currentTime + t);
+      osc.frequency.exponentialRampToValueAtTime(q === 'menina' ? 380 : 300, audioCtx.currentTime + t + 0.12);
+      gain.gain.setValueAtTime(0.08, audioCtx.currentTime + t);
+      gain.gain.exponentialRampToValueAtTime(0.005, audioCtx.currentTime + t + 0.14);
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.start(audioCtx.currentTime + t); osc.stop(audioCtx.currentTime + t + 0.15);
+    }
+  } catch (e) {}
+  const cao = document.getElementById('cao-' + q);
+  for (let i = 0; i < 2; i++) setTimeout(() => {
+    const c = document.createElement('div');
+    c.className = 'coracao-flutua';
+    c.textContent = ['🐾', '💖'][i];
+    c.style.left = (20 + Math.random() * 50) + '%';
+    c.style.top = '0%';
+    cao.appendChild(c);
+    setTimeout(() => c.remove(), 1300);
+  }, i * 160);
 }
 
 // 💃 desfile: os dois dançam, cai confete e toca musiquinha
