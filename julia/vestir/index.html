@@ -51,7 +51,7 @@
   .boneca-wrap {
     position: relative;
     height: min(100%, 640px);
-    aspect-ratio: 280 / 560;
+    aspect-ratio: 280 / 500;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -95,7 +95,7 @@
   }
   /* as duas crianças + os cachorrinhos dos lados precisam caber na largura */
   @supports (width: 1cqw) {
-    #criancas .boneca-wrap { height: min(100%, 640px, calc((100cqw - 3vw) / 1.4)); }
+    #criancas .boneca-wrap { height: min(100%, calc((100cqw - 3vw) / 1.5)); }
   }
   .lampada { animation: lampada 1.5s ease-in-out infinite alternate; }
   @keyframes lampada { from { opacity: 0.45; } to { opacity: 1; } }
@@ -197,9 +197,9 @@
     z-index: 3;
     cursor: pointer;
   }
-  #cao-menina { left: -40%; }
+  #cao-menina { left: -34%; }
   #cao-menina svg { transform: scaleX(-1); } /* rabo pro lado de fora */
-  #cao-menino { right: -40%; }
+  #cao-menino { right: -34%; }
   .cachorro.vazio { display: none; }
   .cao-pulo { width: 100%; height: 100%; transform-origin: 50% 100%; }
   .cao-pulo svg { width: 100%; height: 100%; overflow: visible; }
@@ -211,8 +211,66 @@
     25% { transform: translateY(0) scale(1.08, 0.9); }
     55% { transform: translateY(-22%) scale(0.95, 1.06); }
   }
-  .desfilando .cao-pulo { animation: caoDanca 0.3s ease-in-out infinite alternate; }
-  @keyframes caoDanca { from { transform: translateY(0) rotate(-6deg); } to { transform: translateY(-14%) rotate(6deg); } }
+  /* cordinha */
+  .guia { fill: none; stroke: #b56fff; stroke-width: 4; stroke-linecap: round; }
+  .guia-ponta { fill: none; stroke: #ffd16f; stroke-width: 3; }
+
+  /* ✅ botão de terminar (embaixo do painel) */
+  #btn-terminou {
+    flex: none;
+    font-size: 24px;
+    font-weight: bold;
+    color: white;
+    padding: 12px;
+    border: 4px solid white;
+    border-radius: 22px;
+    background: linear-gradient(135deg, #5fd27a, #2fae5a);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.18);
+    cursor: pointer;
+    font-family: inherit;
+    animation: pulinho 1.6s ease-in-out infinite;
+  }
+  #btn-terminou:active { transform: scale(0.95); }
+
+  /* ===== passeio: o palco ocupa a tela toda e eles andam de um lado pro outro ===== */
+  #btn-voltar-passeio {
+    display: none;
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 6;
+    width: 64px;
+    height: 64px;
+    font-size: 32px;
+    border-radius: 50%;
+    border: 4px solid white;
+    background: linear-gradient(135deg, #ff9bd3, #b56fff);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    cursor: pointer;
+    padding: 0;
+  }
+  .passeio #palco { position: fixed; inset: 0; z-index: 50; padding: 40px 16px 3vh; }
+  .passeio #criancas .boneca-wrap { height: min(70%, calc((100cqw - 3vw) / 1.5)); }
+  .passeio #btn-voltar-passeio { display: block; }
+  .passeio #cenarios, .passeio .acao-btn { display: none; }
+  .passeio #criancas { animation: passear 14s linear infinite; }
+  @keyframes passear {
+    0% { transform: translateX(0); }
+    45% { transform: translateX(105%); }
+    45.01% { transform: translateX(-105%); }
+    100% { transform: translateX(0); }
+  }
+  .passeio .boneca-wrap.ativa { transform: none; background: none; }
+  .passeio .area { animation: andar 0.4s ease-in-out infinite alternate; }
+  #wrap-menino .area { animation-delay: -0.2s; }
+  @keyframes andar {
+    from { transform: translateY(0) rotate(-1.5deg); }
+    to { transform: translateY(-2.5%) rotate(1.5deg); }
+  }
+
+  /* no desfile, criança e cachorro dançam juntos (a cordinha não solta) */
+  .desfilando .area { animation: danca 0.4s ease-in-out infinite alternate; transform-origin: 50% 100%; }
+  .desfilando #wrap-menino .area { animation-delay: -0.2s; }
   .pop .corpo-anim { animation: pop 0.5s ease-out; }
   @keyframes pop {
     0% { transform: scale(1); }
@@ -220,8 +278,6 @@
     70% { transform: scale(0.96) rotate(2deg); }
     100% { transform: scale(1); }
   }
-  .desfilando .corpo-anim { animation: danca 0.4s ease-in-out infinite alternate; }
-  .desfilando #wrap-menino .corpo-anim { animation-delay: -0.2s; }
   @keyframes danca {
     from { transform: translateY(0) rotate(-5deg); }
     to { transform: translateY(-16px) rotate(5deg); }
@@ -508,6 +564,7 @@
     <div id="criancas"></div>
     <button id="btn-surpresa" class="acao-btn" title="Surpresa">🎲</button>
     <button id="btn-desfile" class="acao-btn" title="Desfile">💃</button>
+    <button id="btn-voltar-passeio" title="Voltar">👗</button>
   </div>
 
   <div id="painel">
@@ -524,6 +581,7 @@
     <div id="categorias"></div>
     <div id="itens-titulo">👚 Blusas</div>
     <div id="itens"></div>
+    <button id="btn-terminou">✅ Terminou!</button>
   </div>
 </div>
 
@@ -662,6 +720,7 @@ const CATEGORIAS = [
   { id: 'bolsa',   emoji: '🎈', nome: 'Na mão' },
   { id: 'costas',  emoji: '🦋', nome: 'Asas e Capas' },
   { id: 'cachorro', emoji: '🐶', nome: 'Cachorrinhos' },
+  { id: 'roupacao', emoji: '🧥', nome: 'Roupinhas do Cachorro' },
   { id: 'coleira', emoji: '📿', nome: 'Coleiras' },
 ];
 
@@ -1321,6 +1380,48 @@ const COLEIRAS = [
       <path d="M 82 44 L 86 26 L 94 36 L 100 22 L 106 36 L 114 26 L 118 44 Z" fill="#ffd16f"/><circle cx="100" cy="36" r="3" fill="#ff6fb5"/><circle cx="88" cy="38" r="2" fill="#6fb5ff"/><circle cx="112" cy="38" r="2" fill="#6fb5ff"/>` },
 ];
 
+// Roupinhas dos cachorros: cobrem o corpo do pescoço até o começo das patas.
+// A cordinha prende na argola do lado (66,124), que fica por cima de tudo.
+const ROUPA_CAO = (fill) => `<path d="M 60 118 Q 100 140 140 118 Q 152 140 146 168 Q 100 184 54 168 Q 48 140 60 118 Z" fill="${fill}"/>`;
+const BARRA_CAO = (cor) => `<path d="M 54 168 Q 100 184 146 168" stroke="${cor}" stroke-width="5" fill="none" stroke-linecap="round"/>`;
+const ROUPAS_CAO = [
+  { id: 'roupa-cao-rosa', nome: 'Roupinha Rosa de Coração', tags: ['rosa', 'coracao'], svg: ROUPA_CAO('#ff9bd3') + BARRA_CAO('#ff6fb5') +
+      coracao(78, 150, 0.7, '#fff') + coracao(122, 150, 0.7, '#fff') + coracao(100, 162, 0.7, '#ff3f8f') },
+  { id: 'roupa-cao-listras', nome: 'Roupinha Listrada', tags: ['azul', 'listras', 'marinheiro'], svg: ROUPA_CAO('url(#pat-listras)') + BARRA_CAO('#1f5fa8') },
+  { id: 'roupa-cao-bolinhas', nome: 'Roupinha de Bolinhas', tags: ['rosa', 'bolinhas'], svg: ROUPA_CAO('url(#pat-bolinhas)') + BARRA_CAO('#fff') },
+  { id: 'roupa-cao-xadrez', nome: 'Casaquinho Xadrez', tags: ['vermelho', 'xadrez'], svg: ROUPA_CAO('url(#pat-xadrez)') + BARRA_CAO('#a01818') +
+      `<circle cx="100" cy="146" r="3" fill="#ffd16f"/><circle cx="100" cy="160" r="3" fill="#ffd16f"/>` },
+  { id: 'roupa-cao-arco-iris', nome: 'Roupinha Arco-íris', tags: ['arco iris', 'colorida'], svg: ROUPA_CAO('url(#grad-ai-h)') + BARRA_CAO('#fff') +
+      estrela(100, 152, 9, '#fff') },
+  { id: 'roupa-cao-abelha', nome: 'Fantasia de Abelhinha', tags: ['abelha', 'amarelo', 'fantasia'], svg: `
+      <ellipse cx="54" cy="122" rx="16" ry="11" fill="#e6f6ff" opacity="0.9" transform="rotate(-30 54 122)"/>
+      <ellipse cx="146" cy="122" rx="16" ry="11" fill="#e6f6ff" opacity="0.9" transform="rotate(30 146 122)"/>` +
+      ROUPA_CAO('#ffd16f') + `<path d="M 52 142 Q 100 158 148 142 L 148 152 Q 100 168 52 152 Z M 56 162 Q 100 178 144 162 L 140 170 Q 100 184 60 170 Z" fill="#2a2222"/>
+      <path d="M 88 40 Q 84 24 76 20 M 112 40 Q 116 24 124 20" stroke="#2a2222" stroke-width="3" fill="none" stroke-linecap="round"/>
+      <circle cx="76" cy="20" r="5" fill="#2a2222"/><circle cx="124" cy="20" r="5" fill="#2a2222"/>` },
+  { id: 'roupa-cao-bailarina', nome: 'Tutu de Bailarina', tags: ['bailarina', 'tutu', 'rosa', 'saia'], svg: ROUPA_CAO('#ffc2dd') + `
+      <path d="M 42 162 Q 50 150 60 162 Q 70 150 80 162 Q 90 150 100 162 Q 110 150 120 162 Q 130 150 140 162 Q 150 150 158 162 Q 160 176 150 182 Q 100 196 50 182 Q 40 176 42 162 Z" fill="#ffe4f0" opacity="0.95"/>
+      <path d="M 50 176 Q 100 190 150 176" stroke="#ff9bd3" stroke-width="2" fill="none"/>
+      ${estrela(70, 172, 4, '#ff6fb5')}${estrela(100, 180, 4, '#b56fff')}${estrela(130, 172, 4, '#ff6fb5')}` },
+  { id: 'roupa-cao-heroi', nome: 'Capa de Super-Herói', tags: ['heroi', 'capa', 'vermelho'], svg: `
+      <path d="M 58 118 Q 30 160 36 196 L 62 180 Z" fill="#e03131"/><path d="M 142 118 Q 170 160 164 196 L 138 180 Z" fill="#e03131"/>` +
+      ROUPA_CAO('#3f8fe0') + BARRA_CAO('#ffd16f') + `<circle cx="100" cy="152" r="13" fill="#ffd16f"/>${estrela(100, 153, 9, '#e03131')}` },
+  { id: 'roupa-cao-armadura', nome: 'Armadura de Cavaleiro', tags: ['armadura', 'cavaleiro', 'metal'], svg: ROUPA_CAO('url(#grad-metal)') + `
+      <path d="M 58 140 Q 100 158 142 140 M 56 156 Q 100 174 144 156" stroke="#7d8894" stroke-width="2.5" fill="none"/>
+      <path d="M 92 140 L 108 140 L 108 156 Q 100 164 92 156 Z" fill="#e03131"/><path d="M 100 142 L 100 158 M 94 148 L 106 148" stroke="#ffd16f" stroke-width="2"/>` },
+  { id: 'roupa-cao-unicornio', nome: 'Fantasia de Unicórnio', tags: ['unicornio', 'lilas', 'roxo', 'fantasia'], svg: ROUPA_CAO('#e6d2ff') + BARRA_CAO('#ff9bd3') + `
+      <path d="M 92 40 L 100 4 L 108 40 Z" fill="#ffd16f"/><path d="M 94 32 L 106 28 M 95 22 L 105 18" stroke="#e0a930" stroke-width="2"/>
+      <path d="M 84 44 Q 92 36 98 42 M 102 42 Q 108 36 116 44" stroke="#ff9bd3" stroke-width="5" fill="none" stroke-linecap="round"/>
+      ${estrela(80, 152, 5, '#ffd16f')}${estrela(120, 152, 5, '#6fb5ff')}${coracao(100, 160, 0.6, '#ff6fb5')}` },
+  { id: 'roupa-cao-princesa', nome: 'Vestidinho de Princesa', tags: ['princesa', 'vestido', 'roxo'], svg: ROUPA_CAO('#c79bff') + `
+      <path d="M 50 158 Q 100 172 150 158 Q 164 184 152 194 Q 100 204 48 194 Q 36 184 50 158 Z" fill="#b56fff"/>
+      <path d="M 70 168 L 64 196 M 100 172 L 100 200 M 130 168 L 136 196" stroke="#d6b5ff" stroke-width="2"/>
+      ${estrela(82, 184, 4, '#ffd16f')}${estrela(118, 184, 4, '#ffd16f')}${estrela(100, 146, 6, '#ffd16f')}` },
+  { id: 'roupa-cao-inverno', nome: 'Casaquinho de Inverno', tags: ['inverno', 'frio', 'azul', 'casaco'], svg: ROUPA_CAO('#6fb5ff') + `
+      <g fill="#fff">${[54, 66, 78, 90, 100, 110, 122, 134, 146].map((x, i) => `<circle cx="${x}" cy="${168 + Math.round(Math.sin(i / 8 * Math.PI) * 9)}" r="6"/>`).join('')}</g>
+      <path d="M 70 146 L 74 150 L 70 154 L 66 150 Z M 130 146 L 134 150 L 130 154 L 126 150 Z M 100 150 L 104 154 L 100 158 L 96 154 Z" fill="#fff"/>` },
+];
+
 // Catálogo unificado por categoria
 const CATALOGO = {
   pele: PELES,
@@ -1337,6 +1438,7 @@ const CATALOGO = {
   bolsa: BOLSAS,
   costas: COSTAS,
   cachorro: CACHORROS,
+  roupacao: ROUPAS_CAO,
   coleira: COLEIRAS,
 };
 // categorias que não dá pra "tirar" (sempre tem uma)
@@ -1366,12 +1468,13 @@ const PREVIEWS = {
   costas:  { viewBox: '40 150 280 220', fundo: CORPO_TORSO },
   cachorro: { viewBox: '0 6 200 194', fundo: '' },
   coleira: { viewBox: '30 14 140 150', fundo: '' },
+  roupacao: { viewBox: '20 0 160 200', fundo: '' },
 };
 
 function previewSVG(item, cat) {
   const p = PREVIEWS[cat];
   // coleira aparece no cachorrinho que a criança tem agora
-  const fundo = cat === 'coleira' ? (achar('cachorro', vestindo[quem].cachorro) || CACHORROS[0]).svg : p.fundo;
+  const fundo = (cat === 'coleira' || cat === 'roupacao') ? (achar('cachorro', vestindo[quem].cachorro) || CACHORROS[0]).svg : p.fundo;
   return `<svg viewBox="${item.vb || p.viewBox}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">${item.atras || ''}${fundo}${item.svg}${item.mangas || ''}</svg>`;
 }
 
@@ -1460,9 +1563,9 @@ const CENARIOS = [
 // ============== ESTADO ==============
 const PADRAO = {
   menina: { pele: 'pele-2', cabelo: 'cabelo-loiro-longo', barba: null, blusa: 'blusa-rosa', vestido: null, calca: 'calca-roxo', sapato: 'sapato-rosa',
-            chapeu: null, oculos: null, colar: null, cinto: null, bolsa: null, costas: null, cachorro: 'cao-caramelo', coleira: 'coleira-rosa' },
+            chapeu: null, oculos: null, colar: null, cinto: null, bolsa: null, costas: null, cachorro: 'cao-caramelo', roupacao: 'roupa-cao-rosa', coleira: 'coleira-rosa' },
   menino: { pele: 'pele-2', cabelo: 'cabelo-curtinho-castanho', barba: null, blusa: 'blusa-azul', vestido: null, calca: 'calca-jeans', sapato: 'tenis-vermelho',
-            chapeu: null, oculos: null, colar: null, cinto: null, bolsa: null, costas: null, cachorro: 'cao-dalmata', coleira: 'coleira-azul' },
+            chapeu: null, oculos: null, colar: null, cinto: null, bolsa: null, costas: null, cachorro: 'cao-dalmata', roupacao: 'roupa-cao-listras', coleira: 'coleira-azul' },
 };
 const vestindo = JSON.parse(JSON.stringify(PADRAO));
 let cenario = 'quarto';
@@ -1511,8 +1614,8 @@ function montarPalco() {
         ${CAMADAS.map(c => `<g id="${q}-${c}"></g>`).join('')}
       </svg></div>
       <div class="cachorro" id="cao-${q}"><div class="cao-pulo"><svg viewBox="0 0 200 200">
-        <g id="${q}-cachorro"></g><g id="${q}-coleira"></g></svg></div></div></div>
-      <div class="etiqueta">${q === 'menina' ? '👧' : '👦'}</div>`;
+        <g id="${q}-cachorro"></g><g id="${q}-roupacao"></g><g id="${q}-coleira"></g><path class="guia" id="guia-${q}" d=""/>
+        <circle class="guia-ponta" id="guia-ponta-${q}" cx="66" cy="124" r="5"/></svg></div></div></div>`;
     wrap.addEventListener('click', () => escolherQuem(q));
     wrap.querySelector('.cachorro').addEventListener('click', (e) => { e.stopPropagation(); latir(q); });
     palco.appendChild(wrap);
@@ -1562,12 +1665,42 @@ function renderizarBoneca(q) {
   document.getElementById(`${q}-mangas`).innerHTML = (deCima && deCima.mangas) || '';
   // sem cachorrinho, some também a coleira
   document.getElementById('cao-' + q).classList.toggle('vazio', !v.cachorro);
-  if (!v.cachorro) document.getElementById(`${q}-coleira`).innerHTML = '';
+  if (!v.cachorro) { document.getElementById(`${q}-coleira`).innerHTML = ''; document.getElementById(`${q}-roupacao`).innerHTML = ''; }
   // cor da pele
   const pele = achar('pele', v.pele) || PELES[1];
   const wrap = document.getElementById('wrap-' + q);
   wrap.style.setProperty('--pele', pele.cor);
   wrap.style.setProperty('--pele-sombra', pele.sombra);
+  atualizarGuias();
+}
+
+// ============== CORDINHA (da mão da criança até a argola da roupinha) ==============
+// A cordinha é desenhada dentro do desenho do cachorro; a ponta da mão é calculada
+// convertendo a posição da mão (no desenho da criança) pras coordenadas do cachorro.
+const ARGOLA_CAO = { x: 66, y: 124 };
+function atualizarGuias() {
+  for (const q of ['menina', 'menino']) {
+    const guia = document.getElementById('guia-' + q);
+    const ponta = document.getElementById('guia-ponta-' + q);
+    if (!guia) continue;
+    const wrap = document.getElementById('wrap-' + q);
+    const svgCrianca = wrap.querySelector('.corpo-anim svg');
+    const svgCao = wrap.querySelector('.cachorro svg');
+    const temCao = !!vestindo[q].cachorro;
+    guia.style.display = ponta.style.display = temCao ? '' : 'none';
+    if (!temCao) continue;
+    try {
+      const mCrianca = svgCrianca.getScreenCTM(), mCao = svgCao.getScreenCTM();
+      if (!mCrianca || !mCao) continue;
+      // mão do lado do cachorro: menina segura com a mão da esquerda, menino com a da direita
+      const p = svgCrianca.createSVGPoint();
+      p.x = q === 'menina' ? 106 : 254; p.y = 352;
+      const m = p.matrixTransform(mCrianca).matrixTransform(mCao.inverse());
+      const a = ARGOLA_CAO;
+      const cx = (a.x + m.x) / 2, cy = (a.y + m.y) / 2 + 34; // a cordinha fica meio caidinha
+      guia.setAttribute('d', `M ${a.x} ${a.y} Q ${cx.toFixed(1)} ${cy.toFixed(1)} ${m.x.toFixed(1)} ${m.y.toFixed(1)}`);
+    } catch (e) {}
+  }
 }
 
 function renderizarCenario() {
@@ -1642,9 +1775,9 @@ function vestir(cat, id) {
   // vestido tira blusa+calça (o desenho esconde); blusa ou calça tiram o vestido
   if (cat === 'blusa' || cat === 'calca') v.vestido = null;
   // escolheu coleira sem ter cachorro: o cachorrinho volta
-  if (cat === 'coleira' && id && !v.cachorro) v.cachorro = PADRAO[quem].cachorro;
+  if ((cat === 'coleira' || cat === 'roupacao') && id && !v.cachorro) v.cachorro = PADRAO[quem].cachorro;
   renderizarBoneca(quem);
-  if (cat === 'cachorro' || cat === 'coleira') pularCao(quem);
+  if (cat === 'cachorro' || cat === 'coleira' || cat === 'roupacao') pularCao(quem);
   renderizarItens();
   salvar();
 }
@@ -1750,7 +1883,7 @@ function surpresa() {
   v.bolsa = sortear('bolsa', 0.45);
   v.costas = sortear('costas', 0.75);
   if (quem === 'menino') v.barba = sortear('barba', 0.75);
-  if (v.cachorro) { v.coleira = sortear('coleira'); pularCao(quem); }
+  if (v.cachorro) { v.coleira = sortear('coleira'); v.roupacao = sortear('roupacao', 0.15); pularCao(quem); }
   renderizarBoneca(quem);
   renderizarItens();
   salvar();
@@ -1792,6 +1925,33 @@ function latir(q) {
     cao.appendChild(c);
     setTimeout(() => c.remove(), 1300);
   }, i * 160);
+}
+
+// ✅ terminou: as crianças saem pra passear com os cachorrinhos no parque
+let passeando = false, cenarioAntes = null, timerLatido = null;
+function comecarPasseio() {
+  if (passeando) return;
+  passeando = true;
+  cenarioAntes = cenario;
+  cenario = 'parque';
+  renderizarCenario();
+  document.getElementById('app').classList.add('passeio');
+  tocarMelodia([523, 587, 659, 784, 659, 784, 880, 1047], 0.18, 'triangle', 0.16);
+  setTimeout(() => latir('menina'), 900);
+  setTimeout(() => latir('menino'), 1400);
+  // de vez em quando um dos cachorrinhos late
+  timerLatido = setInterval(() => latir(Math.random() < 0.5 ? 'menina' : 'menino'), 3800);
+  requestAnimationFrame(atualizarGuias);
+}
+function terminarPasseio() {
+  if (!passeando) return;
+  passeando = false;
+  clearInterval(timerLatido);
+  document.getElementById('app').classList.remove('passeio');
+  cenario = cenarioAntes || cenario;
+  renderizarCenario();
+  tocarPlim();
+  requestAnimationFrame(atualizarGuias);
 }
 
 // 💃 desfile: os dois dançam, cai confete e toca musiquinha
@@ -1888,6 +2048,11 @@ function atualizarLimparBusca() {
 document.querySelectorAll('.quem-btn').forEach(b => b.addEventListener('click', () => escolherQuem(b.dataset.q)));
 document.getElementById('btn-surpresa').addEventListener('click', surpresa);
 document.getElementById('btn-desfile').addEventListener('click', desfile);
+document.getElementById('btn-terminou').addEventListener('click', comecarPasseio);
+document.getElementById('btn-voltar-passeio').addEventListener('click', terminarPasseio);
+// quando o tamanho do palco muda, a cordinha precisa achar a mão de novo
+if (window.ResizeObserver) new ResizeObserver(() => atualizarGuias()).observe(document.getElementById('criancas'));
+window.addEventListener('load', atualizarGuias);
 
 // ============== INIT ==============
 
