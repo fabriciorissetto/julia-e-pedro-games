@@ -595,7 +595,8 @@ class Aquario extends Phaser.Scene {
   }
 
   ajustarTamanhoPeixe(animar) {
-    this.tamanhoPeixe = 1 + Math.min(0.9, (this.forca - 1) * 0.07);
+    // cada força deixa o peixinho maior (cresce rápido no começo e devagarinho depois, até ~3x)
+    this.tamanhoPeixe = 1 + 2.1 * (1 - Math.exp(-(this.forca - 1) / 10));
     this.peixeCoroa.setVisible(this.forca >= 6);
     const sx = (this.peixe.scaleX >= 0 ? 1 : -1) * this.tamanhoPeixe;
     if (animar) this.tweens.add({ targets: this.peixe, scaleX: sx, scaleY: this.tamanhoPeixe, duration: 300, ease: 'Back.easeOut' });
@@ -638,19 +639,177 @@ class Aquario extends Phaser.Scene {
   vitoria() {
     this.fimDeJogo = true;
     this.limparSave();
-    this.tocarMelodia([523, 659, 784, 1047, 784, 1047, 1319, 1568], 0.15, 'triangle', 0.2);
-    for (let i = 0; i < 40; i++) {
-      const c = this.add.text(Phaser.Math.Between(0, W), -30, Phaser.Utils.Array.GetRandom(['🎉', '⭐', '💖', '🐠', '✨']), { fontSize: '28px' }).setDepth(95);
-      this.tweens.add({ targets: c, y: H + 40, angle: 360, duration: Phaser.Math.Between(2000, 4000), delay: Phaser.Math.Between(0, 1500), onComplete: () => c.destroy() });
-    }
-    this.telaFinal('🏆', 'Você sobreviveu 20 dias!', 'Jogar de novo!', '#ffd16f');
+    this.contarHistoria();
   }
 
-  telaFinal(emoji, texto, botao, cor) {
-    const fundo = this.add.rectangle(W / 2, H / 2, W, H, 0x001a33, 0.75).setDepth(90).setInteractive();
-    const e = this.add.text(W / 2, H / 2 - 110, emoji, { fontSize: '90px' }).setOrigin(0.5).setDepth(91);
-    const t = this.add.text(W / 2, H / 2, texto, { fontSize: PEQUENO ? '24px' : '34px', color: '#ffffff', fontStyle: 'bold', fontFamily: FONTE, stroke: '#b56fff', strokeThickness: 6, align: 'center', wordWrap: { width: W - 40 } }).setOrigin(0.5).setDepth(91);
-    const b = this.add.text(W / 2, H / 2 + 100, botao, { fontSize: '30px', color: '#ffffff', fontStyle: 'bold', fontFamily: FONTE, backgroundColor: cor, padding: { x: 24, y: 14 } }).setOrigin(0.5).setDepth(91).setInteractive({ useHandCursor: true });
+  // ================= HISTÓRIA DO PEIXINHO (quando zera o jogo) =================
+  // 1) o peixinho cresce dia a dia dentro do aquário pequeno (Dia 1 → Dia 20)
+  // 2) no dia 20 ele fica tão grande que não cabe mais
+  // 3) a dona traz um aquário novo bem grande e ele pula pra lá
+  contarHistoria() {
+    const P = 100; // profundidade: por cima de tudo do jogo
+    const deitado = W > H * 0.9;
+    const legenda = (texto) => {
+      this.legendaHist.setText(texto).setScale(0.6);
+      this.tweens.add({ targets: this.legendaHist, scale: 1, duration: 350, ease: 'Back.easeOut' });
+    };
+
+    this.add.rectangle(W / 2, H / 2, W, H, 0x0b2a4a, 1).setDepth(P).setInteractive();
+    for (let i = 0; i < 40; i++) {
+      const s = this.add.circle(Phaser.Math.Between(0, W), Phaser.Math.Between(0, H), Phaser.Math.Between(1, 3), 0xffffff, 0.6).setDepth(P);
+      this.tweens.add({ targets: s, alpha: 0.1, duration: Phaser.Math.Between(600, 1600), yoyo: true, repeat: -1 });
+    }
+    this.add.text(W / 2, 70, '📖 A história do peixinho', {
+      fontSize: PEQUENO ? '24px' : '36px', color: '#ffffff', fontStyle: 'bold', fontFamily: FONTE, stroke: '#b56fff', strokeThickness: 6
+    }).setOrigin(0.5).setDepth(P + 5);
+    this.legendaHist = this.add.text(W / 2, H * 0.86, '', {
+      fontSize: PEQUENO ? '24px' : '34px', color: '#ffffff', fontStyle: 'bold', fontFamily: FONTE, stroke: '#ff6fb5', strokeThickness: 6, align: 'center', wordWrap: { width: W - 40 }
+    }).setOrigin(0.5).setDepth(P + 5);
+
+    // aquário pequeno com o peixinho dentro
+    const w1 = Math.min(W * 0.62, 340), h1 = w1 * 0.62;
+    const aqP = this.criarAquarioDesenho(w1, h1, false).setPosition(W / 2, H * 0.5).setDepth(P + 1);
+    const peixe = this.criarPeixeDesenho().setPosition(W / 2, H * 0.5 + 4).setDepth(P + 2);
+    const sDia1 = (w1 * 0.16) / 55, sFinal = (w1 * 0.95) / 55;
+    peixe.setScale(sDia1);
+    peixe.mover = this.tweens.add({ targets: peixe, y: peixe.y - 6, duration: 500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+
+    // parte 1: um dia de cada vez, crescendo
+    const passo = 480;
+    for (let d = 1; d <= TOTAL_DIAS; d++) {
+      this.time.delayedCall(600 + (d - 1) * passo, () => {
+        const s = sDia1 + (sFinal - sDia1) * Math.pow((d - 1) / (TOTAL_DIAS - 1), 1.15);
+        this.tweens.add({ targets: peixe, scale: s, duration: passo * 0.8, ease: 'Back.easeOut' });
+        legenda(`📅 Dia ${d}`);
+        this.tocarSom(440 + d * 30, 0.12, 'triangle', 0.12);
+        const b = this.add.text(peixe.x + Phaser.Math.Between(-40, 40), peixe.y - 20, '✨', { fontSize: '20px' }).setOrigin(0.5).setDepth(P + 3);
+        this.tweens.add({ targets: b, y: b.y - 50, alpha: 0, duration: 700, onComplete: () => b.destroy() });
+      });
+    }
+    let t = 600 + TOTAL_DIAS * passo + 300;
+
+    // parte 2: ficou super grande, não cabe mais!
+    this.time.delayedCall(t, () => {
+      legenda('😮 Ele ficou SUPER GRANDE! Não cabe mais!');
+      this.tweens.add({ targets: [aqP, peixe], x: '+=6', duration: 60, yoyo: true, repeat: 9 });
+      this.tocarMelodia([392, 330, 392, 330], 0.12, 'square', 0.1);
+    });
+    t += 2600;
+
+    // parte 3: chega um aquário novo bem grande
+    const posP = deitado ? { x: W * 0.27, y: H * 0.52 } : { x: W / 2, y: H * 0.3 };
+    const w2 = deitado ? Math.min(W * 0.55, 620) : Math.min(W * 0.92, 560), h2 = w2 * 0.62;
+    const posG = deitado ? { x: W * 0.69, y: H * 0.55 } : { x: W / 2, y: H * 0.64 };
+    let aqG;
+    this.time.delayedCall(t, () => {
+      legenda('🎁 A dona trouxe um aquário novo!');
+      this.tweens.add({ targets: [aqP, peixe], x: posP.x, y: posP.y, duration: 900, ease: 'Sine.easeInOut' });
+      aqG = this.criarAquarioDesenho(w2, h2, true).setPosition(W + w2, posG.y).setDepth(P + 1);
+      this.tweens.add({ targets: aqG, x: posG.x, duration: 1200, delay: 300, ease: 'Back.easeOut' });
+      // a dona aparece do lado do aquário novo
+      this.dona.setDepth(P + 4).setPosition(W + 80, posG.y - h2 / 2 - 30);
+      this.poteDona.setVisible(false);
+      this.lanterna.setVisible(false);
+      this.donaAlvo = { x: Math.min(W - 40, posG.x + w2 * 0.42), y: posG.y - h2 / 2 - 40 };
+      this.tocarMelodia([523, 659, 784], 0.12);
+    });
+    t += 2400;
+
+    // parte 4: o peixinho pula pro aquário novo
+    this.time.delayedCall(t, () => {
+      legenda('🐠 Pula, peixinho!');
+      peixe.mover.stop();
+      const de = { x: peixe.x, y: peixe.y };
+      const alt = deitado ? H * 0.28 : H * 0.12;
+      this.tweens.addCounter({
+        from: 0, to: 1, duration: 1300, ease: 'Sine.easeInOut',
+        onUpdate: (tw) => {
+          const k = tw.getValue();
+          peixe.x = de.x + (posG.x - de.x) * k;
+          peixe.y = de.y + (posG.y + 6 - de.y) * k - Math.sin(k * Math.PI) * alt;
+          peixe.angle = (k - 0.5) * 70 * (posG.x >= de.x ? 1 : -1) + (deitado ? 0 : 0);
+        },
+        onComplete: () => {
+          peixe.angle = 0;
+          this.respingo(posG.x, posG.y - h2 * 0.3, P + 3);
+          this.tocarSom(300, 0.2, 'sine', 0.2);
+          this.time.delayedCall(120, () => this.tocarPlim());
+          // agora ele nada feliz no aquário grande
+          this.tweens.add({ targets: peixe, x: posG.x + w2 * 0.12, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+            onYoyo: () => { peixe.scaleX = -Math.abs(peixe.scaleX); }, onRepeat: () => { peixe.scaleX = Math.abs(peixe.scaleX); } });
+          this.tweens.add({ targets: aqP, alpha: 0.35, duration: 800 });
+        }
+      });
+      this.tocarMelodia([523, 659, 784, 1047], 0.25, 'triangle');
+    });
+    t += 2200;
+
+    this.time.delayedCall(t, () => {
+      legenda('🏠 Casa nova! Uhuul!');
+      this.tocarMelodia([523, 659, 784, 1047, 784, 1047, 1319, 1568], 0.15, 'triangle', 0.2);
+      for (let i = 0; i < 40; i++) {
+        const c = this.add.text(Phaser.Math.Between(0, W), -30, Phaser.Utils.Array.GetRandom(['🎉', '⭐', '💖', '🐠', '✨']), { fontSize: '28px' }).setDepth(P + 20);
+        this.tweens.add({ targets: c, y: H + 40, angle: 360, duration: Phaser.Math.Between(2000, 4000), delay: Phaser.Math.Between(0, 1500), onComplete: () => c.destroy() });
+      }
+    });
+    t += 4000;
+
+    this.time.delayedCall(t, () => this.telaFinal('🏆', 'Você zerou o jogo! 20 dias!', 'Jogar de novo!', '#ffd16f', P + 10));
+  }
+
+  criarPeixeDesenho() {
+    const c = this.add.container(0, 0);
+    const g = this.add.graphics();
+    this.desenharPeixe(g, 0xff6fb5, 0xff9bd3);
+    c.add([g, this.add.circle(8, -3, 4, 0xffffff), this.add.circle(9, -3, 2, 0x222222),
+      this.add.text(2, -22, '👑', { fontSize: '14px' }).setOrigin(0.5)]);
+    return c;
+  }
+
+  criarAquarioDesenho(w, h, grande) {
+    const c = this.add.container(0, 0);
+    const g = this.add.graphics();
+    // água
+    g.fillStyle(0x6fc8ff, 0.9);
+    g.fillRoundedRect(-w / 2, -h / 2 + 10, w, h - 10, 12);
+    g.fillStyle(0xffffff, 0.15);
+    g.fillRect(-w / 2 + 12, -h / 2 + 16, w * 0.08, h - 30);
+    // areia
+    g.fillStyle(0xffe9b0, 1);
+    g.fillRoundedRect(-w / 2, h / 2 - h * 0.16, w, h * 0.16, { tl: 0, tr: 0, bl: 12, br: 12 });
+    // plantinhas e pedrinhas
+    const n = grande ? 6 : 3;
+    for (let i = 0; i < n; i++) {
+      const x = -w / 2 + (i + 0.5) * (w / n);
+      g.fillStyle(i % 2 ? 0x5ec97f : 0x3fa86a, 1);
+      for (let k = 0; k < 3; k++) g.fillEllipse(x + Math.sin(k) * 5, h / 2 - h * 0.14 - k * 14, 12 - k * 2, 22);
+      g.fillStyle([0xff9bd3, 0xb56fff, 0xffd16f][i % 3], 1);
+      g.fillCircle(x + 18, h / 2 - h * 0.08, 5);
+    }
+    // vidro e borda de cima
+    g.lineStyle(5, 0xffffff, 0.9);
+    g.strokeRoundedRect(-w / 2, -h / 2, w, h, 14);
+    g.fillStyle(grande ? 0xb56fff : 0xff6fb5, 1);
+    g.fillRoundedRect(-w / 2 - 6, -h / 2 - 6, w + 12, 12, 6);
+    c.add(g);
+    if (grande) c.add(this.add.text(0, h / 2 + 22, '⭐ ⭐ ⭐', { fontSize: '20px' }).setOrigin(0.5));
+    return c;
+  }
+
+  respingo(x, y, prof) {
+    for (let i = 0; i < 14; i++) {
+      const gota = this.add.circle(x, y, Phaser.Math.Between(4, 9), 0xbfe9ff).setDepth(prof);
+      const ang = Phaser.Math.FloatBetween(-Math.PI * 0.9, -Math.PI * 0.1);
+      const dist = Phaser.Math.Between(50, 120);
+      this.tweens.add({ targets: gota, x: x + Math.cos(ang) * dist, y: y + Math.sin(ang) * dist, alpha: 0, duration: 700, ease: 'Quad.easeOut', onComplete: () => gota.destroy() });
+    }
+  }
+
+  telaFinal(emoji, texto, botao, cor, prof = 90) {
+    const fundo = this.add.rectangle(W / 2, H / 2, W, H, 0x001a33, 0.75).setDepth(prof).setInteractive();
+    const e = this.add.text(W / 2, H / 2 - 110, emoji, { fontSize: '90px' }).setOrigin(0.5).setDepth(prof + 1);
+    const t = this.add.text(W / 2, H / 2, texto, { fontSize: PEQUENO ? '24px' : '34px', color: '#ffffff', fontStyle: 'bold', fontFamily: FONTE, stroke: '#b56fff', strokeThickness: 6, align: 'center', wordWrap: { width: W - 40 } }).setOrigin(0.5).setDepth(prof + 1);
+    const b = this.add.text(W / 2, H / 2 + 100, botao, { fontSize: '30px', color: '#ffffff', fontStyle: 'bold', fontFamily: FONTE, backgroundColor: cor, padding: { x: 24, y: 14 } }).setOrigin(0.5).setDepth(prof + 1).setInteractive({ useHandCursor: true });
     this.tweens.add({ targets: [e, b], scale: 1.1, duration: 600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     b.on('pointerdown', () => this.scene.restart());
   }
